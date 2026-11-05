@@ -13,10 +13,6 @@ const FASES = {
 };
 
 const lista = [
-  { id: "categorias", titulo: "Categorias", grupo: "Cadastros", icone: "tag", fase: 2 },
-  { id: "produtos", titulo: "Produtos", grupo: "Cadastros", icone: "box", fase: 2 },
-  { id: "portais", titulo: "Portais", grupo: "Cadastros", icone: "globe", fase: 2 },
-  { id: "orgaos", titulo: "Órgãos", grupo: "Cadastros", icone: "building", fase: 2 },
   { id: "licitacoes", titulo: "Licitações", grupo: "Licitações", icone: "clipboard", fase: 3 },
   { id: "propostas", titulo: "Propostas", grupo: "Licitações", icone: "file", fase: 3 },
   { id: "atas", titulo: "Gestão de ATA", grupo: "Pós-licitação", icone: "doc", fase: 4 },
@@ -28,7 +24,6 @@ const lista = [
   { id: "crm", titulo: "CRM — Cobranças", grupo: "CRM e análise", icone: "phone", fase: 5 },
   { id: "reguas", titulo: "Régua de Envio", grupo: "CRM e análise", icone: "send", fase: 5 },
   { id: "relatorios", titulo: "Relatórios", grupo: "CRM e análise", icone: "chart", fase: 6 },
-  { id: "usuarios", titulo: "Usuários", grupo: "CRM e análise", icone: "users", fase: 2 },
 ];
 
 export const placeholders = lista.map((m) => ({

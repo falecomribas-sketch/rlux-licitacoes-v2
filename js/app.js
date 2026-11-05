@@ -6,11 +6,21 @@ import { icon, toast } from "./core/ui.js";
 import { $ } from "./core/utils.js";
 
 import dashboard from "./modules/dashboard.js";
+import categorias from "./modules/categorias.js";
+import produtos from "./modules/produtos.js";
+import portais from "./modules/portais.js";
+import orgaos from "./modules/orgaos.js";
+import usuarios from "./modules/usuarios.js";
 import { placeholders } from "./modules/_placeholders.js";
 
 // Ordem define a ordem do menu
 registerModule(dashboard);
+registerModule(categorias);
+registerModule(produtos);
+registerModule(portais);
+registerModule(orgaos);
 placeholders.forEach(registerModule);
+registerModule(usuarios);
 
 const elLogin = $("#login");
 const elApp = $("#app");
