@@ -13,8 +13,6 @@ const FASES = {
 };
 
 const lista = [
-  { id: "licitacoes", titulo: "Licitações", grupo: "Licitações", icone: "clipboard", fase: 3 },
-  { id: "propostas", titulo: "Propostas", grupo: "Licitações", icone: "file", fase: 3 },
   { id: "atas", titulo: "Gestão de ATA", grupo: "Pós-licitação", icone: "doc", fase: 4 },
   { id: "adesoes", titulo: "Adesão de ATA", grupo: "Pós-licitação", icone: "handshake", fase: 4 },
   { id: "empenhos", titulo: "Empenhos", grupo: "Pós-licitação", icone: "coins", fase: 4 },

@@ -12,6 +12,8 @@ import produtos from "./modules/produtos.js";
 import portais from "./modules/portais.js";
 import orgaos from "./modules/orgaos.js";
 import usuarios from "./modules/usuarios.js";
+import licitacoes from "./modules/licitacoes.js";
+import propostas from "./modules/propostas.js";
 import { placeholders } from "./modules/_placeholders.js";
 
 // Ordem define a ordem do menu
@@ -20,6 +22,8 @@ registerModule(categorias);
 registerModule(produtos);
 registerModule(portais);
 registerModule(orgaos);
+registerModule(licitacoes);
+registerModule(propostas);
 placeholders.forEach(registerModule);
 registerModule(usuarios);
 
