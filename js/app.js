@@ -4,6 +4,7 @@ import { store } from "./core/store.js";
 import { registerModule, buildNav, startRouter } from "./core/router.js";
 import { icon, toast } from "./core/ui.js";
 import { $ } from "./core/utils.js";
+import { iniciarVerificacaoDeVersao } from "./core/version.js";
 
 import dashboard from "./modules/dashboard.js";
 import categorias from "./modules/categorias.js";
@@ -64,7 +65,7 @@ onAuth((perfil, msgErro) => {
   $("#user-avatar").textContent = (perfil.nome || perfil.email || "A")[0].toUpperCase();
   $("#topbar-date").textContent = new Date().toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" });
   elLogin.hidden = true; elApp.hidden = false;
-  if (!started) { started = true; buildNav(); startRouter(); }
+  if (!started) { started = true; buildNav(); startRouter(); iniciarVerificacaoDeVersao(); }
 });
 
 // Indicador de conexão
