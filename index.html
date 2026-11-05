@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rlux Licitações</title>
+<meta name="theme-color" content="#14286b">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- Carregando (some quando o Firebase responde) -->
+<div id="splash" class="splash">
+  <img src="assets/logo.svg" alt="" width="44" height="44">
+  <div class="splash-text">Carregando…</div>
+  <p class="splash-fail" id="splash-fail" hidden>Não foi possível conectar. Verifique sua internet e <a href="javascript:location.reload()">recarregue a página</a>.</p>
+</div>
+
+<!-- Tela de login -->
+<section id="login" class="login" hidden>
+  <div class="login-glow" aria-hidden="true"></div>
+  <form class="login-card" id="login-form" novalidate>
+    <div class="login-brand">
+      <img src="assets/logo.svg" alt="" width="40" height="40">
+      <div>
+        <div class="login-title">Rlux Licitações</div>
+        <div class="login-sub">Gestão de licitações, ATAs e empenhos</div>
+      </div>
+    </div>
+    <label class="field">
+      <span>E-mail</span>
+      <input type="email" name="email" autocomplete="username" required autofocus>
+    </label>
+    <label class="field">
+      <span>Senha</span>
+      <input type="password" name="senha" autocomplete="current-password" required>
+    </label>
+    <p class="login-error" id="login-error" role="alert" hidden></p>
+    <button class="btn btn-primary btn-lg" type="submit" id="login-btn">Entrar</button>
+  </form>
+</section>
+
+<!-- Aplicação -->
+<div id="app" class="app" hidden>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <img src="assets/logo.svg" alt="" width="32" height="32">
+      <div>
+        <div class="brand-name">Rlux Licitações</div>
+        <div class="brand-sub">versão 2</div>
+      </div>
+    </div>
+    <nav id="nav" class="nav" aria-label="Menu principal"></nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="user-avatar">A</div>
+      <div class="user-meta">
+        <div class="user-name" id="user-name">—</div>
+        <div class="user-role" id="user-role">—</div>
+      </div>
+      <button class="icon-btn" id="logout-btn" title="Sair" aria-label="Sair"></button>
+    </div>
+  </aside>
+  <div class="sidebar-scrim" id="sidebar-scrim"></div>
+
+  <div class="content">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" id="menu-btn" aria-label="Abrir menu"></button>
+      <h1 id="topbar-title">Dashboard</h1>
+      <div class="topbar-right">
+        <span class="sync-dot" id="sync-dot" title="Conectado ao Firebase"></span>
+        <span class="topbar-date" id="topbar-date"></span>
+      </div>
+    </header>
+    <main id="view" class="view"></main>
+  </div>
+</div>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script>
+  // Se o app não responder em 12s (CDN/Firebase bloqueado ou sem internet), avisa.
+  window.__splashTimer = setTimeout(() => { const f = document.getElementById("splash-fail"); if (f) f.hidden = false; }, 12000);
+</script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

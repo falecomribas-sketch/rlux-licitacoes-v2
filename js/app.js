@@ -1,0 +1,65 @@
+// Ponto de entrada: login -> store -> navegação -> módulos.
+import { onAuth, login, logout } from "./core/auth.js";
+import { store } from "./core/store.js";
+import { registerModule, buildNav, startRouter } from "./core/router.js";
+import { icon, toast } from "./core/ui.js";
+import { $ } from "./core/utils.js";
+
+import dashboard from "./modules/dashboard.js";
+import { placeholders } from "./modules/_placeholders.js";
+
+// Ordem define a ordem do menu
+registerModule(dashboard);
+placeholders.forEach(registerModule);
+
+const elLogin = $("#login");
+const elApp = $("#app");
+const form = $("#login-form");
+const erro = $("#login-error");
+
+$("#logout-btn").innerHTML = icon("logout");
+$("#menu-btn").innerHTML = icon("menu");
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = $("#login-btn");
+  erro.hidden = true;
+  btn.disabled = true; btn.textContent = "Entrando…";
+  try {
+    await login(form.email.value, form.senha.value);
+    // onAuth cuida do resto
+  } catch (err) {
+    erro.textContent = err.message; erro.hidden = false;
+    btn.disabled = false; btn.textContent = "Entrar";
+  }
+});
+
+$("#logout-btn").addEventListener("click", () => logout());
+$("#menu-btn").addEventListener("click", () => document.body.classList.toggle("nav-open"));
+$("#sidebar-scrim").addEventListener("click", () => document.body.classList.remove("nav-open"));
+
+let started = false;
+onAuth((perfil, msgErro) => {
+  clearTimeout(window.__splashTimer);
+  $("#splash")?.remove();
+  if (!perfil) {
+    elApp.hidden = true; elLogin.hidden = false;
+    const btn = $("#login-btn"); btn.disabled = false; btn.textContent = "Entrar";
+    if (msgErro) { erro.textContent = msgErro; erro.hidden = false; }
+    started = false;
+    return;
+  }
+  $("#user-name").textContent = perfil.nome || perfil.email;
+  $("#user-role").textContent = perfil.perfil || "";
+  $("#user-avatar").textContent = (perfil.nome || perfil.email || "A")[0].toUpperCase();
+  $("#topbar-date").textContent = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+  elLogin.hidden = true; elApp.hidden = false;
+  if (!started) { started = true; buildNav(); startRouter(); }
+});
+
+// Indicador de conexão
+const dot = $("#sync-dot");
+const setOnline = (on) => { dot.classList.toggle("off", !on); dot.title = on ? "Conectado" : "Sem internet — alterações serão enviadas ao reconectar"; };
+window.addEventListener("online", () => { setOnline(true); toast("Conexão restabelecida", "ok"); });
+window.addEventListener("offline", () => { setOnline(false); toast("Sem internet. Você pode continuar; as alterações serão enviadas ao reconectar.", "info", 5000); });
+setOnline(navigator.onLine);
