@@ -52,7 +52,7 @@ onAuth((perfil, msgErro) => {
   $("#user-name").textContent = perfil.nome || perfil.email;
   $("#user-role").textContent = perfil.perfil || "";
   $("#user-avatar").textContent = (perfil.nome || perfil.email || "A")[0].toUpperCase();
-  $("#topbar-date").textContent = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+  $("#topbar-date").textContent = new Date().toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" });
   elLogin.hidden = true; elApp.hidden = false;
   if (!started) { started = true; buildNav(); startRouter(); }
 });

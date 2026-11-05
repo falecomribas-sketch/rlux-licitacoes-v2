@@ -194,11 +194,11 @@ function update() {
   const estMap = {};
   empsF.forEach((e) => {
     const p = getProp(e.propostaId); const l = getLicit(p?.licitacaoId); const o = getOrgao(l?.orgaoId);
-    const uf = o.estado || "?"; estMap[uf] = (estMap[uf] || 0) + (e.valorRecebido || 0);
+    const uf = o.estado || "Sem UF"; estMap[uf] = (estMap[uf] || 0) + (e.valorRecebido || 0);
   });
   const est = Object.entries(estMap).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 12);
   chart("estado", "c-estado", { type: "bar", data: { labels: est.map(([k]) => k), datasets: [{ data: est.map(([, v]) => v), backgroundColor: "#2457d6", borderRadius: 4 }] },
-    options: base({ indexAxis: "y", plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i) => fmt(i.raw) } } }, scales: { x: { beginAtZero: true, ticks: { callback: short } } } }) });
+    options: base({ indexAxis: "y", plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i) => fmt(i.raw) } } }, scales: { x: { beginAtZero: true, ticks: { callback: short } }, y: { ticks: { autoSkip: false } } } }) });
 }
 
 function kpi(label, value, note = "", cls = "", warn = false) {
