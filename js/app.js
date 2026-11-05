@@ -14,6 +14,11 @@ import orgaos from "./modules/orgaos.js";
 import usuarios from "./modules/usuarios.js";
 import licitacoes from "./modules/licitacoes.js";
 import propostas from "./modules/propostas.js";
+import atas from "./modules/atas.js";
+import adesoes from "./modules/adesoes.js";
+import empenhos from "./modules/empenhos.js";
+import exequibilidade from "./modules/exequibilidade.js";
+import reequilibrio from "./modules/reequilibrio.js";
 import { placeholders } from "./modules/_placeholders.js";
 
 // Ordem define a ordem do menu
@@ -24,6 +29,11 @@ registerModule(portais);
 registerModule(orgaos);
 registerModule(licitacoes);
 registerModule(propostas);
+registerModule(atas);
+registerModule(adesoes);
+registerModule(empenhos);
+registerModule(exequibilidade);
+registerModule(reequilibrio);
 placeholders.forEach(registerModule);
 registerModule(usuarios);
 

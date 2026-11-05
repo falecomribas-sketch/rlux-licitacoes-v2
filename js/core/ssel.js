@@ -40,7 +40,7 @@ export function ssel(host, cfg) {
     if (dd.hidden && (e.key === "ArrowDown")) { abrir(); return; }
     if (e.key === "ArrowDown") { ativo = Math.min(ativo + 1, filtrados.length - 1); render(input.value); e.preventDefault(); }
     else if (e.key === "ArrowUp") { ativo = Math.max(ativo - 1, 0); render(input.value); e.preventDefault(); }
-    else if (e.key === "Enter" && !dd.hidden) { e.preventDefault(); if (ativo >= 0) escolher(ativo); else if (filtrados.length === 1) escolher(0); }
+    else if (e.key === "Enter" && !dd.hidden) { e.preventDefault(); if (ativo >= 0) escolher(ativo); else if (filtrados.length) escolher(0); }
     else if (e.key === "Escape") { fechar(); }
   });
   input.addEventListener("blur", () => setTimeout(() => { fechar(); if (value) input.value = labelDe(value); else input.value = ""; }, 150));

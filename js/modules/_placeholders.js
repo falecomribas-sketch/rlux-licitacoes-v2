@@ -13,11 +13,6 @@ const FASES = {
 };
 
 const lista = [
-  { id: "atas", titulo: "Gestão de ATA", grupo: "Pós-licitação", icone: "doc", fase: 4 },
-  { id: "adesoes", titulo: "Adesão de ATA", grupo: "Pós-licitação", icone: "handshake", fase: 4 },
-  { id: "empenhos", titulo: "Empenhos", grupo: "Pós-licitação", icone: "coins", fase: 4 },
-  { id: "exequibilidade", titulo: "Exequibilidade", grupo: "Pós-licitação", icone: "scale", fase: 4 },
-  { id: "reequilibrio", titulo: "Reequilíbrio", grupo: "Pós-licitação", icone: "trending", fase: 4 },
   { id: "cobrancas", titulo: "Cobrança Financeira", grupo: "Financeiro", icone: "wallet", fase: 5 },
   { id: "crm", titulo: "CRM — Cobranças", grupo: "CRM e análise", icone: "phone", fase: 5 },
   { id: "reguas", titulo: "Régua de Envio", grupo: "CRM e análise", icone: "send", fase: 5 },
