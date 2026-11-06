@@ -1,26 +1,21 @@
 // Dashboard — visão geral. Cálculos portados da versão atual (renderDash).
-// Os blocos "Análise profissional" e "Régua de relacionamento" entram com
-// seus módulos (Fases 5 e 6).
+// Inclui o bloco "Análise profissional" (Fase 6) e os contatos pendentes da régua (Fase 5).
 import { store } from "../core/store.js";
 import { $, $$, fmt, fmtD, esc, raw, h, MESES_CURTOS, toTitleCase } from "../core/utils.js";
 import { icon, vazio, tag } from "../core/ui.js";
+import { registro, base, short, CORES as COR_PORTAIS, COR_STATUS, tipMoeda } from "../core/charts.js";
 import { navigate } from "../core/router.js";
 import { iniciarRegua, onRegua, pendentesHoje, situacaoRegua, TIPO_ROTULO } from "../core/regua.js";
 import { verEmail } from "./reguas.js";
 import {
-  getLicit, getOrgao, getProp, isEspelho, isVencido, propTotal, STATUS_VENCIDO,
+  getLicit, getOrgao, getProp, getCat, isEspelho, isVencido, propTotal, STATUS_VENCIDO,
 } from "../core/domain.js";
 
-let charts = {};
+const reg = registro();
 let unsub = null, unsubRegua = null;
 let anoSel = null;      // null = ainda não escolhido; "todos" | "2026"
 let filtroStatus = "";
 
-const COR_PORTAIS = ["#2457d6", "#1b8a5a", "#d9641c", "#6d3fc9", "#c8362b", "#0f7f8c"];
-const COR_STATUS = {
-  "Vencida": "#1b8a5a", "Perdida": "#c8362b", "Em Andamento": "#2457d6", "Faturado Total": "#0f7f8c",
-  "Faturado Parcial": "#d9641c", "Ag. Solic. Docs": "#b58200", "Enviei Docs": "#6d3fc9",
-};
 
 export default {
   id: "dashboard", titulo: "Dashboard", grupo: "Principal", icone: "dashboard",
@@ -43,14 +38,30 @@ export default {
         <div class="card"><div class="card-head"><h2>Empenhos por mês</h2></div><div class="card-body"><div class="chart-box"><canvas id="c-emp"></canvas></div></div></div>
         <div class="card"><div class="card-head"><h2>Empenhos por estado (R$)</h2></div><div class="card-body"><div class="chart-box"><canvas id="c-estado"></canvas></div></div></div>
       </div>
-      <div class="grid grid-2">
+      <div class="grid grid-3">
         <div class="card"><div class="card-head"><h2>Funil de conversão</h2></div><div class="card-body" id="dash-funil"></div></div>
         <div class="card"><div class="card-head"><h2>ATAs vencendo em 30 dias</h2></div><div class="card-body" id="dash-atas"></div></div>
+        <div class="card"><div class="card-head"><h2>CRM — pendências</h2></div><div class="card-body" id="dash-crm"></div></div>
+      </div>
+      <div class="section-title">Análise profissional</div>
+      <div class="grid grid-2">
+        <div class="card"><div class="card-head"><h2>Vencido vs empenhado (acumulado)</h2></div><div class="card-body"><div class="chart-box"><canvas id="c-acum"></canvas></div></div></div>
+        <div class="card"><div class="card-head"><h2>Receita vs custo por mês</h2></div><div class="card-body"><div class="chart-box"><canvas id="c-reccusto"></canvas></div></div></div>
       </div>
       <div class="grid grid-3">
+        <div class="card"><div class="card-head"><h2>Margem por portal</h2></div><div class="card-body"><div class="chart-box sm"><canvas id="c-margem"></canvas></div></div></div>
+        <div class="card"><div class="card-head"><h2>Mix de receita por categoria</h2></div><div class="card-body"><div class="chart-box sm"><canvas id="c-mix"></canvas></div></div></div>
+        <div class="card"><div class="card-head"><h2>Win rate por modalidade</h2></div><div class="card-body" id="dash-winrate"></div></div>
+      </div>
+      <div class="grid grid-3">
+        <div class="card"><div class="card-head"><h2>Sazonalidade das licitações</h2></div><div class="card-body" id="dash-saz"></div></div>
+        <div class="card"><div class="card-head"><h2>Tempo médio por etapa</h2></div><div class="card-body" id="dash-ciclo"></div></div>
+        <div class="card"><div class="card-head"><h2>Órgãos recorrentes</h2></div><div class="card-body flush" id="dash-recorr"></div></div>
+      </div>
+      <div class="grid grid-3">
+        <div class="card"><div class="card-head"><h2>Top produtos vendidos</h2></div><div class="card-body flush" id="dash-topprod"></div></div>
         <div class="card"><div class="card-head"><h2>Atividades recentes</h2></div><div class="card-body" id="dash-ativ"></div></div>
         <div class="card"><div class="card-head"><h2>Órgãos que mais empenham</h2></div><div class="card-body flush" id="dash-top-org"></div></div>
-        <div class="card"><div class="card-head"><h2>CRM — pendências</h2></div><div class="card-body" id="dash-crm"></div></div>
       </div>`;
 
     $("#dash-ano").addEventListener("change", (e) => { anoSel = e.target.value; update(); });
@@ -67,8 +78,7 @@ export default {
 
   destroy() {
     unsub?.(); unsub = null; unsubRegua?.(); unsubRegua = null;
-    Object.values(charts).forEach((c) => c.destroy());
-    charts = {};
+    reg.destroy();
   },
 };
 
@@ -190,20 +200,20 @@ function update() {
   const semPortal = Array(12).fill(0);
   licsF.filter((l) => !l.portalId).forEach((l) => { if (l.data) semPortal[+l.data.slice(5, 7) - 1]++; });
   if (semPortal.some((v) => v)) portDatasets.push({ label: "Sem portal", data: semPortal, backgroundColor: "#a9b3c7", borderRadius: 3, stack: "l" });
-  chart("licit", "c-licit", { type: "bar", data: { labels: MESES_CURTOS, datasets: portDatasets },
+  reg.chart("licit", "c-licit", { type: "bar", data: { labels: MESES_CURTOS, datasets: portDatasets },
     options: base({ scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } } }) });
 
   const filtered = filtroStatus ? propsF.filter((p) => p.status === filtroStatus) : propsF;
   const stGroups = {};
   filtered.forEach((p) => { const st = p.status || "Em Andamento"; stGroups[st] = (stGroups[st] || 0) + propTotal(p); });
   const stKeys = Object.keys(stGroups);
-  chart("result", "c-result", { type: "doughnut",
+  reg.chart("result", "c-result", { type: "doughnut",
     data: { labels: stKeys, datasets: [{ data: stKeys.map((k) => stGroups[k]), backgroundColor: stKeys.map((k) => COR_STATUS[k] || "#a9b3c7"), borderWidth: 0 }] },
     options: base({ cutout: "62%", plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { label: (i) => `${i.label}: ${fmt(i.raw)}` } } } }) });
 
   const empMes = Array(12).fill(0);
   empsF.forEach((e) => { if (e.data) empMes[+e.data.slice(5, 7) - 1] += e.valorRecebido || 0; });
-  chart("emp", "c-emp", { type: "bar", data: { labels: MESES_CURTOS, datasets: [{ label: "Empenhos", data: empMes, backgroundColor: "#1b8a5a", borderRadius: 4 }] },
+  reg.chart("emp", "c-emp", { type: "bar", data: { labels: MESES_CURTOS, datasets: [{ label: "Empenhos", data: empMes, backgroundColor: "#1b8a5a", borderRadius: 4 }] },
     options: base({ plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i) => fmt(i.raw) } } }, scales: { y: { beginAtZero: true, ticks: { callback: short } } } }) });
 
   const estMap = {};
@@ -212,38 +222,78 @@ function update() {
     const uf = o.estado || "Sem UF"; estMap[uf] = (estMap[uf] || 0) + (e.valorRecebido || 0);
   });
   const est = Object.entries(estMap).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 12);
-  chart("estado", "c-estado", { type: "bar", data: { labels: est.map(([k]) => k), datasets: [{ data: est.map(([, v]) => v), backgroundColor: "#2457d6", borderRadius: 4 }] },
+  reg.chart("estado", "c-estado", { type: "bar", data: { labels: est.map(([k]) => k), datasets: [{ data: est.map(([, v]) => v), backgroundColor: "#2457d6", borderRadius: 4 }] },
     options: base({ indexAxis: "y", plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i) => fmt(i.raw) } } }, scales: { x: { beginAtZero: true, ticks: { callback: short } }, y: { ticks: { autoSkip: false } } } }) });
+  // ===== Análise profissional (portado do legado) =====
+  const vencF = propsF.filter((p) => STATUS_VENCIDO.includes(p.status));
+  const mesDe = (iso) => +iso.slice(5, 7) - 1;
+  const vAc = Array(12).fill(0), eAc = Array(12).fill(0), aAc = Array(12).fill(0);
+  vencF.forEach((p) => { const l = getLicit(p.licitacaoId); if (l.data) vAc[mesDe(l.data)] += propTotal(p); });
+  atasRenov.forEach((a) => { const pe = getProp(a.propostaId); if (a.assinatura && pe) vAc[mesDe(a.assinatura)] += propTotal(pe); });
+  empsF.forEach((e) => { if (e.data) eAc[mesDe(e.data)] += e.valorRecebido || 0; });
+  adesoesF.forEach((a) => { if (a.solicitacao) aAc[mesDe(a.solicitacao)] += a.valorTotal || 0; });
+  const acum = (arr) => { let t = 0; return arr.map((v) => (t += v)); };
+  reg.chart("acum", "c-acum", { type: "line", data: { labels: MESES_CURTOS, datasets: [
+    { label: "Vencido", data: acum(vAc), borderColor: "#2457d6", backgroundColor: "rgba(36,87,214,.08)", fill: true, tension: .4, borderWidth: 2 },
+    { label: "Adesões", data: acum(aAc), borderColor: "#6d3fc9", backgroundColor: "rgba(109,63,201,.06)", fill: true, tension: .4, borderWidth: 2, borderDash: [5, 3] },
+    { label: "Empenhado", data: acum(eAc), borderColor: "#1b8a5a", backgroundColor: "rgba(27,138,90,.08)", fill: true, tension: .4, borderWidth: 2 }] },
+    options: base({ plugins: { tooltip: tipMoeda }, scales: { y: { beginAtZero: true, ticks: { callback: short } } } }) });
+
+  const recMes = Array(12).fill(0), custoMes = Array(12).fill(0);
+  vencF.forEach((p) => { const l = getLicit(p.licitacaoId); if (!l.data) return; const m = mesDe(l.data); recMes[m] += propTotal(p); custoMes[m] += (p.itens || []).reduce((s, i) => s + (i.custo || 0) * (i.qtd || 0), 0); });
+  const margemMes = recMes.map((r, i) => custoMes[i] > 0 ? +((r - custoMes[i]) / custoMes[i] * 100).toFixed(1) : null);
+  reg.chart("reccusto", "c-reccusto", { type: "bar", data: { labels: MESES_CURTOS, datasets: [
+    { label: "Receita", data: recMes, backgroundColor: "rgba(36,87,214,.75)", borderRadius: 4, yAxisID: "y" },
+    { label: "Custo", data: custoMes, backgroundColor: "rgba(200,54,43,.5)", borderRadius: 4, yAxisID: "y" },
+    { label: "Margem %", data: margemMes, type: "line", borderColor: "#1b8a5a", borderWidth: 2, borderDash: [4, 3], pointRadius: 3, yAxisID: "y2", tension: .3 }] },
+    options: base({ plugins: { tooltip: { callbacks: { label: (i) => i.dataset.yAxisID === "y2" ? `Margem: ${i.raw ?? "—"}%` : `${i.dataset.label}: ${fmt(i.raw)}` } } },
+      scales: { y: { beginAtZero: true, ticks: { callback: short } }, y2: { position: "right", grid: { drawOnChartArea: false }, ticks: { callback: (v) => v + "%" } } } }) });
+
+  const pm = {}; portais.forEach((pt) => { pm[pt.id] = { sigla: pt.sigla, receita: 0, custo: 0 }; });
+  vencF.forEach((p) => { const l = getLicit(p.licitacaoId); if (!pm[l.portalId]) return; (p.itens || []).forEach((i) => { pm[l.portalId].receita += i.total || 0; pm[l.portalId].custo += (i.custo || 0) * (i.qtd || 0); }); });
+  const pmK = Object.keys(pm).filter((k) => pm[k].receita > 0); const pmM = pmK.map((k) => pm[k].custo > 0 ? (pm[k].receita - pm[k].custo) / pm[k].custo * 100 : 0);
+  reg.chart("margem", "c-margem", { type: "bar", data: { labels: pmK.map((k) => pm[k].sigla), datasets: [{ data: pmM, backgroundColor: pmM.map((v) => v >= 25 ? "#1b8a5a" : v >= 10 ? "#d9641c" : "#c8362b"), borderRadius: 5 }] },
+    options: base({ plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i) => `Margem: ${i.raw.toFixed(1)}%` } } }, scales: { y: { beginAtZero: true, ticks: { callback: (v) => v + "%" } } } }) });
+
+  const prods = store.get("produtos"); const catMap = {};
+  vencF.forEach((p) => (p.itens || []).forEach((i) => { const prod = prods.find((x) => x.id === i.produtoId); const cat = prod ? getCat(prod.catId) : {}; const k = cat.nome || "Sem categoria"; (catMap[k] ||= { val: 0, cor: cat.cor || "#a9b3c7" }).val += i.total || 0; }));
+  const catK = Object.keys(catMap).sort((a, b) => catMap[b].val - catMap[a].val);
+  reg.chart("mix", "c-mix", { type: "doughnut", data: { labels: catK, datasets: [{ data: catK.map((k) => catMap[k].val), backgroundColor: catK.map((k) => catMap[k].cor), borderWidth: 0 }] },
+    options: base({ cutout: "60%", plugins: { legend: { position: "bottom", labels: { font: { size: 10 }, boxWidth: 10 } }, tooltip: tipMoeda } }) });
+
+  const tipoMap = {};
+  licsF.forEach((l) => { const t = l.tipo || "Outros"; (tipoMap[t] ||= { total: 0, venc: 0 }).total++; if (props.some((p) => p.licitacaoId === l.id && STATUS_VENCIDO.includes(p.status))) tipoMap[t].venc++; });
+  const tipoK = Object.keys(tipoMap).sort((a, b) => tipoMap[b].total - tipoMap[a].total);
+  $("#dash-winrate").innerHTML = tipoK.length ? tipoK.map((t) => { const wr = Math.round(tipoMap[t].venc / tipoMap[t].total * 100); const cor = wr >= 50 ? "var(--green)" : wr >= 25 ? "var(--orange)" : "var(--red)";
+    return h`<div class="bar-row"><div class="bar-head"><span>${t}</span><strong style="color:${raw(cor)}">${wr}% <small class="muted">(${tipoMap[t].venc}/${tipoMap[t].total})</small></strong></div><div class="prog"><div class="prog-fill" style="width:${wr}%;background:${raw(cor)}"></div></div></div>`; }).join("") : vazio("Sem licitações no período");
+
+  const saz = Array(12).fill(0); licsF.forEach((l) => { if (l.data) saz[mesDe(l.data)]++; }); const sazMax = Math.max(...saz, 1);
+  const sazCor = ["#eef1f6", "#dbe6fb", "#b9cdf6", "#8cadef", "#4a7be0", "#1e3a8a"];
+  $("#dash-saz").innerHTML = `<div class="heat-grid">${MESES_CURTOS.map((m, i) => { const k = Math.min(Math.floor(saz[i] / sazMax * 5), 5); return `<div class="heat-cell" style="background:${sazCor[k]};color:${k >= 3 ? "#fff" : "var(--navy-2)"}"><small>${m}</small><strong>${saz[i]}</strong></div>`; }).join("")}</div><p class="muted" style="font-size:11.5px;margin-top:8px">Cor mais escura = mais licitações no mês</p>`;
+
+  const dd = (a, b) => Math.round((new Date(b.slice(0, 10)) - new Date(a.slice(0, 10))) / 864e5); const okd = (d) => d >= 0 && d < 365;
+  const t1 = [], t2 = [], t3 = [];
+  propsF.forEach((p) => { const l = getLicit(p.licitacaoId); if (l.data && p.criadoEm) { const d = dd(l.data, p.criadoEm); if (okd(d)) t1.push(d); } });
+  atas.forEach((a) => { const p = getProp(a.propostaId); if (p?.criadoEm && a.assinatura) { const d = dd(p.criadoEm, a.assinatura); if (okd(d)) t2.push(d); }
+    emps.filter((e) => e.propostaId === a.propostaId).forEach((e) => { if (a.assinatura && e.data) { const d = dd(a.assinatura, e.data); if (okd(d)) t3.push(d); } }); });
+  const avg = (arr) => arr.length ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length) : null;
+  const etapas = [["Licitação → Proposta", avg(t1), "#2457d6"], ["Proposta → ATA", avg(t2), "#6d3fc9"], ["ATA → Empenho", avg(t3), "#1b8a5a"]];
+  const ciclo = etapas.reduce((s, e) => s + (e[1] || 0), 0);
+  $("#dash-ciclo").innerHTML = `<div class="list">${etapas.map(([l, d, c]) => `<div class="list-item"><div class="list-main"><div class="list-title">${l}</div></div><strong style="color:${c}">${d != null ? d + (d === 1 ? " dia" : " dias") : "—"}</strong></div>`).join("")}</div>${ciclo ? `<p class="muted" style="font-size:12.5px;margin-top:10px">Ciclo total médio: <strong>${ciclo} dias</strong></p>` : ""}`;
+
+  const orgRec = {}; licsF.forEach((l) => { const o = getOrgao(l.orgaoId); if (!o.id) return; (orgRec[o.id] ||= { nome: o.nome, uasg: o.uasg, n: 0 }).n++; });
+  const recs = Object.values(orgRec).filter((o) => o.n > 1).sort((a, b) => b.n - a.n).slice(0, 6);
+  $("#dash-recorr").innerHTML = recs.length ? `<div class="table-wrap"><table><thead><tr><th>Órgão</th><th class="num">Licitações</th></tr></thead><tbody>${recs.map((o) => h`<tr><td><strong>${toTitleCase(o.nome).slice(0, 34)}</strong><div class="muted" style="font-size:11px">UASG ${o.uasg || "—"}</div></td><td class="num">${raw(tag(o.n + "×", "tag-blue"))}</td></tr>`).join("")}</tbody></table></div>` : vazio("Sem órgãos recorrentes ainda");
+
+  const pv = {}; vencF.forEach((p) => (p.itens || []).forEach((i) => { const k = i.produtoId || i.codigo || i.nome; const r = (pv[k] ||= { nome: i.nome, codigo: i.codigo, qtd: 0, receita: 0, n: 0 }); r.qtd += i.qtd || 0; r.receita += i.total || 0; r.n++; }));
+  const topP = Object.values(pv).sort((a, b) => b.receita - a.receita).slice(0, 6);
+  $("#dash-topprod").innerHTML = topP.length ? `<div class="table-wrap"><table><thead><tr><th>Produto</th><th class="num">Qtd</th><th class="num">Receita</th></tr></thead><tbody>${topP.map((x) => h`<tr><td><strong>${(x.nome || "").slice(0, 30)}</strong><div class="muted" style="font-size:11px">${x.codigo || ""} · ${x.n} proposta${x.n > 1 ? "s" : ""}</div></td><td class="num">${x.qtd.toLocaleString("pt-BR")}</td><td class="num"><strong style="color:var(--green)">${fmt(x.receita)}</strong></td></tr>`).join("")}</tbody></table></div>` : vazio("Sem produtos vendidos no período");
 }
 
 function kpi(label, value, note = "", cls = "", warn = false) {
   return `<div class="kpi ${cls}"><div class="kpi-label">${esc(label)}</div><div class="kpi-value">${esc(value)}</div>${note ? `<div class="kpi-note ${warn ? "warn" : ""}">${esc(note)}</div>` : ""}</div>`;
 }
 
-const short = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? Math.round(v / 1e3) + "k" : v;
 
-function base(extra = {}) {
-  const o = { responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { position: "top", labels: { font: { size: 11, family: "IBM Plex Sans" }, boxWidth: 10 } } },
-    scales: {} };
-  return deepMerge(o, extra);
-}
-function deepMerge(a, b) {
-  for (const k of Object.keys(b)) a[k] = b[k] && typeof b[k] === "object" && !Array.isArray(b[k]) ? deepMerge(a[k] || {}, b[k]) : b[k];
-  return a;
-}
 
-// Atualiza um gráfico existente em vez de recriar (sem piscar)
-function chart(key, canvasId, cfg) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  if (charts[key] && charts[key].canvas === canvas) {
-    charts[key].data = cfg.data; charts[key].options = cfg.options; charts[key].update("none");
-  } else {
-    charts[key]?.destroy();
-    charts[key] = new Chart(canvas.getContext("2d"), cfg);
-  }
-}
 
-Chart.defaults.font.family = "IBM Plex Sans";
-Chart.defaults.color = "#4b5670";

@@ -22,7 +22,7 @@ import reequilibrio from "./modules/reequilibrio.js";
 import cobrancas from "./modules/cobrancas.js";
 import crm from "./modules/crm.js";
 import reguas from "./modules/reguas.js";
-import { placeholders } from "./modules/_placeholders.js";
+import relatorios from "./modules/relatorios.js";
 
 // Ordem define a ordem do menu
 registerModule(dashboard);
@@ -40,7 +40,7 @@ registerModule(reequilibrio);
 registerModule(cobrancas);
 registerModule(crm);
 registerModule(reguas);
-placeholders.forEach(registerModule);
+registerModule(relatorios);
 registerModule(usuarios);
 
 const elLogin = $("#login");
