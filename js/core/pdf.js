@@ -5,7 +5,7 @@ export const EMPRESA = {
   nome: "RLUX ILUMINAÇÃO LTDA",
   endereco: "Rua Pedro Ferreira, 333 - Sala 1206, Box 140 - Centro - 88.301-030 - Itajaí - SC",
   cnpj: "23.535.805/0001-35", ie: "26.228.270-4",
-  tel: "(19) 2139-7145 / (19) 2139-7155", email: "contato@rlux.com.br", site: "https://www.rlux.com.br",
+  tel: "(19) 2139-7145 / (19) 2139-7155", email: "contato@rlux.com.br", emailLicitacoes: "licitacao@rlux.com.br", site: "https://www.rlux.com.br",
   representante: "Marcos Ribas", cpf: "286.176.978-57",
   bancos: ["Banco: 001 - Banco do Brasil  |  Agência: 2447-3  |  C/C: 63587-1", "Banco: 237 - Banco Bradesco  |  Agência: 2297  |  C/C: 129805-4"],
 };
