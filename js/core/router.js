@@ -24,8 +24,11 @@ function render(id) {
   $("#topbar-title").textContent = mod.titulo;
   document.title = `${mod.titulo} · Rlux Licitações`;
 
-  const main = $("#view");
-  main.innerHTML = "";
+  // Troca o <main> por um clone vazio: descarta os listeners que o módulo anterior
+  // ligou nele (senão cada visita à tela acumularia um handler a mais).
+  const old = $("#view");
+  const main = old.cloneNode(false);
+  old.replaceWith(main);
   main.scrollTop = 0;
   document.body.classList.remove("nav-open");
   try { mod.render(main); } catch (e) {

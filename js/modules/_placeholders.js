@@ -13,9 +13,6 @@ const FASES = {
 };
 
 const lista = [
-  { id: "cobrancas", titulo: "Cobrança Financeira", grupo: "Financeiro", icone: "wallet", fase: 5 },
-  { id: "crm", titulo: "CRM — Cobranças", grupo: "CRM e análise", icone: "phone", fase: 5 },
-  { id: "reguas", titulo: "Régua de Envio", grupo: "CRM e análise", icone: "send", fase: 5 },
   { id: "relatorios", titulo: "Relatórios", grupo: "CRM e análise", icone: "chart", fase: 6 },
 ];
 

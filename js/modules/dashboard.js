@@ -4,12 +4,15 @@
 import { store } from "../core/store.js";
 import { $, $$, fmt, fmtD, esc, raw, h, MESES_CURTOS, toTitleCase } from "../core/utils.js";
 import { icon, vazio, tag } from "../core/ui.js";
+import { navigate } from "../core/router.js";
+import { iniciarRegua, onRegua, pendentesHoje, situacaoRegua, TIPO_ROTULO } from "../core/regua.js";
+import { verEmail } from "./reguas.js";
 import {
   getLicit, getOrgao, getProp, isEspelho, isVencido, propTotal, STATUS_VENCIDO,
 } from "../core/domain.js";
 
 let charts = {};
-let unsub = null;
+let unsub = null, unsubRegua = null;
 let anoSel = null;      // null = ainda não escolhido; "todos" | "2026"
 let filtroStatus = "";
 
@@ -28,6 +31,7 @@ export default {
         <label class="field field-inline"><span>Ano</span><select id="dash-ano"></select></label>
       </div>
       <div class="grid grid-6" id="dash-kpis"></div>
+      <div class="card" style="margin-top:16px"><div class="card-head"><h2>Contatos comerciais pendentes <span id="dash-regua-badge" class="tag tag-red" hidden></span></h2><button class="btn btn-ghost btn-sm" data-act="regua-todos">Ver régua completa</button></div><div class="card-body" id="dash-regua"></div></div>
       <div class="grid grid-2" style="margin-top:16px">
         <div class="card"><div class="card-head"><h2>Licitações por mês</h2></div><div class="card-body"><div class="chart-box"><canvas id="c-licit"></canvas></div></div></div>
         <div class="card"><div class="card-head"><h2>Resultado das propostas (R$)</h2>
@@ -52,12 +56,17 @@ export default {
     $("#dash-ano").addEventListener("change", (e) => { anoSel = e.target.value; update(); });
     $("#dash-status").addEventListener("change", (e) => { filtroStatus = e.target.value; update(); });
 
+    iniciarRegua();
+    el.addEventListener("click", (e) => { const b = e.target.closest("[data-act]"); if (!b) return;
+      if (b.dataset.act === "regua-todos") navigate("reguas");
+      if (b.dataset.act === "regua-ver") { const [origem, refId] = b.dataset.id.split(":"); const li = pendentesHoje().find((l) => l.origem === origem && l.refId === refId); if (li) verEmail(li); } });
     store.ready().then(update);
     unsub = store.on("*", debounceUpdate);
+    unsubRegua = onRegua(debounceUpdate);
   },
 
   destroy() {
-    unsub?.(); unsub = null;
+    unsub?.(); unsub = null; unsubRegua?.(); unsubRegua = null;
     Object.values(charts).forEach((c) => c.destroy());
     charts = {};
   },
@@ -131,6 +140,12 @@ function update() {
     const p = getProp(c.propostaId); const l = getLicit(p?.licitacaoId); const o = getOrgao(l?.orgaoId);
     return h`<div class="list-item"><div class="list-main"><div class="list-title">${l?.numero || "—"}</div><div class="list-sub">${toTitleCase(o.nome || "—")}${c.proxCont ? " · próx. " + fmtD(c.proxCont) : ""}</div></div>${raw(tag(c.status, "tag-purple"))}</div>`;
   }).join("")}</div>` : vazio("Sem pendências no CRM");
+
+  // ----- régua: contatos comerciais pendentes -----
+  const pend = pendentesHoje().sort((a, b) => situacaoRegua(a).ord - situacaoRegua(b).ord || (a.proximo || "").localeCompare(b.proximo || ""));
+  const badge = $("#dash-regua-badge"); badge.hidden = !pend.length; badge.textContent = `${pend.length} pendente${pend.length > 1 ? "s" : ""}`;
+  $("#dash-regua").innerHTML = pend.length ? `<div class="list">${pend.slice(0, 8).map((li) => { const s = situacaoRegua(li);
+    return h`<div class="list-item"><div class="list-main"><div class="list-title">${li.titulo}${li.origem === "adesao" ? " · Adesão" : ""} — ${toTitleCase(li.orgaoNome || li.orgao?.nome || "—")}</div><div class="list-sub">${TIPO_ROTULO[li.tipoProx]} · saldo ${fmt(li.saldo)}${li.vencIso ? " · vence " + fmtD(li.vencIso) : ""}${li.ultimo ? " · último envio " + fmtD(li.ultimo) : " · nunca contatado"}</div></div>${raw(tag(s.txt, s.cls))}<button class="btn btn-primary btn-sm" data-act="regua-ver" data-id="${li.origem + ":" + li.refId}">${raw(icon("mail"))} E-mail</button></div>`; }).join("")}</div>${pend.length > 8 ? `<p class="muted" style="font-size:12px;margin-top:8px">+ ${pend.length - 8} na régua completa</p>` : ""}` : vazio("Nenhum contato pendente", "Todos os relacionamentos estão em dia.");
 
   // ----- atividades recentes -----
   const acts = [];

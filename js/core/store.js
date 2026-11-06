@@ -84,6 +84,13 @@ export const store = {
     return s.exists() ? s.data() : null;
   },
   async setObj(name, id, obj) { await setDoc(doc(db, name, id), obj); },
+
+  // Ouve um documento avulso em tempo real (ex.: config/reguaEnvios)
+  watchObj(name, id, cb) {
+    const unsub = onSnapshot(doc(db, name, id), (s) => cb(s.exists() ? s.data() : null), (e) => console.error(e));
+    unsubs.push(unsub);
+    return unsub;
+  },
 };
 
 export function newId() {

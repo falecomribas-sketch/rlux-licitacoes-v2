@@ -19,6 +19,9 @@ import adesoes from "./modules/adesoes.js";
 import empenhos from "./modules/empenhos.js";
 import exequibilidade from "./modules/exequibilidade.js";
 import reequilibrio from "./modules/reequilibrio.js";
+import cobrancas from "./modules/cobrancas.js";
+import crm from "./modules/crm.js";
+import reguas from "./modules/reguas.js";
 import { placeholders } from "./modules/_placeholders.js";
 
 // Ordem define a ordem do menu
@@ -34,6 +37,9 @@ registerModule(adesoes);
 registerModule(empenhos);
 registerModule(exequibilidade);
 registerModule(reequilibrio);
+registerModule(cobrancas);
+registerModule(crm);
+registerModule(reguas);
 placeholders.forEach(registerModule);
 registerModule(usuarios);
 
