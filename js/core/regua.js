@@ -108,7 +108,7 @@ function nomeOrgao(nome) { const n = String(nome || "").trim().replace(/^\d{4,}\
 const uasgDe = (uasg, nome) => uasg ? String(uasg).trim() : (String(nome || "").match(/^(\d{4,})\s*[-–—]/)?.[1] || "");
 const cabecalho = (nome, uasg) => { const u = uasgDe(uasg, nome); return `${nomeOrgao(nome)}${u ? ` (UASG ${u})` : ""}\n\nPrezados(as),`; };
 const refLicit = (l) => { const tipo = (l?.tipo || "Pregão").trim(); return l?.numero ? `${tipo} nº ${l.numero}` : tipo; };
-function ref(l, ata) { const lic = refLicit(l); if (ata?.numero) return { txt: `ATA de Registro de Preços nº ${ata.numero} (${lic})`, art: "a", curto: `ATA ${ata.numero} – ${lic}` }; const fem = /^(dispensa|tomada|concorr|inexigib|cota)/i.test((l?.tipo || "").trim()); return { txt: lic, art: fem ? "a" : "o", curto: lic }; }
+function ref(l, ata) { const lic = refLicit(l); const n = String(ata?.numero || "").replace(/^ata\s*(n[º°.]?\s*)?[-–:]?\s*/i, "").trim(); if (n) return { txt: `ATA de Registro de Preços nº ${n} (${lic})`, art: "a", curto: `ATA ${n} – ${lic}` }; const fem = /^(dispensa|tomada|concorr|inexigib|cota)/i.test((l?.tipo || "").trim()); return { txt: lic, art: fem ? "a" : "o", curto: lic }; }
 const em = (n) => n <= 0 ? "hoje" : n === 1 ? "em 1 dia" : `em ${n} dias`;
 const faltam = (n) => n <= 0 ? "o encerramento é hoje" : n === 1 ? "falta 1 dia para o encerramento" : `faltam ${n} dias para o encerramento`;
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -145,7 +145,10 @@ function montarEmailAdesao(adesaoId, ultimos90, tipo) {
   const a = store.find("adesoes", adesaoId); if (!a) return null;
   const ata = getAta(a.ataId) || {}, pAta = ata.propostaId ? getProp(ata.propostaId) : null, l = pAta ? getLicit(pAta.licitacaoId) : null, o = getOrgao(a.orgaoId);
   const cab = cabecalho(a.orgaoAderente || o.nome, a.uasgAderente || o.uasg), vencStr = a.vencimento ? fmtD(a.vencimento) : null, diasVenc = a.vencimento ? diasAte(a.vencimento) : null;
-  const refAta = ata.numero ? ` à ATA de Registro de Preços nº ${ata.numero}${l?.numero ? ` (${refLicit(l)})` : ""}` : ""; const r = { txt: `adesão nº ${a.numero || "—"}${refAta}`, art: "a", curto: `Adesão ${a.numero || "—"}${ata.numero ? ` – ATA ${ata.numero}` : ""}` };
+  // Número sem a palavra "ADESÃO"/"ATA" na frente, para o texto não repetir ("Adesão ADESÃO - 159/2025")
+  const numAd = String(a.numero || "").replace(/^ades[ãa]o\s*(n[º°.]?\s*)?[-–:]?\s*/i, "").trim() || "—";
+  const numAta = String(ata.numero || "").replace(/^ata\s*(n[º°.]?\s*)?[-–:]?\s*/i, "").trim();
+  const refAta = numAta ? ` à ATA de Registro de Preços nº ${numAta}${l?.numero ? ` (${refLicit(l)})` : ""}` : ""; const r = { txt: `adesão nº ${numAd}${refAta}`, art: "a", curto: `Adesão ${numAd}${numAta ? ` – ATA ${numAta}` : ""}` };
   const emails = (o.contatos || []).filter((c) => c.email).map((c) => c.email); if (a.email) emails.unshift(a.email); const para = [...new Set(emails)].join(";");
   if (tipo === "agradecimento") {
     const itens = itensFornecidosAdesao(a); const tot = itens.length ? itens.reduce((s, i) => s + i.valorFornecido, 0) : store.get("empenhos").filter((e) => e.adesaoId === a.id).reduce((s, e) => s + (e.valorRecebido || 0), 0);
