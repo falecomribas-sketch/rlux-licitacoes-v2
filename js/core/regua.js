@@ -101,63 +101,89 @@ export const pendentesHoje = () => linhasRegua().filter((li) => !li.encerrada &&
 // ---------- e-mails ----------
 const SIGLAS = new Set(["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO", "TRT", "TRE", "TRF", "TJ", "TCE", "TCU", "TCM", "MPF", "MPT", "MPE", "MPU", "DPU", "AGU", "INSS", "IBGE", "IBAMA", "ICMBIO", "IF", "IFSC", "IFPR", "IFSP", "IFRS", "IFMG", "UFSC", "UFPR", "UFRJ", "UFMG", "UFRGS", "UNB", "USP", "SESC", "SENAC", "SENAI", "SESI", "SEBRAE", "PM", "PC", "PF", "PRF", "CBM", "CBMDF", "PMDF", "SUS", "UPA", "EB", "FAB", "CMB", "HU", "HC", "SAAE", "DER", "DNIT", "ANATEL", "ANEEL", "CNPQ", "EMBRAPA", "FIOCRUZ"]);
 const MINUSC = ["de", "da", "do", "das", "dos", "e", "em", "por", "com", "para", "a", "o", "na", "no"];
-export const ASSINATURA = `Atenciosamente,\n${EMPRESA.representante}\nRLUX Iluminação Ltda.\n${EMPRESA.tel}\n${EMPRESA.emailLicitacoes} | www.rlux.com.br`;
-const CTA = "Para adquirir, basta responder este e-mail com a Nota de Empenho ou Ordem de Compra. A entrega é feita no prazo previsto no edital.\n\nSe precisar de ficha técnica ou documentação de habilitação, é só pedir.";
+export const ASSINATURA = `Atenciosamente,\n${EMPRESA.representante} · RLUX Iluminação Ltda.\n${EMPRESA.tel}\n${EMPRESA.emailLicitacoes} | www.rlux.com.br`;
 function nomeOrgao(nome) { const n = String(nome || "").trim().replace(/^\d{4,}\s*[-–—]\s*/, ""); if (!n) return "—";
   return n.split(/\s+/).map((w, i) => { const limpo = w.toUpperCase().replace(/[^A-ZÀ-Ü0-9]/g, ""); if (SIGLAS.has(limpo)) return w.toUpperCase(); if (/^[A-ZÀ-Ü]{2,5}$/.test(w) && !/[AEIOUÁÉÍÓÚÂÊÔÃÕ]/.test(w)) return w; const lw = w.toLowerCase(); if (i > 0 && MINUSC.includes(lw)) return lw; return lw.charAt(0).toUpperCase() + lw.slice(1); }).join(" "); }
 const uasgDe = (uasg, nome) => uasg ? String(uasg).trim() : (String(nome || "").match(/^(\d{4,})\s*[-–—]/)?.[1] || "");
-const cabecalho = (nome, uasg) => { const u = uasgDe(uasg, nome); return `${nomeOrgao(nome)}${u ? ` (UASG ${u})` : ""}\n\nPrezados(as),`; };
-const refLicit = (l) => { const tipo = (l?.tipo || "Pregão").trim(); return l?.numero ? `${tipo} nº ${l.numero}` : tipo; };
-function ref(l, ata) { const lic = refLicit(l); const n = String(ata?.numero || "").replace(/^ata\s*(n[º°.]?\s*)?[-–:]?\s*/i, "").trim(); if (n) return { txt: `ATA de Registro de Preços nº ${n} (${lic})`, art: "a", curto: `ATA ${n} – ${lic}` }; const fem = /^(dispensa|tomada|concorr|inexigib|cota)/i.test((l?.tipo || "").trim()); return { txt: lic, art: fem ? "a" : "o", curto: lic }; }
+// Cabeçalho: órgão + saudação (pelo nome quando há um único contato com e-mail)
+function cabecalho(nome, uasg, contatos = []) { const u = uasgDe(uasg, nome); const comEmail = contatos.filter((c) => c.email);
+  const nomeC = comEmail.length === 1 && comEmail[0].nome ? String(comEmail[0].nome).trim().split(/\s+/)[0] : "";
+  const saud = nomeC ? `Prezado(a) ${nomeC.charAt(0).toUpperCase() + nomeC.slice(1).toLowerCase()},` : "Prezados(as),";
+  return `${nomeOrgao(nome)}${u ? ` (UASG ${u})` : ""}\n\n${saud}`; }
+const refLicit = (l) => { const tipo = (l?.tipo || "Pregão").trim(); const n = String(l?.numero || "").trim(); return n ? (/^[A-Za-z]/.test(n) ? `${tipo} ${n}` : `${tipo} nº ${n}`) : tipo; };
+const semPrefixo = (n, re) => String(n || "").replace(re, "").trim();
+function ref(l, ata) { const lic = refLicit(l); const n = semPrefixo(ata?.numero, /^ata\s*(n[º°.]?\s*)?[-–:]?\s*/i);
+  if (n) return { txt: `ATA de Registro de Preços nº ${n} (${lic})`, art: "a", curto: `ATA ${n} – ${lic}`, intro: `A RLUX Iluminação é a fornecedora registrada na ATA de Registro de Preços nº ${n}, decorrente do ${lic}.` };
+  const fem = /^(dispensa|tomada|concorr|inexigib|cota)/i.test((l?.tipo || "").trim());
+  return { txt: lic, art: fem ? "a" : "o", curto: lic, intro: `A RLUX Iluminação é a empresa vencedora ${fem ? "da" : "do"} ${lic}, com preços registrados para este órgão.` }; }
 const em = (n) => n <= 0 ? "hoje" : n === 1 ? "em 1 dia" : `em ${n} dias`;
-const faltam = (n) => n <= 0 ? "o encerramento é hoje" : n === 1 ? "falta 1 dia para o encerramento" : `faltam ${n} dias para o encerramento`;
-const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-const suj = (r) => `${r.art} ${r.txt}`, de = (r) => `${r.art === "a" ? "da" : "do"} ${r.txt}`, ao = (r) => `${r.art === "a" ? "à" : "ao"} ${r.txt}`;
+const dias = (n) => n <= 0 ? "encerra hoje" : n === 1 ? "1 dia" : `${n} dias`;
+const ao = (r) => `${r.art === "a" ? "à" : "ao"} ${r.txt}`;
+// Nome do item limpo (sem a ficha técnica) e sem caixa alta
 function nomeItem(nome) { const s = String(nome || "").replace(/\s+/g, " ").trim(); if (!s) return "—";
   const corte = s.search(/\s(?:Modelo|Tens[ãa]o|Pot[êe]ncia|Tipo|Formato|Fluxo|Abertura|Comprimento|Equival[êe]ncia|Cor|Temperatura|Material|Base|Bulbo|Dimens|Grau|Vida|Corrente|Frequ[êe]ncia|Fator|[ÍI]ndice|Largura|Altura|Di[âa]metro|Peso|Acabamento|Garantia|Marca|Refer[êe]ncia)\b[^:]{0,25}:/i);
   const base = corte > 2 ? s.slice(0, corte) : (s.includes(":") ? s.slice(0, s.indexOf(":")).split(" ").slice(0, -1).join(" ") || s : s);
   const pega = (re) => (s.match(re)?.[1] || "").trim();
   const formato = pega(/Formato:\s*(.+?)(?=\s+[A-ZÀ-Üa-zà-ü][\wÀ-ü]*:|$)/i), pot = pega(/Pot[êe]ncia(?:\s+Nominal)?:\s*([\d.,]+\s*W)\b/i).replace(/\s+/g, ""), comp = pega(/Comprimento:\s*([\d.,]+\s*MM)\b/i).replace(/\s+/g, "").toLowerCase();
   const partes = [base]; [formato, pot, comp].forEach((x) => { if (x && !base.toLowerCase().includes(x.toLowerCase())) partes.push(x); });
-  let out = partes.join(" "); if (out.length > 70) out = out.slice(0, 67).trim() + "..."; return out; }
-const linhaItem = (num, nome, codigo, qtd, preco) => `• Item ${num} – ${nomeItem(nome)}${codigo ? ` (${codigo})` : ""}\n  ${Number(qtd || 0).toLocaleString("pt-BR")} un. × ${fmt(preco || 0)} = ${fmt((qtd || 0) * (preco || 0))}`;
+  let out = partes.join(" "); if (out.length > 70) out = out.slice(0, 67).trim() + "..."; return capitalizar(out); }
+const MANTEM = new Set(["LED", "IP65", "IP66", "IP67", "IP20", "IP44", "RGB", "UV", "AC", "DC", "USB", "PVC", "ABS", "SMD", "COB", "LM", "IRC", "CRI", "G13", "E27", "E40", "GU10", "HO", "T8", "T5", "MR16", "AR111", "PAR20", "PAR30", "PAR38", "BIVOLT"]);
+function capitalizar(txt) { return txt.split(" ").map((w, i) => { const up = w.toUpperCase().replace(/[^A-Z0-9À-Ü]/g, ""); if (/\d/.test(w) || MANTEM.has(up) || (w.length <= 2 && i > 0 && !MINUSC.includes(w.toLowerCase()))) return w.toUpperCase() === w ? w : w; const lw = w.toLowerCase(); if (i > 0 && MINUSC.includes(lw)) return lw; return lw.charAt(0).toUpperCase() + lw.slice(1); }).join(" "); }
+const linhaItem = (num, nome, qtd, preco) => `  Item ${num} – ${nomeItem(nome)}\n  ${Number(qtd || 0).toLocaleString("pt-BR")} un. × ${fmt(preco || 0)} = ${fmt((qtd || 0) * (preco || 0))}`;
+const bloco = (titulo, corpo) => corpo ? `${titulo}\n${corpo}` : "";
+const fatos = (pares) => pares.filter(([, v]) => v).map(([k, v]) => `  ${k}: ${v}`).join("\n");
+const COMO_ADQUIRIR = bloco("COMO ADQUIRIR", "  Basta responder este e-mail com a Nota de Empenho ou a\n  Ordem de Compra. A entrega segue o prazo previsto no edital.\n  Ficha técnica e documentos de habilitação, é só pedir.");
+const juntar = (...partes) => partes.filter(Boolean).join("\n\n");
+
+// Monta o e-mail a partir de um contexto comum (proposta ou adesão)
+function montarTexto(c, tipo, ultimos90) {
+  const { cab, r, vencStr, diasVenc, para } = c;
+  if (tipo === "agradecimento") {
+    const lista = c.fornecidos.map((i, idx) => linhaItem(i.num || idx + 1, i.nome, i.qtdFornecida, i.preco)).join("\n\n");
+    return { para, assunto: `${r.curto} – agradecimento pelo fornecimento`, corpo: juntar(cab,
+      `Agradecemos a confiança na RLUX Iluminação. Concluímos o fornecimento referente ${ao(r)}.`,
+      bloco("ITENS FORNECIDOS", lista), c.totalFornecido > 0 ? fatos([["Total fornecido", fmt(c.totalFornecido)]]) : "",
+      `Foi um prazer atendê-los. Seguimos à disposição para novas contratações${c.origem === "adesao" ? " e adesões" : ""} e para qualquer suporte sobre os produtos entregues.`, ASSINATURA) };
+  }
+  if (tipo === "renovacao60" || tipo === "renovacao30") {
+    const urgente = tipo === "renovacao30"; const lista = c.registrados.map((i, idx) => linhaItem(i.num || idx + 1, i.nome, i.qtd, i.preco)).join("\n\n");
+    return { para, assunto: `${urgente ? "[Atenção] " : ""}${r.curto} – vigência encerra ${em(diasVenc)} – prorrogação`, corpo: juntar(cab, r.intro,
+      fatos([["Vigência da ATA", `até ${vencStr || "—"} (${dias(diasVenc)})`], ["Saldo ainda disponível", c.saldo > 0 ? fmt(c.saldo) : ""]]),
+      bloco("ITENS REGISTRADOS", lista),
+      bloco("PRORROGAÇÃO", "  Havendo interesse em manter o fornecimento, podemos tratar da\n  prorrogação da ATA, nos termos do art. 84 da Lei nº 14.133/2021,\n  com antecedência suficiente para evitar interrupção."),
+      "Se o órgão já tiver novo processo em andamento ou não houver interesse, basta desconsiderar esta mensagem.", ASSINATURA) };
+  }
+  const lista = c.comSaldo.map((i, idx) => linhaItem(i.num || idx + 1, i.nome, i.saldo, i.preco)).join("\n\n");
+  const encerra = ultimos90 && diasVenc !== null;
+  return { para,
+    assunto: encerra ? `${r.curto} – vigência encerra ${em(diasVenc)} – saldo de ${fmt(c.saldo)}` : `${r.curto} – saldo de ${fmt(c.saldo)} a preço registrado`,
+    corpo: juntar(cab, r.intro,
+      fatos([[c.origem === "adesao" ? "Vigência da adesão" : "Vigência", vencStr ? `até ${vencStr}${diasVenc !== null ? ` (${dias(diasVenc)})` : ""}` : ""], ["Saldo disponível", `${fmt(c.saldo)} (preço registrado)`]]),
+      bloco(c.comSaldo.length > 1 ? "ITENS COM SALDO" : "ITEM COM SALDO", lista), COMO_ADQUIRIR,
+      encerra ? `Após ${vencStr} a aquisição pelo preço registrado não será mais possível${c.origem === "adesao" ? "" : " e novas compras exigirão outro processo licitatório"}.` : "", ASSINATURA) };
+}
 
 export function montarEmail(refId, origem = "proposta", ultimos90 = false, tipo = "acompanhamento") {
   if (origem === "adesao") return montarEmailAdesao(refId, ultimos90, tipo);
   const p = getProp(refId); if (!p) return null;
   const l = getLicit(p.licitacaoId), o = getOrgao(l.orgaoId), ata = store.get("atas").find((a) => a.propostaId === refId);
-  const r = ref(l, ata), cab = cabecalho(o.nome, o.uasg), vencStr = ata?.vencimento ? fmtD(ata.vencimento) : null, diasVenc = ata?.vencimento ? diasAte(ata.vencimento) : null;
-  const para = (o.contatos || []).filter((c) => c.email).map((c) => c.email).join(";");
-  if (tipo === "agradecimento") {
-    const itens = itensFornecidos(p); const tot = itens.length ? itens.reduce((s, i) => s + i.valorFornecido, 0) : propEmpenhado(p.id);
-    const lista = itens.map((i, idx) => linhaItem(i.num || idx + 1, i.nome, i.codigo, i.qtdFornecida, i.preco)).join("\n\n");
-    return { para, assunto: `Agradecimento pelo fornecimento – ${r.curto}`, corpo: `${cab}\n\nAgradecemos a confiança na RLUX Iluminação. Concluímos o fornecimento referente ${ao(r)}${itens.length ? ":" : "."}\n${itens.length ? `\n${lista}\n` : ""}${tot > 0 ? `\nTotal fornecido: ${fmt(tot)}\n` : ""}\nFoi um prazer atendê-los. Seguimos à disposição para novas contratações e para qualquer suporte sobre os produtos entregues.\n\n${ASSINATURA}` };
-  }
-  if (tipo === "renovacao60" || tipo === "renovacao30") {
-    const urgente = tipo === "renovacao30"; const itens = p.itens || []; const lista = itens.map((i, idx) => linhaItem(i.num || idx + 1, i.nome, i.codigo, i.qtd, i.preco)).join("\n\n"); const saldo = propSaldoDetalhado(p).valor;
-    return { para, assunto: `${urgente ? "[Atenção] " : ""}Vigência encerra ${em(diasVenc)} – ${r.curto}`, corpo: `${cab}\n\n${cap(suj(r))} tem vigência até ${vencStr || "—"}: ${faltam(diasVenc)}.\n\nItens registrados:\n\n${lista}\n${saldo > 0 ? `\nSaldo ainda disponível para aquisição: ${fmt(saldo)}\n` : ""}\nCaso haja interesse em manter o fornecimento, podemos tratar da prorrogação da ATA, nos termos do art. 84 da Lei nº 14.133/2021, com antecedência suficiente para evitar interrupção.\n\nSe o órgão já tiver novo processo em andamento ou não houver interesse, basta desconsiderar esta mensagem.\n\n${ASSINATURA}` };
-  }
-  const sd = propSaldoDetalhado(p); const lista = sd.itens.map((i, idx) => linhaItem(i.num || idx + 1, i.nome, i.codigo, i.saldo, i.preco)).join("\n\n"); const bloco = sd.itens.length ? `\n${lista}\n` : "";
-  if (ultimos90 && diasVenc !== null) return { para, assunto: `Vigência encerra ${em(diasVenc)} – ${r.curto} – saldo de ${fmt(sd.valor)}`, corpo: `${cab}\n\nA vigência ${de(r)} encerra ${em(diasVenc)} (${vencStr}). Até essa data, ainda é possível adquirir pelo preço registrado${sd.itens.length ? ":" : "."}\n${bloco}\nSaldo total: ${fmt(sd.valor)}\n\nApós o encerramento, novas aquisições exigirão outro processo licitatório.\n\n${CTA}\n\n${ASSINATURA}` };
-  return { para, assunto: `Saldo disponível – ${r.curto} – ${fmt(sd.valor)} a preço registrado`, corpo: `${cab}\n\nInformamos que ${suj(r)} ainda possui saldo disponível para aquisição pelo preço registrado${vencStr ? `, válido até ${vencStr}` : ""}${sd.itens.length ? ":" : "."}\n${bloco}\nSaldo total: ${fmt(sd.valor)}\n\n${CTA}\n\n${ASSINATURA}` };
+  const forn = itensFornecidos(p); const sd = propSaldoDetalhado(p);
+  return montarTexto({ origem, cab: cabecalho(o.nome, o.uasg, o.contatos), r: ref(l, ata), vencStr: ata?.vencimento ? fmtD(ata.vencimento) : null, diasVenc: ata?.vencimento ? diasAte(ata.vencimento) : null,
+    para: (o.contatos || []).filter((c) => c.email).map((c) => c.email).join(";"), fornecidos: forn, totalFornecido: forn.length ? forn.reduce((s, i) => s + i.valorFornecido, 0) : propEmpenhado(p.id),
+    registrados: p.itens || [], comSaldo: sd.itens, saldo: sd.valor }, tipo, ultimos90);
 }
 function montarEmailAdesao(adesaoId, ultimos90, tipo) {
   const a = store.find("adesoes", adesaoId); if (!a) return null;
   const ata = getAta(a.ataId) || {}, pAta = ata.propostaId ? getProp(ata.propostaId) : null, l = pAta ? getLicit(pAta.licitacaoId) : null, o = getOrgao(a.orgaoId);
-  const cab = cabecalho(a.orgaoAderente || o.nome, a.uasgAderente || o.uasg), vencStr = a.vencimento ? fmtD(a.vencimento) : null, diasVenc = a.vencimento ? diasAte(a.vencimento) : null;
   // Número sem a palavra "ADESÃO"/"ATA" na frente, para o texto não repetir ("Adesão ADESÃO - 159/2025")
-  const numAd = String(a.numero || "").replace(/^ades[ãa]o\s*(n[º°.]?\s*)?[-–:]?\s*/i, "").trim() || "—";
-  const numAta = String(ata.numero || "").replace(/^ata\s*(n[º°.]?\s*)?[-–:]?\s*/i, "").trim();
-  const refAta = numAta ? ` à ATA de Registro de Preços nº ${numAta}${l?.numero ? ` (${refLicit(l)})` : ""}` : ""; const r = { txt: `adesão nº ${numAd}${refAta}`, art: "a", curto: `Adesão ${numAd}${numAta ? ` – ATA ${numAta}` : ""}` };
-  const emails = (o.contatos || []).filter((c) => c.email).map((c) => c.email); if (a.email) emails.unshift(a.email); const para = [...new Set(emails)].join(";");
-  if (tipo === "agradecimento") {
-    const itens = itensFornecidosAdesao(a); const tot = itens.length ? itens.reduce((s, i) => s + i.valorFornecido, 0) : store.get("empenhos").filter((e) => e.adesaoId === a.id).reduce((s, e) => s + (e.valorRecebido || 0), 0);
-    const lista = itens.map((i, idx) => linhaItem(i.num || idx + 1, i.nome, i.codigo, i.qtdFornecida, i.precoUnit)).join("\n\n");
-    return { para, assunto: `Agradecimento pelo fornecimento – ${r.curto}`, corpo: `${cab}\n\nAgradecemos a confiança na RLUX Iluminação. Concluímos o fornecimento referente ${ao(r)}${itens.length ? ":" : "."}\n${itens.length ? `\n${lista}\n` : ""}${tot > 0 ? `\nTotal fornecido: ${fmt(tot)}\n` : ""}\nFoi um prazer atendê-los. Seguimos à disposição para novas contratações e adesões, e para qualquer suporte sobre os produtos entregues.\n\n${ASSINATURA}` };
-  }
-  const sd = adesaoSaldoDetalhado(a); const lista = sd.itens.map((i, idx) => linhaItem(i.num || idx + 1, i.nome, i.codigo, i.saldo, i.preco)).join("\n\n"); const bloco = sd.itens.length ? `\n${lista}\n` : "";
-  if (ultimos90 && diasVenc !== null) return { para, assunto: `Vigência encerra ${em(diasVenc)} – ${r.curto} – saldo de ${fmt(sd.valor)}`, corpo: `${cab}\n\nA vigência ${de(r)} encerra ${em(diasVenc)} (${vencStr}). Até essa data, ainda é possível adquirir pelo preço registrado${sd.itens.length ? ":" : "."}\n${bloco}\nSaldo total: ${fmt(sd.valor)}\n\nApós o encerramento, a aquisição pelos preços registrados não será mais possível.\n\n${CTA}\n\n${ASSINATURA}` };
-  return { para, assunto: `Saldo disponível – ${r.curto} – ${fmt(sd.valor)} a preço registrado`, corpo: `${cab}\n\nInformamos que a ${r.txt} ainda possui saldo disponível para aquisição pelo preço registrado${vencStr ? `, válido até ${vencStr}` : ""}${sd.itens.length ? ":" : "."}\n${bloco}\nSaldo total: ${fmt(sd.valor)}\n\n${CTA}\n\n${ASSINATURA}` };
+  const numAd = semPrefixo(a.numero, /^ades[ãa]o\s*(n[º°.]?\s*)?[-–:]?\s*/i) || "—", numAta = semPrefixo(ata.numero, /^ata\s*(n[º°.]?\s*)?[-–:]?\s*/i);
+  const r = { txt: `adesão nº ${numAd}${numAta ? ` à ATA de Registro de Preços nº ${numAta}` : ""}`, art: "a", curto: `Adesão ${numAd}${numAta ? ` – ATA ${numAta}` : ""}`,
+    intro: numAta ? `A RLUX Iluminação é a fornecedora registrada na ATA de Registro de Preços nº ${numAta}${l?.numero ? ` (${refLicit(l)})` : ""}, à qual este órgão aderiu pela Adesão nº ${numAd}.` : `A RLUX Iluminação é a fornecedora da Adesão nº ${numAd} deste órgão.` };
+  const emails = (o.contatos || []).filter((c) => c.email).map((c) => c.email); if (a.email) emails.unshift(a.email);
+  const forn = itensFornecidosAdesao(a).map((i) => ({ ...i, preco: i.precoUnit })); const sd = adesaoSaldoDetalhado(a);
+  return montarTexto({ origem: "adesao", cab: cabecalho(a.orgaoAderente || o.nome, a.uasgAderente || o.uasg, a.email ? [{ nome: a.contato, email: a.email }] : o.contatos), r, vencStr: a.vencimento ? fmtD(a.vencimento) : null, diasVenc: a.vencimento ? diasAte(a.vencimento) : null,
+    para: [...new Set(emails)].join(";"), fornecidos: forn, totalFornecido: forn.length ? forn.reduce((s, i) => s + i.valorFornecido, 0) : store.get("empenhos").filter((e) => e.adesaoId === a.id).reduce((s, e) => s + (e.valorRecebido || 0), 0),
+    registrados: (a.itens || []).map((i) => ({ ...i, qtd: i.qtdAdesao, preco: i.precoUnit })), comSaldo: sd.itens, saldo: sd.valor }, tipo, ultimos90);
 }
 
 // ---------- cliente de e-mail / área de transferência ----------

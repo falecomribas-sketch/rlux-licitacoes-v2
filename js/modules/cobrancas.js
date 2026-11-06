@@ -130,16 +130,20 @@ async function enviarCobranca(c) {
   if (!c.nf && !await confirmar("Esta cobrança ainda não tem nota fiscal informada. Enviar o e-mail mesmo assim?", { ok: "Enviar" })) return;
   const atr = cobAtraso(c), vencido = (atr || 0) > 0, empNum = x.empNumero || "—", nCob = (c.qtdCobrancas || 0) + 1, ord = nCob > 1 ? ` (${nCob}ª cobrança)` : "";
   const assunto = `Cobrança${ord} - NF ${c.nf || "s/nº"}${vencido ? " VENCIDA" : ""} - Empenho ${empNum}`;
+  const nomeOrg = toTitleCase(x.orgaoNome);
+  const fato = (k, v) => v ? `  ${k}: ${v}` : null;
   const corpo = [
-    `Prezados(as), Setor Financeiro do(a) ${x.orgaoNome},`, ``,
-    `A empresa RLUX ILUMINACAO LTDA (CNPJ ${EMPRESA.cnpj}) vem, respeitosamente, informar sobre a pendência de pagamento referente ao fornecimento abaixo:`, ``,
-    ...(nCob > 1 && c.ultimaCobranca ? [`Reiteramos nossa cobrança anterior, enviada em ${fmtD(c.ultimaCobranca)}. Esta é a ${nCob}ª comunicação referente a este débito.`, ``] : []),
-    `• Nota de Empenho: ${empNum}`, `• Pregão / Processo: ${x.pregao}`, `• UASG: ${x.uasg}`, `• Nota Fiscal nº: ${c.nf || "(a informar)"}`,
-    ...(c.emissao ? [`• Data de emissão da NF: ${fmtD(c.emissao)}`] : []),
-    `• Valor: ${fmt(c.valor)}`, `• Vencimento: ${c.vencimento ? fmtD(c.vencimento) : "—"}`, vencido ? `• Situação: VENCIDO há ${atr} dia(s)` : `• Situação: a vencer`, ``,
-    vencido ? `Considerando que o prazo de pagamento já expirou, solicitamos a gentileza de verificar a regularização do débito com a maior brevidade possível, bem como nos informar a data prevista para quitação.` : `Solicitamos a gentileza de confirmar o processamento e a data prevista para o pagamento.`, ``,
-    `Permanecemos à disposição para quaisquer esclarecimentos.`, ``, `Atenciosamente,`, `RLUX ILUMINACAO LTDA`, `CNPJ: ${EMPRESA.cnpj}`,
-  ].join("\r\n");
+    `${nomeOrg}\nSetor Financeiro`, ``, `Prezados(as),`, ``,
+    `A RLUX Iluminação Ltda. (CNPJ ${EMPRESA.cnpj}) informa a pendência de pagamento referente ao fornecimento abaixo${nCob > 1 && c.ultimaCobranca ? `. Reiteramos a cobrança enviada em ${fmtD(c.ultimaCobranca)} — esta é a ${nCob}ª comunicação sobre este débito.` : "."}`, ``,
+    `DADOS DA COBRANÇA`,
+    fato("Nota de Empenho", empNum), fato("Pregão / Processo", x.pregao !== "—" ? x.pregao : ""), fato("UASG", x.uasg !== "—" ? x.uasg : ""),
+    fato("Nota Fiscal", c.nf ? `nº ${c.nf}${c.emissao ? ` (emitida em ${fmtD(c.emissao)})` : ""}` : "(a informar)"),
+    fato("Valor", fmt(c.valor)), fato("Vencimento", c.vencimento ? fmtD(c.vencimento) : "—"),
+    fato("Situação", vencido ? `VENCIDA há ${atr} dia(s)` : "a vencer"), ``,
+    vencido ? `Como o prazo de pagamento já expirou, solicitamos a gentileza de verificar a regularização do débito com a maior brevidade possível e nos informar a data prevista para quitação.` : `Solicitamos a gentileza de confirmar o processamento e a data prevista para o pagamento.`, ``,
+    `Permanecemos à disposição para quaisquer esclarecimentos.`, ``,
+    `Atenciosamente,`, `${EMPRESA.representante} · RLUX Iluminação Ltda.`, `CNPJ ${EMPRESA.cnpj}`, EMPRESA.tel, `financeiro@rlux.com.br | www.rlux.com.br`,
+  ].filter((l, i, arr) => l !== null && !(l === "" && arr[i - 1] === "")).join("\r\n");
   const inteiro = abrirClienteEmail({ para: emails[0] || "", assunto, corpo }, [...emails.slice(1), "financeiro@rlux.com.br"]);
   await store.setItem("cobrancas", { ...c, ultimaCobranca: hojeIso(), qtdCobrancas: nCob, _atualizado: new Date().toISOString() });
   toast(inteiro ? `E-mail de cobrança aberto${emails[0] ? ` para ${toTitleCase(x.orgaoNome)}` : " (preencha o destinatário)"}.` : "Texto longo: corpo copiado — cole com Ctrl+V no e-mail que abriu.", inteiro ? "ok" : "info", 6000);
