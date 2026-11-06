@@ -24,6 +24,7 @@ import cobrancas from "./modules/cobrancas.js";
 import crm from "./modules/crm.js";
 import reguas from "./modules/reguas.js";
 import relatorios from "./modules/relatorios.js";
+import parametros from "./modules/parametros.js";
 
 // Ordem define a ordem do menu
 registerModule(dashboard);
@@ -43,6 +44,7 @@ registerModule(cobrancas);
 registerModule(crm);
 registerModule(reguas);
 registerModule(relatorios);
+registerModule(parametros);
 registerModule(usuarios);
 
 const elLogin = $("#login");
