@@ -376,3 +376,6 @@ input[type=color] { height: 40px; padding: 3px; cursor: pointer; }
 .tbl-total td { font-weight: 700; background: var(--blue-bg); }
 .mapa-br svg { width: 100%; height: auto; max-width: 520px; display: block; margin: 0 auto; }
 @media (max-width: 720px) { .heat-grid { grid-template-columns: repeat(6, 1fr); } }
+
+.dropzone.over { border-color: var(--navy-2); background: var(--blue-bg); }
+a.btn { text-decoration: none; }

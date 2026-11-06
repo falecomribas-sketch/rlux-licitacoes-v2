@@ -30,6 +30,7 @@ export default {
       <div class="grid grid-4" id="kpis" style="margin-bottom:16px"></div>
       <div class="page-head"><h2>Licitações</h2>
         <div class="actions">
+          <a class="btn btn-ghost" href="#edital">${icon("bulb")} Analisar edital (IA)</a>
           <button class="btn btn-ghost" data-act="excel">${icon("download")} Excel</button>
           ${podeEditar() ? `<button class="btn btn-primary" data-act="novo">${icon("plus")} Nova licitação</button>` : ""}
         </div></div>

@@ -1,0 +1,31 @@
+# Publica as funções de servidor (pasta functions/) no Firebase sempre que elas mudarem.
+# Precisa de dois "secrets" no repositório (Settings → Secrets and variables → Actions):
+#   FIREBASE_SERVICE_ACCOUNT  — JSON da conta de serviço do projeto rlux-licitacoes
+#   ANTHROPIC_API_KEY         — chave da API da Anthropic (vai para o Secret Manager, nunca para o site)
+name: Publicar funções (IA)
+
+# Por enquanto só manual (Actions → "Publicar funções (IA)" → Run workflow), até os secrets existirem.
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Credenciais do Google Cloud
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+      - name: Instalar dependências
+        run: |
+          npm install -g firebase-tools
+          cd functions && npm ci --no-audit --no-fund
+      - name: Guardar a chave da IA no Secret Manager
+        if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        env: { ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}" }
+        run: printf '%s' "$ANTHROPIC_API_KEY" | firebase functions:secrets:set ANTHROPIC_API_KEY --project rlux-licitacoes --data-file - --force
+      - name: Publicar
+        run: firebase deploy --only functions --project rlux-licitacoes --non-interactive --force
