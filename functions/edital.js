@@ -111,3 +111,36 @@ function auditoria(paginas, itens, familias) {
 }
 
 module.exports = { FAMILIAS_PADRAO, NAO_LOCALIZADO, systemPrompt, TOOL, auditoria };
+
+// ---------- Etapa C: correspondência item do edital → produto RLUX (papel do "GPT 2") ----------
+function systemPromptCasar(regras) {
+  const padroes = (regras?.padroes || []).map((p) => `- [${p.familia}] ${p.regra}`).join("\n") || "- (nenhuma regra cadastrada)";
+  const equiv = (regras?.equivalencias || []).map((q) => `- "${q.termoEdital}" = "${q.termoBase}"`).join("\n") || "- (nenhuma)";
+  return `Você é um analista técnico-comercial da RLUX Iluminação Ltda. Para cada item de edital recebido, escolha o produto mais aderente entre os CANDIDATOS fornecidos (já filtrados por família pelo sistema) e explique em uma frase.
+
+FONTE DE VERDADE: apenas a descrição do item no edital e os dados dos candidatos. Nunca invente produto, código, preço ou especificação. Nunca escolha fora da lista de candidatos; se nenhum atende com segurança técnica, devolva produtoId vazio e o motivo.
+
+REGRA GERAL: priorizar correspondência exata. Se houver conflito explícito (tipo, aplicação, base/soquete, tensão, corrente, polos, temperatura de cor, tecnologia, IP, bobina, classe AC-3/AC-4, contato auxiliar, kA exigido acima do produto), o candidato está excluído. Ausência de detalhe secundário pode ser tolerada.
+
+FLEXIBILIDADE CONTROLADA (padrões por família, cadastrados pela RLUX):
+${padroes}
+
+EQUIVALÊNCIAS DE TERMO:
+${equiv}
+
+CONFIANÇA: alta = aderência clara e direta; media = aderência forte com ausência de detalhes secundários ou uso da próxima potência/corrente maior; baixa = múltiplas possibilidades, uso de potência/corrente inferior ou risco técnico.
+JUSTIFICATIVA: uma frase curta e técnica, em português. Quando a quantidade do edital estiver em embalagem diferente da do produto (ex.: edital pede "pacote com 4", produto é blister com 2), aponte em "observacao" e sugira o fator de conversão.
+
+Responda SOMENTE chamando a ferramenta registrar_correspondencia, com uma entrada para CADA item recebido, na mesma ordem.`;
+}
+const TOOL_CASAR = {
+  name: "registrar_correspondencia",
+  description: "Registra, para cada item do edital, o produto RLUX escolhido (ou nenhum).",
+  input_schema: {
+    type: "object", required: ["itens"],
+    properties: { itens: { type: "array", items: { type: "object", required: ["item", "produtoId", "confianca", "justificativa"],
+      properties: { item: { type: "string", description: "número do item como recebido" }, produtoId: { type: "string", description: "id do candidato escolhido, ou vazio" }, confianca: { type: "string", enum: ["alta", "media", "baixa", "nenhuma"] }, justificativa: { type: "string" }, observacao: { type: "string", description: "conversão de embalagem ou ressalva" }, alternativas: { type: "array", items: { type: "string" }, description: "até 2 ids de outros candidatos plausíveis" } } } } },
+  },
+};
+module.exports.systemPromptCasar = systemPromptCasar;
+module.exports.TOOL_CASAR = TOOL_CASAR;

@@ -28,8 +28,9 @@ export const REGRAS_PADRAO = {
     { termoEdital: "tomada industrial", termoBase: "acoplador industrial" },
   ],
 };
-let regras = null, unsubR = null, unsubC = null;
+let regras = null, unsubR = null, unsubC = null; const ouvintesR = new Set();
 export const getRegras = () => regras || REGRAS_PADRAO;
+export function iniciarRegras() { if (unsubR) return; unsubR = store.watchObj("config", "regrasIA", (d) => { regras = d && Array.isArray(d.padroes) ? { padroes: d.padroes, equivalencias: d.equivalencias || [] } : null; ouvintesR.forEach((f) => f()); }); }
 
 export default {
   id: "parametros", titulo: "Parâmetros", grupo: "CRM e análise", icone: "scale",
@@ -84,10 +85,10 @@ export default {
           async onSalvar(form) { const v = lerForm(form); if (!v.termoEdital.trim() || !v.termoBase.trim()) throw new Error("Preencha os dois termos."); r.equivalencias.push({ termoEdital: v.termoEdital.trim(), termoBase: v.termoBase.trim() }); await salvarRegras(r); closeModal(); } }); return; }
       if (b.dataset.act === "rm-padrao") { r.padroes.splice(i, 1); await salvarRegras(r); }
       if (b.dataset.act === "rm-equiv") { r.equivalencias.splice(i, 1); await salvarRegras(r); } });
-    if (!unsubR) unsubR = store.watchObj("config", "regrasIA", (d) => { regras = d && Array.isArray(d.padroes) ? { padroes: d.padroes, equivalencias: d.equivalencias || [] } : null; if (el.querySelector("#padroes")) tabelas(el, getRegras()); });
+    iniciarRegras(); const fR = () => { if (el.querySelector("#padroes")) tabelas(el, getRegras()); }; ouvintesR.add(fR); el._fR = fR;
     unsubC = onCfg(() => { if (document.activeElement?.form?.id !== "f-preco") desenhar(); });
     desenhar();
   },
-  destroy() { unsubC?.(); unsubC = null; },
+  destroy() { unsubC?.(); unsubC = null; ouvintesR.clear(); },
 };
 const lerPreco = (el) => { const f = el.querySelector("#f-preco"); const n = (k) => parseFloat(f.elements[k].value) || 0; return { simples: n("simples"), lucroMin: n("lucroMin"), fretePct: n("fretePct"), freteMin: n("freteMin"), descontoRef: n("descontoRef"), custoValidadeDias: Math.round(n("custoValidadeDias")) || 90 }; };

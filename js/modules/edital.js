@@ -1,7 +1,13 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital } from "../core/ia.js";
+import { analisarEdital, casarItens } from "../core/ia.js";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js";
+import { iniciarPreco, piso, custoVencido, getCfg } from "../core/preco.js";
+import { getRegras, iniciarRegras } from "./parametros.js";
+import { store } from "../core/store.js";
+import { ssel } from "../core/ssel.js";
+import { podeEditar } from "../core/auth.js";
 import { exportarExcel } from "../core/forms.js";
 import { toast, icon, tag, vazio } from "../core/ui.js";
 import { esc, fmt, fmtNum, fmtD } from "../core/utils.js";
@@ -14,6 +20,7 @@ const NAO_LOC = /não localizado/i;
 export default {
   id: "edital", titulo: "Analisar edital (IA)", grupo: "Licitações", icone: "bulb",
   render(el) {
+    iniciarPreco(); iniciarRegras();
     el.innerHTML = `
       <div class="page-head"><h2>Analisar edital (IA)</h2><div class="actions" id="acoes"></div></div>
       <div class="card" id="entrada"><div class="card-body">
@@ -42,6 +49,8 @@ export default {
       if (act === "excel") exportarExcel((ultima.itens || []).map((i) => ({ Item: i.item, Lote: i.lote || "", "Descrição EDITAL": i.descricao, Unidade: i.unidade || "", Quantidade: i.quantidade ?? "", "Preço de Referência": i.precoReferencia ?? "", "ME/EPP": i.exclusivoMeEpp || "", "Marca ref.": i.marcaReferencia || "", Família: i.familia || "", Página: i.pagina ?? "" })), "Itens", "itens_edital");
       if (act === "copiar") copiarTexto(textoResumo(ultima)).then(() => toast("Resumo copiado."));
       if (act === "nova") { ultima = null; arquivos = []; lista(); mostrar(el); }
+      if (act === "casar") casar(el);
+      if (act === "excel-corr") exportarExcel(linhasCorr().map((x) => ({ Item: x.it.item, "Descrição EDITAL": x.it.descricao, Quantidade: x.it.quantidade ?? "", Unidade: x.it.unidade || "", "Preço de Referência": x.it.precoReferencia ?? "", "Nosso Item": x.p ? `${x.p.codigo} — ${x.p.nome}` : "", Custo: x.p?.custo ?? "", Piso: x.p ? +piso(x.p.custo).toFixed(2) : "", CONFIANÇA: x.c?.confianca || "", JUSTIFICATIVA: x.c?.justificativa || "", Observação: x.c?.observacao || "" })), "Correspondência", "cruzamento_rlux");
     };
     el.addEventListener("click", (e) => { const b = e.target.closest("#resultado [data-act], #acoes [data-act]"); if (b) agir(b.dataset.act, b.dataset.id); });
     lista(); mostrar(el);
@@ -77,9 +86,50 @@ function mostrar(el) {
       <div style="text-align:right;max-width:420px">${tag(s.txt, s.cor)}${s.lista.length ? `<ul class="muted" style="font-size:12px;margin:6px 0 0;padding-left:18px;text-align:left">${s.lista.slice(0, 4).map((x) => `<li>${esc(x.length > 90 ? x.slice(0, 87) + "…" : x)}</li>`).join("")}${s.lista.length > 4 ? `<li>+ ${s.lista.length - 4} — veja o alerta completo abaixo</li>` : ""}</ul>` : ""}</div>
     </div>
     ${semTexto.length ? `<div class="card-body" style="padding-top:0"><div class="info-box" style="border-color:var(--amber)"><div><div class="k">PDF lido por imagem — confira as referências</div>${semTexto.map((d) => `${esc(d.nome)}: ${d.semTexto} de ${d.paginas} páginas sem texto`).join(" · ")}</div></div></div>` : ""}</div>
-    <div class="tabs"><button class="tab ${aba === "edital" ? "active" : ""}" data-act="aba" data-id="edital">Resumo do edital</button><button class="tab ${aba === "itens" ? "active" : ""}" data-act="aba" data-id="itens">Itens do portfólio (${(r.itens || []).length})</button></div>
-    ${aba === "edital" ? abaEdital(r, L) : abaItens(r)}
+    <div class="tabs"><button class="tab ${aba === "edital" ? "active" : ""}" data-act="aba" data-id="edital">Resumo do edital</button><button class="tab ${aba === "itens" ? "active" : ""}" data-act="aba" data-id="itens">Itens do portfólio (${(r.itens || []).length})</button><button class="tab ${aba === "corr" ? "active" : ""}" data-act="aba" data-id="corr">Correspondência${r.correspondencia ? ` (${r.correspondencia.filter((c) => c.produtoId).length}/${(r.itens || []).length})` : ""}</button></div>
+    ${aba === "edital" ? abaEdital(r, L) : aba === "itens" ? abaItens(r) : abaCorr(r, el)}
     <p class="muted" style="font-size:11.5px;margin-top:12px">${esc(m.modelo || "")} · ${m.paginas || 0} página(s) · ${fmtNum((m.tokensEntrada || 0) + (m.tokensCache || 0))} tokens lidos · ${fmtNum(m.tokensSaida)} gerados${(r.documentos || []).some((d) => d.modo === "pdf") ? " · <strong>modo PDF (escaneado)</strong>" : ""} · ${m.segundos || 0}s${m.stopReason === "max_tokens" ? " · <strong style=\"color:var(--red)\">resposta truncada — edital muito extenso, divida os PDFs</strong>" : ""} · arquivos: ${esc((r.arquivosNomes || []).join(", "))}</p>`;
+  if (aba === "corr") ligarCorr(el);
+}
+
+// ---------- Etapa C: correspondência ----------
+let casando = false;
+const linhasCorr = () => (ultima?.itens || []).map((it) => { const c = (ultima.correspondencia || []).find((x) => String(x.item) === String(it.item)); const p = c?.produtoId ? store.find("produtos", c.produtoId) : null; return { it, c, p }; });
+async function casar(el) {
+  if (!ultima || casando) return; casando = true; mostrar(el);
+  try {
+    const itens = ultima.itens.map((it) => { const { familia, candidatos } = candidatosPara(it); return { item: it.item, descricao: it.descricao, unidade: it.unidade, quantidade: it.quantidade, marcaReferencia: it.marcaReferencia, familia, candidatos }; });
+    const r = await casarItens(itens, { regras: getRegras(), modelo });
+    ultima.correspondencia = (r.itens || []).map((c) => ({ ...c, item: String(c.item) })); ultima.metaCorr = r.meta; ultima.candidatosEnviados = itens.reduce((s, i) => s + i.candidatos.length, 0);
+    toast("Correspondência concluída.");
+  } catch (e) { toast(e.message, "erro", 8000); }
+  casando = false; mostrar(el);
+}
+function abaCorr(r) {
+  const L = r.resumo || {}; const linhas = linhasCorr(); const tem = !!r.correspondencia;
+  const CONF = { alta: "tag-green", media: "tag-amber", baixa: "tag-orange", nenhuma: "tag-red" };
+  if (!tem) return `<div class="card"><div class="card-body" style="text-align:center;padding:36px"><p class="muted" style="margin:0 0 14px">Para cada item do edital, o sistema separa os produtos da mesma família e a IA escolhe o mais aderente, aplicando as regras de <strong>Parâmetros</strong>. Você confirma ou troca.</p><button class="btn btn-primary" data-act="casar" ${casando || !r.itens?.length ? "disabled" : ""}>${icon("bulb")} ${casando ? "Casando itens…" : `Casar ${r.itens?.length || 0} item(ns) com o cadastro`}</button></div></div>`;
+  const m = r.metaCorr || {};
+  return `
+    <div class="card"><div class="card-head"><h2>Correspondência item → produto RLUX</h2><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" data-act="excel-corr">${icon("download")} Excel</button><button class="btn btn-ghost btn-sm" data-act="casar" ${casando ? "disabled" : ""}>${icon("refresh")} Refazer</button></div></div>
+    <div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Item</th><th style="min-width:260px">Descrição no edital</th><th style="min-width:300px">Nosso produto</th><th>Conf.</th><th class="num">Custo</th><th class="num">Piso</th><th class="num">Ref. edital</th><th>Histórico</th></tr></thead><tbody>
+    ${linhas.map(({ it, c, p }) => { const h = p ? historicoProduto(p.id, L.orgao) : {}; const ref = it.precoReferencia; const ps = p ? piso(p.custo) : null;
+      return `<tr data-item="${esc(it.item)}"><td><strong>${esc(it.item)}</strong>${it.quantidade != null ? `<div class="muted" style="font-size:11px">${fmtNum(it.quantidade)} ${esc(it.unidade || "")}</div>` : ""}</td>
+        <td style="font-size:12.5px">${esc(it.descricao)}</td>
+        <td><div class="corr-ssel" data-item="${esc(it.item)}"></div><div class="muted" style="font-size:11.5px;margin-top:3px">${esc(c?.justificativa || "")}${c?.observacao ? ` <span style="color:var(--amber-txt)">· ${esc(c.observacao)}</span>` : ""}</div></td>
+        <td>${tag(c?.confianca || "nenhuma", CONF[c?.confianca] || "tag-red")}</td>
+        <td class="num">${p ? `${fmt(p.custo)}${custoVencido(p) ? `<div style="font-size:10.5px;color:var(--red)">custo vencido</div>` : ""}` : "—"}</td>
+        <td class="num"><strong>${ps != null ? fmt(ps) : "—"}</strong></td>
+        <td class="num" style="${ref != null && ps != null && ref < ps ? "color:var(--red);font-weight:600" : ""}">${ref != null ? fmt(ref) : "—"}${ref != null && ps != null && ref < ps ? `<div style="font-size:10.5px">abaixo do piso</div>` : ""}</td>
+        <td class="muted" style="font-size:11.5px">${h.orgao ? `Neste órgão: <strong>${fmt(h.orgao.preco)}</strong> (${fmtD(h.orgao.data)})<br>` : ""}${h.geral ? `Último: ${fmt(h.geral.preco)} · ${esc(h.geral.licit || "")}` : (p ? "sem histórico" : "")}</td></tr>`; }).join("")}
+    </tbody></table></div></div></div>
+    <p class="muted" style="font-size:11.5px;margin-top:8px">${esc(m.modelo || "")} · ${fmtNum(m.tokensEntrada)} tokens lidos · ${fmtNum(m.tokensSaida)} gerados · ${m.segundos || 0}s · ${r.candidatosEnviados || 0} candidato(s) enviados · piso = custo ÷ ${(1 - (getCfg().simples + getCfg().fretePct + getCfg().lucroMin) / 100).toFixed(4)}</p>`;
+}
+function ligarCorr(el) {
+  const opcoes = store.get("produtos").map((p) => ({ id: p.id, label: `${p.codigo} — ${p.nome}`, sub: p.descricaoTecnica || "", extra: p.marca })).sort((a, b) => a.label.localeCompare(b.label));
+  el.querySelectorAll(".corr-ssel").forEach((host) => { const item = host.dataset.item; const c = (ultima.correspondencia || []).find((x) => x.item === item);
+    const sel = ssel(host, { placeholder: "Nenhum produto — buscar…", itens: opcoes, value: c?.produtoId || "", disabled: !podeEditar(), onSelect: (id) => { const cc = (ultima.correspondencia ||= []).find((x) => x.item === item); if (cc) { cc.produtoId = id; cc.confianca = id ? "alta" : "nenhuma"; cc.justificativa = id ? "Escolhido manualmente" : "Sem produto"; } else ultima.correspondencia.push({ item, produtoId: id, confianca: "alta", justificativa: "Escolhido manualmente" }); mostrar(el); } });
+    if (!c?.produtoId && c?.alternativas?.length) sel.enable(`Sugestões: ${c.alternativas.map((id) => store.find("produtos", id)?.codigo).filter(Boolean).join(", ")} — buscar…`); });
 }
 
 function abaEdital(r, L) {

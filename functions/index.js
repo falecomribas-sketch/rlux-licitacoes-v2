@@ -103,3 +103,24 @@ async function analisar(req) {
   r.meta = { modelo: resp.model, tokensEntrada: uso.input_tokens || 0, tokensSaida: uso.output_tokens || 0, tokensCache: (uso.cache_read_input_tokens || 0) + (uso.cache_creation_input_tokens || 0), segundos: Math.round((Date.now() - t0) / 1000), paginas: todasPaginas.length, stopReason: resp.stop_reason };
   return r;
 }
+
+// Etapa C — casa itens do edital com produtos do cadastro. O site manda, por item, os candidatos já filtrados.
+const { systemPromptCasar, TOOL_CASAR } = require("./edital.js");
+exports.casarItens = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "512MiB", timeoutSeconds: 300, cors: true, invoker: "public" }, async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Faça login para usar a IA.");
+  const { itens, regras } = req.data || {};
+  if (!Array.isArray(itens) || !itens.length) throw new HttpsError("invalid-argument", "Nenhum item para casar.");
+  if (itens.length > 60) throw new HttpsError("invalid-argument", "No máximo 60 itens por chamada.");
+  const modelo = ["claude-sonnet-5-5", "claude-haiku-5-5"].includes(req.data?.modelo) ? req.data.modelo : MODELO_PADRAO;
+  const texto = itens.map((it, i) => `ITEM ${it.item} (${i + 1}/${itens.length})\nDescrição no edital: ${it.descricao}\nUnidade: ${it.unidade || "—"} · Quantidade: ${it.quantidade ?? "—"}${it.marcaReferencia ? ` · Marca de referência: ${it.marcaReferencia}` : ""}\nCANDIDATOS:\n${(it.candidatos || []).map((c) => `  - id=${c.id} | ${c.nome}${c.descricaoTecnica ? ` | ${c.descricaoTecnica}` : ""}${c.tecnico ? ` | ${c.tecnico}` : ""}${c.unidade ? ` | un: ${c.unidade}` : ""}`).join("\n") || "  (nenhum candidato na família)"}`).join("\n\n");
+  const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() });
+  const t0 = Date.now();
+  let resp;
+  try {
+    resp = await client.messages.create({ model: modelo, max_tokens: 6000, system: systemPromptCasar(regras), tools: [TOOL_CASAR], tool_choice: { type: "auto" }, messages: [{ role: "user", content: texto + "\n\nRegistre a correspondência de todos os itens com a ferramenta registrar_correspondencia." }] });
+  } catch (e) { console.error("Anthropic:", e); throw new HttpsError("internal", `Falha na IA: ${e.status || ""} ${e.message || e}`); }
+  const bloco = (resp.content || []).find((c) => c.type === "tool_use"); let r = bloco?.input;
+  if (!r) { const txt = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"); const m = txt.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; } if (!r) throw new HttpsError("internal", "A IA não devolveu a correspondência estruturada."); }
+  const uso = resp.usage || {};
+  return { itens: r.itens || [], meta: { modelo: resp.model, tokensEntrada: (uso.input_tokens || 0) + (uso.cache_read_input_tokens || 0) + (uso.cache_creation_input_tokens || 0), tokensSaida: uso.output_tokens || 0, segundos: Math.round((Date.now() - t0) / 1000) } };
+});

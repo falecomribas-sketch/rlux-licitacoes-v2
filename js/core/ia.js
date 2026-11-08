@@ -32,3 +32,10 @@ export async function analisarEdital(files, { familias, modelo, onProgresso } = 
     throw new Error(msg.replace(/^FirebaseError:\s*/, ""));
   }
 }
+
+// Etapa C — correspondência. candidatosPorItem: [{ item, descricao, unidade, quantidade, marcaReferencia, candidatos:[{id,nome,descricaoTecnica,tecnico,unidade}] }]
+export async function casarItens(itens, { regras, modelo } = {}) {
+  const fn = httpsCallable(functions, "casarItens", { timeout: 300000 });
+  try { const r = await fn({ itens, regras, modelo }); return r.data; }
+  catch (e) { throw new Error((e?.message || String(e)).replace(/^FirebaseError:\s*/, "")); }
+}
