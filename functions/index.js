@@ -8,7 +8,7 @@ const Anthropic = require("@anthropic-ai/sdk");
 const { PDFParse } = require("pdf-parse");
 const { FAMILIAS_PADRAO, PERGUNTAS, NAO_LOCALIZADO, systemPrompt, TOOL, auditoria } = require("./edital.js");
 
-admin.initializeApp();
+admin.initializeApp({ storageBucket: "rlux-licitacoes.firebasestorage.app" });
 setGlobalOptions({ region: "southamerica-east1", maxInstances: 5 });
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 

@@ -4,8 +4,10 @@
 #   ANTHROPIC_API_KEY         — chave da API da Anthropic (vai para o Secret Manager, nunca para o site)
 name: Publicar funções (IA)
 
-# Por enquanto só manual (Actions → "Publicar funções (IA)" → Run workflow), até os secrets existirem.
 on:
+  push:
+    branches: [main]
+    paths: ["functions/**", "firebase.json", ".firebaserc", ".github/workflows/functions.yml"]
   workflow_dispatch:
 
 jobs:
