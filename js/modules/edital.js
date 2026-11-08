@@ -260,29 +260,43 @@ function novaLicitacao(el) {
   });
 }
 
+
+// Normaliza "093", "93.0", "Item 93", "LOTE 4 (Unitário)" → "93"/"4"
+const numItem = (v) => { const t = String(v ?? "").trim(); const m = t.match(/\d+(?:[.,]\d+)?/); if (!m) return ""; return String(parseFloat(m[0].replace(",", "."))); };
+function acharLinha(ex, cItem, cDesc, it) {
+  const alvo = numItem(it.item);
+  const numLinha = (row) => numItem(row[cItem]) || (cDesc >= 0 && /^(lote|item)\s*\d+/i.test(String(row[cDesc] || "")) ? numItem(row[cDesc]) : "");
+  let ri = ex.rows.findIndex((row, i) => i > 0 && numLinha(row) === alvo);
+  if (ri < 0 && cDesc >= 0) { // tenta pela descrição (início igual)
+    const d = String(it.descricao || "").toUpperCase().replace(/\s+/g, " ").slice(0, 40);
+    if (d.length > 10) ri = ex.rows.findIndex((row, i) => i > 0 && String(row[cDesc] || "").toUpperCase().replace(/\s+/g, " ").startsWith(d));
+  }
+  return ri;
+}
+const itensDaPlanilha = (ex, cItem) => ex.rows.slice(1).map((r) => numItem(r[cItem])).filter(Boolean);
+
 // ---------- Planilha da Effecti: preenche Marca, Modelo e Valor Unitário nos itens casados ----------
 async function preencherEffecti(file) {
   const r = ultima; if (!r) return; const L = r.resumo || {};
   let ex; try { ex = await abrirExcel(file); } catch (e) { return toast("Não consegui ler a planilha.", "erro"); }
   const cab = (ex.rows[0] || []).map((c) => String(c).toLowerCase());
   const col = (re) => cab.findIndex((c) => re.test(c));
-  const cItem = col(/^item/), cMarca = col(/marca/), cModelo = col(/modelo/), cValor = col(/valor unit/), cQtd = col(/quantidade/), cTotal = col(/valor total/);
+  const cItem = col(/^(n[º°.]?\s*)?(do\s+)?item/), cDesc = col(/descri/), cMarca = col(/marca/), cModelo = col(/modelo/), cValor = col(/valor unit/), cQtd = col(/quantidade/), cTotal = col(/valor total/);
   if (cItem < 0 || cValor < 0) return toast("Esta não parece a planilha de importação da Effecti (precisa das colunas Item e Valor Unitário).", "erro", 7000);
   // preço por item: o da proposta criada, senão o preço inicial calculado
   const prop = r.criada ? store.get("propostas").find((p) => p.licitacaoId === r.criada.licId) : null;
   const X = XL(); let preenchidos = 0; const faltam = [];
   linhasCorr().forEach(({ it, p }) => {
     if (!p) { faltam.push(it.item); return; }
-    const alvo = String(it.item).replace(/^0+/, "");
-    const ri = ex.rows.findIndex((row, i) => i > 0 && String(row[cItem] ?? "").replace(/^0+/, "").trim() === alvo);
+    const ri = acharLinha(ex, cItem, cDesc, it);
     if (ri < 0) { faltam.push(it.item); return; }
-    const pi = prop?.itens?.find((x) => String(x.num).replace(/^0+/, "") === alvo); const preco = pi ? pi.preco : precoInicial(it, p, L).preco;
+    const pi = prop?.itens?.find((x) => numItem(x.num) === numItem(it.item)); const preco = pi ? pi.preco : precoInicial(it, p, L).preco;
     const set = (c, v, t = "s") => { if (c < 0) return; const ref = X.utils.encode_cell({ r: ri, c }); ex.ws[ref] = { ...(ex.ws[ref] || {}), t, v, ...(t === "n" ? { z: "#,##0.00" } : {}) }; delete ex.ws[ref].w; };
     const marcaModelo = [p.marca, p.codigo || p.nome].filter(Boolean).join(" ").trim(); set(cMarca, marcaModelo); set(cModelo, marcaModelo); set(cValor, preco, "n");
     if (cTotal >= 0) { const q = +ex.rows[ri][cQtd] || pi?.qtd || it.quantidade || 0; const ref = X.utils.encode_cell({ r: ri, c: cTotal }); const cell = ex.ws[ref] || {}; if (!cell.f) set(cTotal, +(q * preco).toFixed(2), "n"); }
     preenchidos++;
   });
-  if (!preenchidos) return toast("Nenhum item da planilha coincide com os itens casados.", "erro", 6000);
+  if (!preenchidos) return toast(`Nenhum item da planilha coincide com os itens casados. Itens na planilha: ${itensDaPlanilha(ex, cItem).slice(0, 15).join(", ") || "nenhum"} · itens casados: ${linhasCorr().filter((x) => x.p).map((x) => x.it.item).join(", ")}.`, "erro", 12000);
   salvarWorkbook(ex.wb, `proposta_effecti_${(numeroCurto(L.numero) || "edital").replace(/[^\w]+/g, "_")}`);
   toast(`Planilha preenchida: ${preenchidos} item(ns)${faltam.length ? ` · sem produto ou não encontrados: ${faltam.join(", ")}` : ""}. Importe na Effecti.`, "ok", 8000);
 }
@@ -293,14 +307,13 @@ async function preencherDisputa(file) {
   let ex; try { ex = await abrirExcel(file); } catch (e) { return toast("Não consegui ler a planilha.", "erro"); }
   const cab = (ex.rows[0] || []).map((c) => String(c).toLowerCase());
   const col = (re) => cab.findIndex((c) => re.test(c));
-  const cItem = col(/^item/), cLimite = col(/valor limite|lance m[ií]nimo|limite/);
+  const cItem = col(/^(n[º°.]?\s*)?(do\s+)?item/), cDesc = col(/descri/), cLimite = col(/valor limite|lance m[ií]nimo|limite/);
   if (cItem < 0 || cLimite < 0) return toast("Esta não parece a planilha de disputa da Effecti (precisa das colunas Item e Valor limite).", "erro", 7000);
   const casados = linhasCorr().filter((x) => x.p);
   const totalPedido = casados.reduce((a, { it, p }) => a + piso(p.custo) * (+it.quantidade || 0), 0); // estimativa do pedido para ratear o frete mínimo
   const X = XL(); let n = 0; const faltam = [], acima = [];
   casados.forEach(({ it, p }) => {
-    const alvo = String(it.item).replace(/^0+/, "");
-    const ri = ex.rows.findIndex((row, i) => i > 0 && String(row[cItem] ?? "").replace(/^0+/, "").trim() === alvo);
+    const ri = acharLinha(ex, cItem, cDesc, it);
     if (ri < 0) { faltam.push(it.item); return; }
     const lance = +pisoComFreteMin(p.custo, totalPedido).toFixed(2);
     const ref = X.utils.encode_cell({ r: ri, c: cLimite }); const atual = +ex.rows[ri][cLimite] || 0;
@@ -308,7 +321,7 @@ async function preencherDisputa(file) {
     if (atual && lance > atual) acima.push(`${it.item} (piso ${fmt(lance)} > limite ${fmt(atual)})`);
     n++;
   });
-  if (!n) return toast("Nenhum item da planilha coincide com os itens casados.", "erro", 6000);
+  if (!n) return toast(`Nenhum item da planilha coincide com os itens casados. Itens na planilha: ${itensDaPlanilha(ex, cItem).slice(0, 15).join(", ") || "nenhum"} · itens casados: ${casados.map((x) => x.it.item).join(", ")}.`, "erro", 12000);
   salvarWorkbook(ex.wb, `disputa_effecti_${(numeroCurto(L.numero) || "edital").replace(/[^\w]+/g, "_")}`);
   toast(`Lance mínimo preenchido em ${n} item(ns)${faltam.length ? ` · não encontrados na planilha: ${faltam.join(", ")}` : ""}${acima.length ? ` · ATENÇÃO, piso acima do valor atual: ${acima.join("; ")}` : ""}.`, acima.length ? "aviso" : "ok", 10000);
 }
