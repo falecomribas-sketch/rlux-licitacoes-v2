@@ -77,11 +77,11 @@ async function analisar(req) {
   const t0 = Date.now();
   let resp;
   try {
-    resp = await client.messages.create({
+    resp = await client.messages.stream({
       model: modelo, max_tokens: 24000, system: systemPrompt(fams),
       tools: [TOOL], tool_choice: { type: "auto" },
       messages: [{ role: "user", content }],
-    });
+    }).finalMessage();
   } catch (e) {
     console.error("Anthropic:", e);
     throw new HttpsError("internal", `Falha na IA: ${e.status || ""} ${e.message || e}`);
@@ -117,7 +117,7 @@ exports.casarItens = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "512MiB", ti
   const t0 = Date.now();
   let resp;
   try {
-    resp = await client.messages.create({ model: modelo, max_tokens: 6000, system: systemPromptCasar(regras), tools: [TOOL_CASAR], tool_choice: { type: "auto" }, messages: [{ role: "user", content: texto + "\n\nRegistre a correspondência de todos os itens com a ferramenta registrar_correspondencia." }] });
+    resp = await client.messages.stream({ model: modelo, max_tokens: 12000, system: systemPromptCasar(regras), tools: [TOOL_CASAR], tool_choice: { type: "auto" }, messages: [{ role: "user", content: texto + "\n\nRegistre a correspondência de todos os itens com a ferramenta registrar_correspondencia." }] }).finalMessage();
   } catch (e) { console.error("Anthropic:", e); throw new HttpsError("internal", `Falha na IA: ${e.status || ""} ${e.message || e}`); }
   const bloco = (resp.content || []).find((c) => c.type === "tool_use"); let r = bloco?.input;
   if (!r) { const txt = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"); const m = txt.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; } if (!r) throw new HttpsError("internal", "A IA não devolveu a correspondência estruturada."); }
