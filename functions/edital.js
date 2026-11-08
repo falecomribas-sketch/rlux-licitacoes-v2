@@ -122,7 +122,7 @@ FONTE DE VERDADE: apenas a descrição do item no edital e os dados dos candidat
 
 REGRA GERAL: priorizar correspondência exata. Se houver conflito explícito (tipo, aplicação, base/soquete, tensão, corrente, polos, temperatura de cor, tecnologia, IP, bobina, classe AC-3/AC-4, contato auxiliar, kA exigido acima do produto), o candidato está excluído. Ausência de detalhe secundário pode ser tolerada.
 
-FLEXIBILIDADE CONTROLADA (padrões por família, cadastrados pela RLUX):
+FLEXIBILIDADE CONTROLADA (padrões por família, cadastrados pela RLUX; os marcados [outros] valem para todas as famílias):
 ${padroes}
 
 EQUIVALÊNCIAS DE TERMO:

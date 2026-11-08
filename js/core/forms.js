@@ -48,18 +48,40 @@ export function mascaraCnpj(el) {
   el.value = v.slice(0, 18);
 }
 
-// ---------- Excel (SheetJS carregado sob demanda) ----------
+// ---------- Excel (SheetJS carregado sob demanda; a variante xlsx-js-style suporta cores/larguras) ----------
 let xlsxReady = null;
 function carregarXlsx() {
   if (window.XLSX) return Promise.resolve();
   if (xlsxReady) return xlsxReady;
   xlsxReady = new Promise((res, rej) => {
     const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    s.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js";
     s.onload = res; s.onerror = () => rej(new Error("Não foi possível carregar o exportador de Excel."));
     document.head.appendChild(s);
   });
   return xlsxReady;
+}
+
+// Excel formatado (cabeçalho azul, colunas largas, quebra de linha, R$, painel congelado), várias abas.
+// abas: [{ nome, colunas: [{ chave, titulo, largura, moeda? }], rows: [{...}] }]
+export async function exportarExcelFormatado(abas, nome) {
+  try { await carregarXlsx(); } catch (e) { toast(e.message, "erro"); return; }
+  const wb = XLSX.utils.book_new();
+  const cab = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { patternType: "solid", fgColor: { rgb: "1F4E78" } }, alignment: { wrapText: true, vertical: "center" } };
+  const cel = { alignment: { wrapText: true, vertical: "top" } };
+  abas.forEach((a) => {
+    const dados = [a.colunas.map((c) => c.titulo), ...a.rows.map((r) => a.colunas.map((c) => r[c.chave] ?? ""))];
+    const ws = XLSX.utils.aoa_to_sheet(dados);
+    ws["!cols"] = a.colunas.map((c) => ({ wch: c.largura || 14 }));
+    ws["!freeze"] = { xSplit: 0, ySplit: 1 }; ws["!views"] = [{ state: "frozen", ySplit: 1 }];
+    const range = XLSX.utils.decode_range(ws["!ref"]);
+    for (let R = range.s.r; R <= range.e.r; R++) for (let C = range.s.c; C <= range.e.c; C++) {
+      const ref = XLSX.utils.encode_cell({ r: R, c: C }); const cell = ws[ref]; if (!cell) continue;
+      if (R === 0) cell.s = cab; else { cell.s = cel; if (a.colunas[C].moeda && typeof cell.v === "number") cell.z = '"R$" #,##0.00'; }
+    }
+    XLSX.utils.book_append_sheet(wb, ws, a.nome.slice(0, 31));
+  });
+  XLSX.writeFile(wb, `${nome}.xlsx`);
 }
 
 // exportarExcel([{Coluna: valor, ...}], "Aba", "nome_arquivo")

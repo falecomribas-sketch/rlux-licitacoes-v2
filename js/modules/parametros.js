@@ -21,6 +21,8 @@ export const REGRAS_PADRAO = {
     { familia: "barramento", regra: "Priorizar tipo, aplicação, polos/vias, corrente, padrão DIN/pente e compatibilidade dimensional." },
     { familia: "pilhas", regra: "Pilha/bateria sem embalagem definida no edital (ou unidade 'pacote' sem contagem): cotar a MENOR embalagem disponível — unidade avulsa; se não houver, blister com 2. Nunca assumir blister com 4 ou mais sem o edital dizer." },
     { familia: "pilhas", regra: "Pilha sem química informada = alcalina. 'Pilha palito' = AAA; 'pilha pequena' = AA; 'pilha média' = C; 'pilha grande' = D." },
+    { familia: "pilhas", regra: "Bateria selada VRLA/AGM: casar por tensão (V) e capacidade (Ah); terminal T1 = Faston 187 (4,8 mm) e T2 = Faston 250 (6,3 mm). Se o edital aceita 'Faston 187 ou 250', qualquer T1/T2 atende com confiança alta." },
+    { familia: "outros", regra: "Entre candidatos tecnicamente equivalentes para o mesmo item, escolher o de MENOR custo; cite o outro em 'alternativas'." },
   ],
   equivalencias: [
     { termoEdital: "relé fotoelétrico", termoBase: "relé fotocontrolador" },
@@ -30,6 +32,9 @@ export const REGRAS_PADRAO = {
     { termoEdital: "tomada industrial", termoBase: "acoplador industrial" },
     { termoEdital: "pilha palito", termoBase: "pilha alcalina AAA" },
     { termoEdital: "bateria 9V 6LF22", termoBase: "bateria alcalina 9V 6LR61" },
+    { termoEdital: "terminal Faston 250", termoBase: "T2" },
+    { termoEdital: "terminal Faston 187", termoBase: "T1" },
+    { termoEdital: "bateria chumbo-ácida regulada por válvula", termoBase: "bateria selada VRLA-AGM" },
   ],
 };
 let regras = null, unsubR = null, unsubC = null; const ouvintesR = new Set();

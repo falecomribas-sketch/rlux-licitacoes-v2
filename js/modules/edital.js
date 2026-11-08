@@ -8,7 +8,7 @@ import { getRegras, iniciarRegras } from "./parametros.js";
 import { store } from "../core/store.js";
 import { ssel } from "../core/ssel.js";
 import { podeEditar, currentUser } from "../core/auth.js";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, UFS } from "../core/forms.js";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, UFS } from "../core/forms.js";
 import { newId } from "../core/store.js";
 import { navigate } from "../core/router.js";
 import { opcoesOrgaos, TIPOS } from "./licitacoes.js";
@@ -56,7 +56,13 @@ export default {
       if (act === "nova") { ultima = null; arquivos = []; lista(); mostrar(el); }
       if (act === "casar") casar(el);
       if (act === "nova-licitacao") novaLicitacao(el);
-      if (act === "excel-corr") exportarExcel(linhasCorr().map((x) => ({ Item: x.it.item, "Descrição EDITAL": x.it.descricao, Quantidade: x.it.quantidade ?? "", Unidade: x.it.unidade || "", "Preço de Referência": x.it.precoReferencia ?? "", "Nosso Item": x.p ? `${x.p.codigo} — ${x.p.nome}` : "", Custo: x.p?.custo ?? "", Piso: x.p ? +piso(x.p.custo).toFixed(2) : "", CONFIANÇA: x.c?.confianca || "", JUSTIFICATIVA: x.c?.justificativa || "", Observação: x.c?.observacao || "" })), "Correspondência", "cruzamento_rlux");
+      if (act === "excel-corr") { const ls = linhasCorr(); const CONF = { alta: "ALTA", media: "MÉDIA", baixa: "BAIXA", nenhuma: "—" };
+        exportarExcelFormatado([
+          { nome: "ITENS_ENCONTRADOS", colunas: [{ chave: "item", titulo: "ITEM", largura: 7 }, { chave: "desc", titulo: "Descrição EDITAL", largura: 60 }, { chave: "qtd", titulo: "Quantidade", largura: 12 }, { chave: "ref", titulo: "Preço de Referência", largura: 18, moeda: true }, { chave: "nosso", titulo: "Nosso Item", largura: 45 }, { chave: "junto", titulo: "JUNTO", largura: 26 }, { chave: "custo", titulo: "Custo", largura: 12, moeda: true }, { chave: "piso", titulo: "Piso de venda", largura: 14, moeda: true }, { chave: "conf", titulo: "CONFIANÇA", largura: 12 }, { chave: "just", titulo: "JUSTIFICATIVA", largura: 60 }, { chave: "obs", titulo: "Observação", largura: 40 }],
+            rows: ls.filter((x) => x.p).map((x) => ({ item: x.it.item, desc: x.it.descricao, qtd: `${x.it.quantidade ?? ""} ${x.it.unidade || ""}`.trim(), ref: x.it.precoReferencia ?? "", nosso: x.p.nome, junto: `${x.p.marca || ""} / ${x.p.codigo}`, custo: x.p.custo ?? "", piso: +piso(x.p.custo).toFixed(2), conf: CONF[x.c?.confianca] || "", just: x.c?.justificativa || "", obs: x.c?.observacao || "" })) },
+          { nome: "ITENS_NAO_LOCALIZADOS", colunas: [{ chave: "item", titulo: "ITEM", largura: 7 }, { chave: "desc", titulo: "Descrição EDITAL", largura: 60 }, { chave: "qtd", titulo: "Quantidade", largura: 12 }, { chave: "motivo", titulo: "MOTIVO", largura: 50 }],
+            rows: ls.filter((x) => !x.p).map((x) => ({ item: x.it.item, desc: x.it.descricao, qtd: `${x.it.quantidade ?? ""} ${x.it.unidade || ""}`.trim(), motivo: x.c?.justificativa || "Sem candidato na família" })) },
+        ], "RESULTADO_CRUZAMENTO_RLUX"); }
     };
     el.addEventListener("click", (e) => { const b = e.target.closest("#resultado [data-act], #acoes [data-act]"); if (b) agir(b.dataset.act, b.dataset.id); });
     el.querySelector("#historico").addEventListener("click", (e) => { const b = e.target.closest("[data-abrir]"); if (!b) return; const a = store.find("analises", b.dataset.abrir); if (!a) return; ultima = JSON.parse(JSON.stringify(a)); aba = "edital"; mostrar(el); window.scrollTo({ top: 0, behavior: "smooth" }); });
