@@ -26,7 +26,7 @@ export async function analisarEdital(files, { familias, onProgresso } = {}) {
     const r = await fn({ arquivos, familias });
     return { id, arquivos, ...r.data };
   } catch (e) {
-    const msg = e?.message || String(e);
+    const msg = [e?.message, e?.details?.etapa ? `(etapa: ${e.details.etapa})` : ""].filter(Boolean).join(" ") || String(e);
     if (/not-found|NOT_FOUND|404/i.test(msg)) throw new Error("A função de IA ainda não foi publicada no Firebase (Etapa A pendente).");
     if (/unauthenticated/i.test(msg)) throw new Error("Faça login novamente para usar a IA.");
     throw new Error(msg.replace(/^FirebaseError:\s*/, ""));

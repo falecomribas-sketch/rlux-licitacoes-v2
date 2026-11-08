@@ -23,6 +23,11 @@ async function textoPorPagina(buffer) {
 }
 
 exports.analisarEdital = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1GiB", timeoutSeconds: 540, cors: true }, async (req) => {
+  try { return await analisar(req); }
+  catch (e) { if (e instanceof HttpsError) throw e; console.error("analisarEdital:", e); throw new HttpsError("internal", `Erro no servidor: ${e.message || e}`, { etapa: e.etapa || "" }); }
+});
+
+async function analisar(req) {
   if (!req.auth) throw new HttpsError("unauthenticated", "Faça login para analisar editais.");
   const { arquivos, familias, modelo } = req.data || {};
   if (!Array.isArray(arquivos) || !arquivos.length) throw new HttpsError("invalid-argument", "Envie ao menos um PDF.");
@@ -33,7 +38,7 @@ exports.analisarEdital = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1GiB", 
   const docs = [];
   for (const a of arquivos) {
     if (typeof a.path !== "string" || !a.path.startsWith("anexos/editais/")) throw new HttpsError("invalid-argument", "Caminho de arquivo inválido.");
-    const [buf] = await bucket.file(a.path).download();
+    let buf; try { [buf] = await bucket.file(a.path).download(); } catch (e) { e.etapa = "download"; e.message = `não consegui ler ${a.path} do Storage: ${e.message}`; throw e; }
     if (buf.length > MAX_PDF_MB * 1024 * 1024) throw new HttpsError("invalid-argument", `${a.nome || a.path}: acima de ${MAX_PDF_MB} MB.`);
     let paginas = [];
     try { paginas = await textoPorPagina(buf); } catch (e) { console.warn("pdf-parse falhou", a.path, e.message); }
@@ -76,4 +81,4 @@ exports.analisarEdital = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1GiB", 
   r.documentos = semTexto;
   r.meta = { modelo: resp.model, tokensEntrada: uso.input_tokens || 0, tokensSaida: uso.output_tokens || 0, tokensCache: (uso.cache_read_input_tokens || 0) + (uso.cache_creation_input_tokens || 0), segundos: Math.round((Date.now() - t0) / 1000), paginas: todasPaginas.length, stopReason: resp.stop_reason };
   return r;
-});
+}
