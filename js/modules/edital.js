@@ -3,7 +3,7 @@
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
 import { analisarEdital, casarItens } from "../core/ia.js";
 import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js";
-import { iniciarPreco, piso, custoVencido, getCfg } from "../core/preco.js";
+import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js";
 import { getRegras, iniciarRegras } from "./parametros.js";
 import { store } from "../core/store.js";
 import { ssel } from "../core/ssel.js";
@@ -56,6 +56,7 @@ export default {
       if (act === "nova") { ultima = null; arquivos = []; lista(); mostrar(el); }
       if (act === "casar") casar(el);
       if (act === "nova-licitacao") novaLicitacao(el);
+      if (act === "disputa") { const inp = el.querySelector("#disputa-file"); if (inp) { inp.onchange = () => { if (inp.files[0]) preencherDisputa(inp.files[0]); inp.value = ""; }; inp.click(); } }
       if (act === "effecti") { const inp = el.querySelector("#effecti-file"); if (inp) { inp.onchange = () => { if (inp.files[0]) preencherEffecti(inp.files[0]); inp.value = ""; }; inp.click(); } }
       if (act === "excel-corr") { const ls = linhasCorr(); const CONF = { alta: "ALTA", media: "MÉDIA", baixa: "BAIXA", nenhuma: "—" };
         exportarExcelFormatado([
@@ -139,7 +140,7 @@ function abaCorr(r) {
   if (!tem) return `<div class="card"><div class="card-body" style="text-align:center;padding:36px"><p class="muted" style="margin:0 0 14px">Para cada item do edital, o sistema separa os produtos da mesma família e a IA escolhe o mais aderente, aplicando as regras de <strong>Parâmetros</strong>. Você confirma ou troca.</p><button class="btn btn-primary" data-act="casar" ${casando || !r.itens?.length ? "disabled" : ""}>${icon("bulb")} ${casando ? "Casando itens…" : `Casar ${r.itens?.length || 0} item(ns) com o cadastro`}</button></div></div>`;
   const m = r.metaCorr || {};
   return `
-    <div class="card"><div class="card-head"><h2>Correspondência item → produto RLUX</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-act="effecti" title="Sobe a planilha exportada da Effecti e devolve preenchida">${icon("upload")} Preencher planilha da Effecti</button><input type="file" id="effecti-file" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" data-act="excel-corr">${icon("download")} Excel</button><button class="btn btn-ghost btn-sm" data-act="casar" ${casando ? "disabled" : ""}>${icon("refresh")} Refazer</button></div></div>
+    <div class="card"><div class="card-head"><h2>Correspondência item → produto RLUX</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-act="effecti" title="Sobe a planilha exportada da Effecti e devolve preenchida">${icon("upload")} Preencher planilha da Effecti</button><input type="file" id="effecti-file" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" data-act="disputa" title="Sobe a planilha de disputa da Effecti e devolve com o Valor limite = lance mínimo (piso)">${icon("upload")} Preencher lance mínimo (disputa)</button><input type="file" id="disputa-file" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" data-act="excel-corr">${icon("download")} Excel</button><button class="btn btn-ghost btn-sm" data-act="casar" ${casando ? "disabled" : ""}>${icon("refresh")} Refazer</button></div></div>
     <div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Item</th><th style="min-width:260px">Descrição no edital</th><th style="min-width:300px">Nosso produto</th><th>Conf.</th><th class="num">Custo</th><th class="num">Piso</th><th class="num">Ref. edital</th><th>Histórico</th></tr></thead><tbody>
     ${linhas.map(({ it, c, p }) => { const h = p ? historicoProduto(p.id, L.orgao) : {}; const ref = it.precoReferencia; const ps = p ? piso(p.custo) : null;
       return `<tr data-item="${esc(it.item)}"><td><strong>${esc(it.item)}</strong>${it.quantidade != null ? `<div class="muted" style="font-size:11px">${fmtNum(it.quantidade)} ${esc(it.unidade || "")}</div>` : ""}</td>
@@ -281,4 +282,30 @@ async function preencherEffecti(file) {
   if (!preenchidos) return toast("Nenhum item da planilha coincide com os itens casados.", "erro", 6000);
   salvarWorkbook(ex.wb, `proposta_effecti_${(numeroCurto(L.numero) || "edital").replace(/[^\w]+/g, "_")}`);
   toast(`Planilha preenchida: ${preenchidos} item(ns)${faltam.length ? ` · sem produto ou não encontrados: ${faltam.join(", ")}` : ""}. Importe na Effecti.`, "ok", 8000);
+}
+
+// ---------- Planilha de disputa da Effecti: Valor limite = lance mínimo (piso com frete mínimo) ----------
+async function preencherDisputa(file) {
+  const r = ultima; if (!r) return; const L = r.resumo || {};
+  let ex; try { ex = await abrirExcel(file); } catch (e) { return toast("Não consegui ler a planilha.", "erro"); }
+  const cab = (ex.rows[0] || []).map((c) => String(c).toLowerCase());
+  const col = (re) => cab.findIndex((c) => re.test(c));
+  const cItem = col(/^item/), cLimite = col(/valor limite|lance m[ií]nimo|limite/);
+  if (cItem < 0 || cLimite < 0) return toast("Esta não parece a planilha de disputa da Effecti (precisa das colunas Item e Valor limite).", "erro", 7000);
+  const casados = linhasCorr().filter((x) => x.p);
+  const totalPedido = casados.reduce((a, { it, p }) => a + piso(p.custo) * (+it.quantidade || 0), 0); // estimativa do pedido para ratear o frete mínimo
+  const X = XL(); let n = 0; const faltam = [], acima = [];
+  casados.forEach(({ it, p }) => {
+    const alvo = String(it.item).replace(/^0+/, "");
+    const ri = ex.rows.findIndex((row, i) => i > 0 && String(row[cItem] ?? "").replace(/^0+/, "").trim() === alvo);
+    if (ri < 0) { faltam.push(it.item); return; }
+    const lance = +pisoComFreteMin(p.custo, totalPedido).toFixed(2);
+    const ref = X.utils.encode_cell({ r: ri, c: cLimite }); const atual = +ex.rows[ri][cLimite] || 0;
+    ex.ws[ref] = { ...(ex.ws[ref] || {}), t: "n", v: lance, z: "#,##0.00" }; delete ex.ws[ref].w;
+    if (atual && lance > atual) acima.push(`${it.item} (piso ${fmt(lance)} > limite ${fmt(atual)})`);
+    n++;
+  });
+  if (!n) return toast("Nenhum item da planilha coincide com os itens casados.", "erro", 6000);
+  salvarWorkbook(ex.wb, `disputa_effecti_${(numeroCurto(L.numero) || "edital").replace(/[^\w]+/g, "_")}`);
+  toast(`Lance mínimo preenchido em ${n} item(ns)${faltam.length ? ` · não encontrados na planilha: ${faltam.join(", ")}` : ""}${acima.length ? ` · ATENÇÃO, piso acima do valor atual: ${acima.join("; ")}` : ""}.`, acima.length ? "aviso" : "ok", 10000);
 }
