@@ -8,7 +8,7 @@ import { getRegras, iniciarRegras } from "./parametros.js";
 import { store } from "../core/store.js";
 import { ssel } from "../core/ssel.js";
 import { podeEditar, currentUser } from "../core/auth.js";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, UFS } from "../core/forms.js";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js";
 import { newId } from "../core/store.js";
 import { navigate } from "../core/router.js";
 import { opcoesOrgaos, TIPOS } from "./licitacoes.js";
@@ -56,6 +56,7 @@ export default {
       if (act === "nova") { ultima = null; arquivos = []; lista(); mostrar(el); }
       if (act === "casar") casar(el);
       if (act === "nova-licitacao") novaLicitacao(el);
+      if (act === "effecti") { const inp = el.querySelector("#effecti-file"); if (inp) { inp.onchange = () => { if (inp.files[0]) preencherEffecti(inp.files[0]); inp.value = ""; }; inp.click(); } }
       if (act === "excel-corr") { const ls = linhasCorr(); const CONF = { alta: "ALTA", media: "MÉDIA", baixa: "BAIXA", nenhuma: "—" };
         exportarExcelFormatado([
           { nome: "ITENS_ENCONTRADOS", colunas: [{ chave: "item", titulo: "ITEM", largura: 7 }, { chave: "desc", titulo: "Descrição EDITAL", largura: 60 }, { chave: "qtd", titulo: "Quantidade", largura: 12 }, { chave: "ref", titulo: "Preço de Referência", largura: 18, moeda: true }, { chave: "nosso", titulo: "Nosso Item", largura: 45 }, { chave: "junto", titulo: "JUNTO", largura: 26 }, { chave: "custo", titulo: "Custo", largura: 12, moeda: true }, { chave: "piso", titulo: "Piso de venda", largura: 14, moeda: true }, { chave: "conf", titulo: "CONFIANÇA", largura: 12 }, { chave: "just", titulo: "JUSTIFICATIVA", largura: 60 }, { chave: "obs", titulo: "Observação", largura: 40 }],
@@ -138,7 +139,7 @@ function abaCorr(r) {
   if (!tem) return `<div class="card"><div class="card-body" style="text-align:center;padding:36px"><p class="muted" style="margin:0 0 14px">Para cada item do edital, o sistema separa os produtos da mesma família e a IA escolhe o mais aderente, aplicando as regras de <strong>Parâmetros</strong>. Você confirma ou troca.</p><button class="btn btn-primary" data-act="casar" ${casando || !r.itens?.length ? "disabled" : ""}>${icon("bulb")} ${casando ? "Casando itens…" : `Casar ${r.itens?.length || 0} item(ns) com o cadastro`}</button></div></div>`;
   const m = r.metaCorr || {};
   return `
-    <div class="card"><div class="card-head"><h2>Correspondência item → produto RLUX</h2><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" data-act="excel-corr">${icon("download")} Excel</button><button class="btn btn-ghost btn-sm" data-act="casar" ${casando ? "disabled" : ""}>${icon("refresh")} Refazer</button></div></div>
+    <div class="card"><div class="card-head"><h2>Correspondência item → produto RLUX</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-act="effecti" title="Sobe a planilha exportada da Effecti e devolve preenchida">${icon("upload")} Preencher planilha da Effecti</button><input type="file" id="effecti-file" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" data-act="excel-corr">${icon("download")} Excel</button><button class="btn btn-ghost btn-sm" data-act="casar" ${casando ? "disabled" : ""}>${icon("refresh")} Refazer</button></div></div>
     <div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Item</th><th style="min-width:260px">Descrição no edital</th><th style="min-width:300px">Nosso produto</th><th>Conf.</th><th class="num">Custo</th><th class="num">Piso</th><th class="num">Ref. edital</th><th>Histórico</th></tr></thead><tbody>
     ${linhas.map(({ it, c, p }) => { const h = p ? historicoProduto(p.id, L.orgao) : {}; const ref = it.precoReferencia; const ps = p ? piso(p.custo) : null;
       return `<tr data-item="${esc(it.item)}"><td><strong>${esc(it.item)}</strong>${it.quantidade != null ? `<div class="muted" style="font-size:11px">${fmtNum(it.quantidade)} ${esc(it.unidade || "")}</div>` : ""}</td>
@@ -253,4 +254,31 @@ function novaLicitacao(el) {
       toast(`Licitação ${v.numero.trim()} e proposta #${num} criadas (rascunho IA).`, "ok", 6000);
     },
   });
+}
+
+// ---------- Planilha da Effecti: preenche Marca, Modelo e Valor Unitário nos itens casados ----------
+async function preencherEffecti(file) {
+  const r = ultima; if (!r) return; const L = r.resumo || {};
+  let ex; try { ex = await abrirExcel(file); } catch (e) { return toast("Não consegui ler a planilha.", "erro"); }
+  const cab = (ex.rows[0] || []).map((c) => String(c).toLowerCase());
+  const col = (re) => cab.findIndex((c) => re.test(c));
+  const cItem = col(/^item/), cMarca = col(/marca/), cModelo = col(/modelo/), cValor = col(/valor unit/), cQtd = col(/quantidade/), cTotal = col(/valor total/);
+  if (cItem < 0 || cValor < 0) return toast("Esta não parece a planilha de importação da Effecti (precisa das colunas Item e Valor Unitário).", "erro", 7000);
+  // preço por item: o da proposta criada, senão o preço inicial calculado
+  const prop = r.criada ? store.get("propostas").find((p) => p.licitacaoId === r.criada.licId) : null;
+  const X = XL(); let preenchidos = 0; const faltam = [];
+  linhasCorr().forEach(({ it, p }) => {
+    if (!p) { faltam.push(it.item); return; }
+    const alvo = String(it.item).replace(/^0+/, "");
+    const ri = ex.rows.findIndex((row, i) => i > 0 && String(row[cItem] ?? "").replace(/^0+/, "").trim() === alvo);
+    if (ri < 0) { faltam.push(it.item); return; }
+    const pi = prop?.itens?.find((x) => String(x.num).replace(/^0+/, "") === alvo); const preco = pi ? pi.preco : precoInicial(it, p, L).preco;
+    const set = (c, v, t = "s") => { if (c < 0) return; const ref = X.utils.encode_cell({ r: ri, c }); ex.ws[ref] = { ...(ex.ws[ref] || {}), t, v, ...(t === "n" ? { z: "#,##0.00" } : {}) }; delete ex.ws[ref].w; };
+    set(cMarca, p.marca || ""); set(cModelo, p.nome || p.codigo || ""); set(cValor, preco, "n");
+    if (cTotal >= 0) { const q = +ex.rows[ri][cQtd] || pi?.qtd || it.quantidade || 0; const ref = X.utils.encode_cell({ r: ri, c: cTotal }); const cell = ex.ws[ref] || {}; if (!cell.f) set(cTotal, +(q * preco).toFixed(2), "n"); }
+    preenchidos++;
+  });
+  if (!preenchidos) return toast("Nenhum item da planilha coincide com os itens casados.", "erro", 6000);
+  salvarWorkbook(ex.wb, `proposta_effecti_${(numeroCurto(L.numero) || "edital").replace(/[^\w]+/g, "_")}`);
+  toast(`Planilha preenchida: ${preenchidos} item(ns)${faltam.length ? ` · sem produto ou não encontrados: ${faltam.join(", ")}` : ""}. Importe na Effecti.`, "ok", 8000);
 }

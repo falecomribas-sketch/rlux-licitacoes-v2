@@ -102,3 +102,13 @@ export async function lerExcel(file) {
   const wb = XLSX.read(buf, { type: "array" });
   return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
 }
+
+// Lê um .xlsx preservando o workbook (para devolver preenchido). Retorna { wb, ws, rows(aoa) }
+export async function abrirExcel(file) {
+  await carregarXlsx();
+  const wb = XLSX.read(await file.arrayBuffer(), { type: "array", cellFormula: true, cellStyles: true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  return { wb, ws, rows: XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) };
+}
+export function salvarWorkbook(wb, nome) { XLSX.writeFile(wb, `${nome}.xlsx`); }
+export const XL = () => window.XLSX;
