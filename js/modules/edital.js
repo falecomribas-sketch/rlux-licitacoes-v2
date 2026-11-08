@@ -8,8 +8,12 @@ import { getRegras, iniciarRegras } from "./parametros.js";
 import { store } from "../core/store.js";
 import { ssel } from "../core/ssel.js";
 import { podeEditar } from "../core/auth.js";
-import { exportarExcel } from "../core/forms.js";
-import { toast, icon, tag, vazio } from "../core/ui.js";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, UFS } from "../core/forms.js";
+import { newId } from "../core/store.js";
+import { navigate } from "../core/router.js";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js";
+import { toTitleCase } from "../core/utils.js";
+import { toast, icon, tag, vazio, closeModal } from "../core/ui.js";
 import { esc, fmt, fmtNum, fmtD } from "../core/utils.js";
 import { copiarTexto } from "../core/regua.js";
 
@@ -50,6 +54,7 @@ export default {
       if (act === "copiar") copiarTexto(textoResumo(ultima)).then(() => toast("Resumo copiado."));
       if (act === "nova") { ultima = null; arquivos = []; lista(); mostrar(el); }
       if (act === "casar") casar(el);
+      if (act === "nova-licitacao") novaLicitacao(el);
       if (act === "excel-corr") exportarExcel(linhasCorr().map((x) => ({ Item: x.it.item, "Descrição EDITAL": x.it.descricao, Quantidade: x.it.quantidade ?? "", Unidade: x.it.unidade || "", "Preço de Referência": x.it.precoReferencia ?? "", "Nosso Item": x.p ? `${x.p.codigo} — ${x.p.nome}` : "", Custo: x.p?.custo ?? "", Piso: x.p ? +piso(x.p.custo).toFixed(2) : "", CONFIANÇA: x.c?.confianca || "", JUSTIFICATIVA: x.c?.justificativa || "", Observação: x.c?.observacao || "" })), "Correspondência", "cruzamento_rlux");
     };
     el.addEventListener("click", (e) => { const b = e.target.closest("#resultado [data-act], #acoes [data-act]"); if (b) agir(b.dataset.act, b.dataset.id); });
@@ -78,7 +83,7 @@ function mostrar(el) {
   const box = el.querySelector("#resultado"), acoes = el.querySelector("#acoes"); if (!box) return;
   if (!ultima) { box.innerHTML = ""; acoes.innerHTML = ""; return; }
   const r = ultima, L = r.resumo || {}, s = semaforo(r), m = r.meta || {};
-  acoes.innerHTML = `<button class="btn btn-ghost" data-act="copiar">${icon("file")} Copiar resumo</button><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel dos itens</button><button class="btn btn-ghost" data-act="nova">${icon("plus")} Nova análise</button>`;
+  acoes.innerHTML = `<button class="btn btn-ghost" data-act="copiar">${icon("file")} Copiar resumo</button><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel dos itens</button><button class="btn btn-ghost" data-act="nova">${icon("plus")} Nova análise</button>${r.correspondencia && podeEditar() && !r.criada ? `<button class="btn btn-primary" data-act="nova-licitacao">${icon("plus")} Nova licitação</button>` : ""}${r.criada ? `<a class="btn btn-primary" href="#propostas">${icon("doc")} Ver proposta #${r.criada.num}</a>` : ""}`;
   const semTexto = (r.documentos || []).filter((d) => d.semTexto > 0);
   box.innerHTML = `
     <div class="card" style="margin-bottom:16px"><div class="card-body" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
@@ -123,6 +128,7 @@ function abaCorr(r) {
         <td class="num" style="${ref != null && ps != null && ref < ps ? "color:var(--red);font-weight:600" : ""}">${ref != null ? fmt(ref) : "—"}${ref != null && ps != null && ref < ps ? `<div style="font-size:10.5px">abaixo do piso</div>` : ""}</td>
         <td class="muted" style="font-size:11.5px">${h.orgao ? `Neste órgão: <strong>${fmt(h.orgao.preco)}</strong> (${fmtD(h.orgao.data)})<br>` : ""}${h.geral ? `Último: ${fmt(h.geral.preco)} · ${esc(h.geral.licit || "")}` : (p ? "sem histórico" : "")}</td></tr>`; }).join("")}
     </tbody></table></div></div></div>
+    ${podeEditar() && !r.criada ? `<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-primary" data-act="nova-licitacao">${icon("plus")} Nova licitação — criar licitação e proposta com estes itens</button></div>` : r.criada ? `<div class="info-box" style="margin-top:12px"><div><div class="k">Criado</div>Licitação ${esc(r.criada.numero)} e proposta #${r.criada.num} (rascunho gerado por IA). <a href="#propostas">Abrir Propostas</a></div></div>` : ""}
     <p class="muted" style="font-size:11.5px;margin-top:8px">${esc(m.modelo || "")} · ${fmtNum(m.tokensEntrada)} tokens lidos · ${fmtNum(m.tokensSaida)} gerados · ${m.segundos || 0}s · ${r.candidatosEnviados || 0} candidato(s) enviados · piso = custo ÷ ${(1 - (getCfg().simples + getCfg().fretePct + getCfg().lucroMin) / 100).toFixed(4)}</p>`;
 }
 function ligarCorr(el) {
@@ -170,4 +176,59 @@ function textoResumo(r) {
     (r.documentacaoEspecial || []).length ? "DOCUMENTAÇÃO ESPECIAL:\n" + r.documentacaoEspecial.map((d) => `- ${d.documento} (${d.fase}${d.clausula ? ", " + d.clausula : ""}${d.pagina ? ", pág. " + d.pagina : ""})`).join("\n") : "",
     (r.itens || []).length ? `\nITENS (${r.itens.length}):\n` + r.itens.map((i) => `${i.item} | ${i.descricao} | ${i.quantidade ?? ""} ${i.unidade || ""} | ${i.precoReferencia != null ? fmt(i.precoReferencia) : ""}`).join("\n") : "",
   ].filter((x) => x !== null).join("\n");
+}
+
+// ---------- Etapa D: "Nova licitação" — cria órgão (se preciso), licitação e proposta-rascunho ----------
+const normTxt = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+function acharOrgao(L) {
+  const orgs = store.get("orgaos"); const uasg = String(L.uasg || "").replace(/\D/g, "");
+  if (uasg && !NAO_LOC.test(L.uasg || "")) { const o = orgs.find((x) => String(x.uasg || "").replace(/\D/g, "") === uasg); if (o) return o; }
+  const n = normTxt(L.orgao); if (!n) return null;
+  return orgs.find((x) => normTxt(x.nome) === n) || orgs.find((x) => { const m = normTxt(x.nome); return m.length > 12 && (n.includes(m) || m.includes(n)) && (!L.estado || !x.estado || x.estado === L.estado); }) || null;
+}
+function precoInicial(it, p, L) {
+  const cfg = getCfg(); const ps = p ? piso(p.custo) : 0;
+  if (it.precoReferencia != null && it.precoReferencia > 0) return { preco: +(it.precoReferencia * (1 - (cfg.descontoRef || 0) / 100)).toFixed(2), origem: "referência do edital", abaixoPiso: it.precoReferencia < ps };
+  const h = p ? historicoProduto(p.id, L.orgao) : {};
+  if (h.orgao?.preco) return { preco: +Math.max(h.orgao.preco, ps).toFixed(2), origem: "último preço neste órgão", abaixoPiso: h.orgao.preco < ps };
+  if (h.geral?.preco) return { preco: +Math.max(h.geral.preco, ps).toFixed(2), origem: "último preço praticado", abaixoPiso: h.geral.preco < ps };
+  return { preco: +(ps * 1.15).toFixed(2), origem: "piso + 15% (sem referência nem histórico)", abaixoPiso: false };
+}
+function novaLicitacao(el) {
+  const r = ultima; if (!r) return; const L = r.resumo || {}; const linhas = linhasCorr().filter((x) => x.p);
+  if (!linhas.length) return toast("Nenhum item com produto escolhido. Casar os itens primeiro.", "erro");
+  const orgaoEx = acharOrgao(L); const portais = store.get("portais");
+  const portalIni = portais.find((pt) => normTxt(L.portal || "").includes(normTxt(pt.sigla)) || (pt.nome && normTxt(L.portal || "").includes(normTxt(pt.nome))))?.id || "";
+  const tipoIni = TIPOS.find((t) => normTxt(t) === normTxt(modalidadeCurta(L.modalidade))) || TIPOS[0];
+  const precos = linhas.map(({ it, p }) => precoInicial(it, p, L));
+  let orgSel;
+  formModal({
+    titulo: "Nova licitação a partir da análise", largura: "xl", salvarTexto: "Criar licitação e proposta",
+    corpo: `
+      <div class="form-section">Órgão</div>
+      ${orgaoEx ? `<div class="info-box"><div><div class="k">Órgão já cadastrado</div><strong>${esc(toTitleCase(orgaoEx.nome))}</strong>${orgaoEx.uasg ? " · UASG " + esc(orgaoEx.uasg) : ""}${orgaoEx.municipio ? " · " + esc(orgaoEx.municipio) + "/" + esc(orgaoEx.estado || "") : ""}</div></div><input type="hidden" name="orgaoId" value="${esc(orgaoEx.id)}">`
+        : `<div class="info-box" style="border-color:var(--amber)"><div><div class="k">Órgão não encontrado no cadastro</div>Será criado com os dados abaixo — ou escolha um existente.</div></div>
+           ${linha(`<div class="field"><span>Usar órgão existente (opcional)</span><div id="org-ssel"></div></div>`)}
+           ${linha(campo("Nome do órgão", inputTxt("orgaoNome", L.orgao || "")), campo("UASG", inputTxt("orgaoUasg", NAO_LOC.test(L.uasg || "") ? "" : L.uasg || "")), campo("Município", inputTxt("orgaoMunicipio", L.municipio || "")), campo("UF", select("orgaoEstado", [["", "—"], ...UFS.map((u) => [u, u])], L.estado || "")))}`}
+      <div class="form-section">Licitação</div>
+      ${linha(campo("Tipo", select("tipo", TIPOS, tipoIni)), campo("Número", inputTxt("numero", numeroCurto(L.numero) || "", "required")), campo("Data da sessão", inputData("data", L.dataSessao || "")), campo("Portal", select("portalId", [["", "—"], ...portais.map((pt) => [pt.id, pt.sigla])], portalIni)))}
+      <div class="form-section">Proposta inicial — ${linhas.length} item(ns) <span class="muted" style="font-weight:400">preço = referência do órgão; sem referência, histórico; sem histórico, piso + 15%. Ajuste aqui ou depois em Propostas.</span></div>
+      <div class="table-wrap"><table><thead><tr><th>Item</th><th>Produto</th><th class="num">Qtd</th><th class="num">Custo</th><th class="num">Piso</th><th style="width:130px">Preço</th><th>Origem do preço</th></tr></thead><tbody>
+        ${linhas.map(({ it, p, c }, i) => `<tr data-i="${i}"><td><strong>${esc(it.item)}</strong><div class="muted" style="font-size:11px;max-width:220px">${esc(it.descricao.slice(0, 70))}</div></td><td>${esc(p.codigo)} — ${esc(p.nome)}${c?.observacao ? `<div style="font-size:11px;color:var(--amber-txt)">${esc(c.observacao)}</div>` : ""}</td><td class="num"><input type="number" class="input input-sm" name="qtd_${i}" value="${it.quantidade ?? 1}" step="any" style="width:90px"></td><td class="num">${fmt(p.custo)}</td><td class="num">${fmt(piso(p.custo))}</td><td><input type="number" class="input input-sm" name="preco_${i}" value="${precos[i].preco}" step="0.01" style="width:120px"></td><td class="muted" style="font-size:11.5px">${esc(precos[i].origem)}${precos[i].abaixoPiso ? ` <span style="color:var(--red)">· abaixo do piso</span>` : ""}</td></tr>`).join("")}
+      </tbody></table></div>
+      <p class="muted" style="font-size:12px;margin-top:8px">A proposta nasce com status "Em Andamento" e marcada como gerada por IA. Nada muda em registros existentes.</p>`,
+    onAberto(form) { const host = form.querySelector("#org-ssel"); if (host) orgSel = ssel(host, { placeholder: "Buscar órgão cadastrado…", itens: opcoesOrgaos(), value: "", onSelect: () => {} }); },
+    async onSalvar(form) {
+      const v = lerForm(form); if (!v.numero.trim()) throw new Error("Informe o número da licitação.");
+      let orgaoId = v.orgaoId || orgSel?.value || "";
+      if (!orgaoId) { if (!v.orgaoNome?.trim()) throw new Error("Informe o nome do órgão ou escolha um existente."); orgaoId = newId(); await store.setItem("orgaos", { id: orgaoId, nome: v.orgaoNome.trim(), uasg: (v.orgaoUasg || "").trim(), municipio: (v.orgaoMunicipio || "").trim(), estado: v.orgaoEstado || "", cnpj: "", contatos: [], origemIA: true }); }
+      const licId = newId();
+      await store.setItem("licitacoes", { id: licId, numero: v.numero.trim(), tipo: v.tipo, data: v.data || "", portalId: v.portalId || "", orgaoId, obs: `Criada pela análise de edital (IA). Validade: ${L.validadeProposta || "—"}. Entrega: ${L.entrega || "—"}${L.multiplosEnderecos ? " (múltiplos endereços)" : ""}. Amostra: ${L.exigeAmostra || "—"}. Garantia: ${L.garantiaContratual || "—"}.`, origemIA: true, analiseIA: { resumo: L, documentacaoEspecial: r.documentacaoEspecial || [], observacoes: r.observacoes || [], meta: r.meta || null, arquivos: r.arquivos || [] } });
+      const itens = linhas.map(({ it, p }, i) => { const qtd = +v[`qtd_${i}`] || 0, preco = +v[`preco_${i}`] || 0; return { num: it.item, produtoId: p.id, nome: p.nome, codigo: p.codigo, marca: p.marca || "", qtd, custo: p.custo || 0, preco, total: +(qtd * preco).toFixed(2), descricaoEdital: it.descricao, unidadeEdital: it.unidade || "", precoReferencia: it.precoReferencia ?? null }; });
+      const num = Math.max(0, ...store.get("propostas").map((x) => +x.num || 0)) + 1;
+      await store.setItem("propostas", { id: newId(), num, licitacaoId: licId, status: "Em Andamento", itens, criadoEm: new Date().toISOString(), origemIA: true });
+      ultima.criada = { num, numero: v.numero.trim(), licId }; closeModal(); mostrar(el);
+      toast(`Licitação ${v.numero.trim()} e proposta #${num} criadas (rascunho IA).`, "ok", 6000);
+    },
+  });
 }

@@ -62,7 +62,7 @@ export default {
       columns: [
         { key: "data", label: "Data lic.", width: "95px", sort: (p) => getLicit(p.licitacaoId).data || "", render: (p) => fmtD(getLicit(p.licitacaoId).data) },
         { key: "numero", label: "Pregão / Nº", sort: (p) => getLicit(p.licitacaoId).numero || "", render: (p) => { const l = getLicit(p.licitacaoId);
-          return `<strong>${esc(l.numero || "?")}</strong>${isEspelho(p) ? ` ${tag(`${p.geracao || 2}ª vig.`, "tag-purple")}` : ""}<div class="muted" style="font-size:11px">${esc(l.tipo || "")} · #${p.num || "?"}</div>`; } },
+          return `<strong>${esc(l.numero || "?")}</strong>${isEspelho(p) ? ` ${tag(`${p.geracao || 2}ª vig.`, "tag-purple")}` : ""}${p.origemIA ? ` ${tag("IA", "tag-teal")}` : ""}<div class="muted" style="font-size:11px">${esc(l.tipo || "")} · #${p.num || "?"}</div>`; } },
         { key: "uasg", label: "UASG", width: "85px", sort: (p) => getOrgao(getLicit(p.licitacaoId).orgaoId).uasg || "", render: (p) => { const u = getOrgao(getLicit(p.licitacaoId).orgaoId).uasg; return u ? tag(u, "tag-purple") : "—"; } },
         { key: "orgao", label: "Órgão", sort: (p) => getOrgao(getLicit(p.licitacaoId).orgaoId).nome || "", render: (p) => esc(toTitleCase(getOrgao(getLicit(p.licitacaoId).orgaoId).nome || "—")) },
         { key: "itens", label: "Itens", num: true, sort: (p) => (p.itens || []).length, render: (p) => String((p.itens || []).length) },

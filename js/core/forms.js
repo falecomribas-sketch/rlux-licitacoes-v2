@@ -17,7 +17,7 @@ export function formModal({ titulo, corpo, largura = "md", salvarTexto = "Salvar
     const btn = m.querySelector("#mf-salvar");
     btn.disabled = true;
     try { await onSalvar(form, m); }
-    catch (err) { toast(err.message || "Não foi possível salvar.", "erro"); btn.disabled = false; return; }
+    catch (err) { console.error("formModal:", err); toast(err.message || "Não foi possível salvar.", "erro"); btn.disabled = false; return; }
     btn.disabled = false;
   });
   onAberto?.(form, m);

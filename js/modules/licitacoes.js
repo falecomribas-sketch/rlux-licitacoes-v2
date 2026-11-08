@@ -62,7 +62,7 @@ export default {
       columns: [
         { key: "data", label: "Data", width: "100px", render: (l) => fmtD(l.data) },
         { key: "uasg", label: "UASG", width: "90px", sort: (l) => getOrgao(l.orgaoId).uasg || "", render: (l) => { const u = getOrgao(l.orgaoId).uasg; return u ? tag(u, "tag-purple") : '<span class="muted">—</span>'; } },
-        { key: "numero", label: "Número", render: (l) => `<strong>${esc(l.numero)}</strong>` },
+        { key: "numero", label: "Número", render: (l) => `<strong>${esc(l.numero)}</strong>${l.origemIA ? ` ${tag("IA", "tag-teal")}` : ""}` },
         { key: "orgao", label: "Órgão", sort: (l) => getOrgao(l.orgaoId).nome || "", render: (l) => esc(toTitleCase(getOrgao(l.orgaoId).nome || "—")) },
         { key: "tipo", label: "Tipo", render: (l) => tag(l.tipo || "—", "tag-blue") },
         { key: "portal", label: "Portal", sort: (l) => getPortal(l.portalId).sigla || "", render: (l) => tag(getPortal(l.portalId).sigla || "—", "tag-gray") },
