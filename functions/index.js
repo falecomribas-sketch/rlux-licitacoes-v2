@@ -61,7 +61,7 @@ async function analisar(req) {
   try {
     resp = await client.messages.create({
       model: modelo || MODELO_PADRAO, max_tokens: 16000, system: systemPrompt(fams),
-      tools: [TOOL], tool_choice: { type: "tool", name: TOOL.name },
+      tools: [TOOL], tool_choice: { type: "auto" },
       messages: [{ role: "user", content }],
     });
   } catch (e) {
@@ -70,8 +70,12 @@ async function analisar(req) {
   }
   const uso = resp.usage || {};
   const bloco = (resp.content || []).find((c) => c.type === "tool_use");
-  if (!bloco) throw new HttpsError("internal", "A IA não devolveu a análise estruturada.");
-  const r = bloco.input;
+  let r = bloco?.input;
+  if (!r) { // modelo respondeu em texto: tenta extrair o JSON
+    const txt = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+    const m = txt.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; }
+    if (!r) throw new HttpsError("internal", "A IA não devolveu a análise estruturada. Início da resposta: " + txt.slice(0, 300));
+  }
 
   // Garante as 8 perguntas na ordem, mesmo que a IA pule alguma
   const respondidas = Array.isArray(r.perguntas) ? r.perguntas : [];
