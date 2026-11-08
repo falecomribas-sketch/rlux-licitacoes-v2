@@ -13,7 +13,7 @@ import { newId } from "../core/store.js";
 import { navigate } from "../core/router.js";
 import { opcoesOrgaos, TIPOS } from "./licitacoes.js";
 import { toTitleCase } from "../core/utils.js";
-import { toast, icon, tag, vazio, closeModal } from "../core/ui.js";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js";
 import { esc, fmt, fmtNum, fmtD } from "../core/utils.js";
 import { copiarTexto } from "../core/regua.js";
 
@@ -67,7 +67,10 @@ export default {
         ], "RESULTADO_CRUZAMENTO_RLUX"); }
     };
     el.addEventListener("click", (e) => { const b = e.target.closest("#resultado [data-act], #acoes [data-act]"); if (b) agir(b.dataset.act, b.dataset.id); });
-    el.querySelector("#historico").addEventListener("click", (e) => { const b = e.target.closest("[data-abrir]"); if (!b) return; const a = store.find("analises", b.dataset.abrir); if (!a) return; ultima = JSON.parse(JSON.stringify(a)); aba = "edital"; mostrar(el); window.scrollTo({ top: 0, behavior: "smooth" }); });
+    el.querySelector("#historico").addEventListener("click", async (e) => {
+      const x = e.target.closest("[data-excluir]");
+      if (x) { const a = store.find("analises", x.dataset.excluir); if (!a) return; if (!await confirmar(`Excluir a análise de ${modalidadeCurta(a.resumo?.modalidade)} ${numeroCurto(a.resumo?.numero) || ""}?${a.criada ? " A licitação e a proposta criadas a partir dela continuam existindo." : ""}`, { ok: "Excluir", perigo: true })) return; await store.remove("analises", a.id); if (ultima?.id === a.id) { ultima = null; mostrar(el); } toast("Análise excluída."); return; }
+      const b = e.target.closest("[data-abrir]"); if (!b) return; const a = store.find("analises", b.dataset.abrir); if (!a) return; ultima = JSON.parse(JSON.stringify(a)); aba = "edital"; mostrar(el); window.scrollTo({ top: 0, behavior: "smooth" }); });
     const hist = () => historico(el); hist(); unsubH = store.on("analises", hist);
     lista(); mostrar(el);
   },
@@ -120,7 +123,7 @@ function historico(el) {
   const lst = store.get("analises").slice().sort((a, b) => (b.criadoEm || "").localeCompare(a.criadoEm || "")).slice(0, 40);
   box.innerHTML = `<div class="card-head"><h2>Análises recentes</h2><span class="muted" style="font-size:12px">${lst.length} de ${store.get("analises").length}</span></div>` + (lst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Licitação</th><th>Órgão</th><th class="num">Itens</th><th>Correspondência</th><th>Situação</th><th></th></tr></thead><tbody>
     ${lst.map((a) => { const L = a.resumo || {}; const n = (a.itens || []).length, c = (a.correspondencia || []).filter((x) => x.produtoId).length;
-      return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtD((a.criadoEm || "").slice(0, 10))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong>${L.dataSessao ? `<div class="muted" style="font-size:11px">sessão ${fmtD(L.dataSessao)}</div>` : ""}</td><td>${esc((L.orgao || "—").slice(0, 50))}<div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${a.criada ? tag(`Proposta #${a.criada.num}`, "tag-teal") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button></td></tr>`; }).join("")}
+      return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtD((a.criadoEm || "").slice(0, 10))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong>${L.dataSessao ? `<div class="muted" style="font-size:11px">sessão ${fmtD(L.dataSessao)}</div>` : ""}</td><td>${esc((L.orgao || "—").slice(0, 50))}<div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${a.criada ? tag(`Proposta #${a.criada.num}`, "tag-teal") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button> <button class="btn btn-ghost btn-sm btn-icon" data-excluir="${esc(a.id)}" title="Excluir análise">${icon("trash")}</button></td></tr>`; }).join("")}
   </tbody></table></div></div>` : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">As análises feitas a partir de agora ficam guardadas aqui.</p></div>`);
 }
 const linhasCorr = () => (ultima?.itens || []).map((it) => { const c = (ultima.correspondencia || []).find((x) => String(x.item) === String(it.item)); const p = c?.produtoId ? store.find("produtos", c.produtoId) : null; return { it, c, p }; });
