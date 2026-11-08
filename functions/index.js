@@ -22,7 +22,7 @@ async function textoPorPagina(buffer) {
   finally { await parser.destroy().catch(() => {}); }
 }
 
-exports.analisarEdital = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1GiB", timeoutSeconds: 540, cors: true }, async (req) => {
+exports.analisarEdital = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1GiB", timeoutSeconds: 540, cors: true, invoker: "public" }, async (req) => {
   try { return await analisar(req); }
   catch (e) { if (e instanceof HttpsError) throw e; console.error("analisarEdital:", e); throw new HttpsError("internal", `Erro no servidor: ${e.message || e}`, { etapa: e.etapa || "" }); }
 });
