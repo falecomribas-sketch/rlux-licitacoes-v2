@@ -1,5 +1,5 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
-// Aba Edital: dados da licitação, as 8 perguntas com base, documentação especial, observações.
+// Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
 import { analisarEdital } from "../core/ia.js";
 import { exportarExcel } from "../core/forms.js";
@@ -7,8 +7,8 @@ import { toast, icon, tag, vazio } from "../core/ui.js";
 import { esc, fmt, fmtNum, fmtD } from "../core/utils.js";
 import { copiarTexto } from "../core/regua.js";
 
-let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-sonnet-5-5";
-const MODELOS = [["claude-sonnet-5-5", "Sonnet — preciso"], ["claude-haiku-5-5", "Haiku — econômico (~3× mais barato)"]];
+let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
+const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
 const NAO_LOC = /não localizado/i;
 
 export default {
@@ -52,16 +52,14 @@ export default {
 // Tira modalidade repetida e o processo do número ("Pregão Eletrônico nº 009/2026 (Processo nº 15…)" → "009/2026")
 const numeroCurto = (n) => { let t = String(n || "").replace(/\(.*?\)/g, "").replace(/[-–—]\s*processo.*$/i, ""); t = t.replace(/^(preg[ãa]o\s*(eletr[ôo]nico|presencial)?|dispensa\s*(eletr[ôo]nica)?|concorr[êe]ncia|credenciamento|tomada de pre[çc]os)\s*/i, "").replace(/^n[º°.]?\s*/i, "").trim(); return t; };
 const modalidadeCurta = (m) => { const t = String(m || ""); if (/preg[ãa]o/i.test(t)) return "Pregão Eletrônico"; if (/dispensa/i.test(t)) return "Dispensa Eletrônica"; if (/concorr/i.test(t)) return "Concorrência"; if (/credenc/i.test(t)) return "Credenciamento"; return t.split(/[(,–-]/)[0].trim() || "Licitação"; };
+const sim = (t) => /^\s*sim/i.test(t || "") && !NAO_LOC.test(t || "");
 function semaforo(r) {
-  const perg = (n) => (r.perguntas?.[n]?.resposta || "");
-  const sim = (t) => /^\s*sim|exig|obrigat/i.test(t) && !NAO_LOC.test(t);
-  const vermelho = []; const amarelo = [];
-  if (sim(perg(5))) vermelho.push("Exige amostra");
-  if (sim(perg(4))) vermelho.push("Exclusividade regional");
-  (r.documentacaoEspecial || []).forEach((d) => (/inabilita|elimina|desclassif/i.test(d.risco || "") ? vermelho : amarelo).push(d.documento));
-  if (sim(perg(2))) amarelo.push("Garantia contratual");
-  if (sim(perg(6))) amarelo.push("Logística reversa");
-  if (!(r.itens || []).length) vermelho.push("Nenhum item do portfólio encontrado");
+  const R = r.resumo || {}; const vermelho = [], amarelo = [];
+  if (sim(R.exigeAmostra)) vermelho.push("Exige amostra");
+  if (!(r.itens || []).length) vermelho.push("Nenhum item do portfólio");
+  if (R.multiplosEnderecos) amarelo.push("Múltiplos endereços de entrega");
+  if (sim(R.garantiaContratual)) amarelo.push("Garantia contratual");
+  (r.documentacaoEspecial || []).forEach((d) => amarelo.push(d.documento));
   if (vermelho.length) return { cor: "tag-red", txt: "Atenção antes de participar", lista: vermelho.concat(amarelo) };
   if (amarelo.length) return { cor: "tag-amber", txt: "Participar com cuidado", lista: amarelo };
   return { cor: "tag-green", txt: "Sem exigências incomuns", lista: [] };
@@ -70,30 +68,37 @@ function semaforo(r) {
 function mostrar(el) {
   const box = el.querySelector("#resultado"), acoes = el.querySelector("#acoes"); if (!box) return;
   if (!ultima) { box.innerHTML = ""; acoes.innerHTML = ""; return; }
-  const r = ultima, L = r.licitacao || {}, s = semaforo(r), m = r.meta || {};
+  const r = ultima, L = r.resumo || {}, s = semaforo(r), m = r.meta || {};
   acoes.innerHTML = `<button class="btn btn-ghost" data-act="copiar">${icon("file")} Copiar resumo</button><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel dos itens</button><button class="btn btn-ghost" data-act="nova">${icon("plus")} Nova análise</button>`;
   const semTexto = (r.documentos || []).filter((d) => d.semTexto > 0);
-  const campo = (k, v) => v && !NAO_LOC.test(v) ? `<div><div class="k">${k}</div>${esc(String(v))}</div>` : "";
   box.innerHTML = `
     <div class="card" style="margin-bottom:16px"><div class="card-body" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
-      <div style="flex:1;min-width:260px"><div style="font-size:16px;font-weight:600">${esc(modalidadeCurta(L.modalidade))}${numeroCurto(L.numero) ? " nº " + esc(numeroCurto(L.numero)) : ""}</div><div class="muted">${esc(L.orgao || "")}${L.uasg && !NAO_LOC.test(L.uasg) ? " · UASG " + esc(L.uasg) : ""}${L.estado ? " · " + esc(L.estado) : ""}${L.dataSessao ? " · sessão " + fmtD(L.dataSessao) + (L.horaSessao ? " " + esc(L.horaSessao) : "") : ""}</div></div>
+      <div style="flex:1;min-width:260px"><div style="font-size:16px;font-weight:600">${esc(modalidadeCurta(L.modalidade))}${numeroCurto(L.numero) ? " nº " + esc(numeroCurto(L.numero)) : ""}</div><div class="muted">${esc(L.orgao || "")}${L.uasg && !NAO_LOC.test(L.uasg) ? " · UASG " + esc(L.uasg) : ""}${L.municipio ? " · " + esc(L.municipio) + (L.estado ? "/" + esc(L.estado) : "") : L.estado ? " · " + esc(L.estado) : ""}${L.dataSessao ? " · sessão " + fmtD(L.dataSessao) + (L.horaSessao ? " " + esc(L.horaSessao) : "") : ""}</div></div>
       <div style="text-align:right;max-width:420px">${tag(s.txt, s.cor)}${s.lista.length ? `<ul class="muted" style="font-size:12px;margin:6px 0 0;padding-left:18px;text-align:left">${s.lista.slice(0, 4).map((x) => `<li>${esc(x.length > 90 ? x.slice(0, 87) + "…" : x)}</li>`).join("")}${s.lista.length > 4 ? `<li>+ ${s.lista.length - 4} — veja o alerta completo abaixo</li>` : ""}</ul>` : ""}</div>
     </div>
     ${semTexto.length ? `<div class="card-body" style="padding-top:0"><div class="info-box" style="border-color:var(--amber)"><div><div class="k">PDF lido por imagem — confira as referências</div>${semTexto.map((d) => `${esc(d.nome)}: ${d.semTexto} de ${d.paginas} páginas sem texto`).join(" · ")}</div></div></div>` : ""}</div>
-    <div class="tabs"><button class="tab ${aba === "edital" ? "active" : ""}" data-act="aba" data-id="edital">Edital</button><button class="tab ${aba === "itens" ? "active" : ""}" data-act="aba" data-id="itens">Itens do portfólio (${(r.itens || []).length})</button></div>
-    ${aba === "edital" ? abaEdital(r, L, campo) : abaItens(r)}
+    <div class="tabs"><button class="tab ${aba === "edital" ? "active" : ""}" data-act="aba" data-id="edital">Resumo do edital</button><button class="tab ${aba === "itens" ? "active" : ""}" data-act="aba" data-id="itens">Itens do portfólio (${(r.itens || []).length})</button></div>
+    ${aba === "edital" ? abaEdital(r, L) : abaItens(r)}
     <p class="muted" style="font-size:11.5px;margin-top:12px">${esc(m.modelo || "")} · ${m.paginas || 0} página(s) · ${fmtNum((m.tokensEntrada || 0) + (m.tokensCache || 0))} tokens lidos · ${fmtNum(m.tokensSaida)} gerados${(r.documentos || []).some((d) => d.modo === "pdf") ? " · <strong>modo PDF (escaneado)</strong>" : ""} · ${m.segundos || 0}s${m.stopReason === "max_tokens" ? " · <strong style=\"color:var(--red)\">resposta truncada — edital muito extenso, divida os PDFs</strong>" : ""} · arquivos: ${esc((r.arquivosNomes || []).join(", "))}</p>`;
 }
 
-function abaEdital(r, L, campo) {
-  const dados = [["Objeto", L.objeto], ["Portal", L.portal], ["Valor estimado", L.valorEstimado], ["Registro de preços", L.srp === true ? "Sim" + (L.vigenciaAta ? " · ATA " + L.vigenciaAta : "") : L.srp === false ? "Não" : ""], ["Adesão (carona)", L.permiteAdesao], ["Modo de disputa", L.modoDisputa], ["Intervalo de lances", L.intervaloLances], ["Validade da proposta", L.validadeProposta], ["Prazo de entrega", L.prazoEntrega], ["Local de entrega", L.localEntrega], ["Pagamento", L.prazoPagamento], ["Docs após a disputa", L.prazoDocsPosDisputa], ["ME/EPP", L.meEpp], ["Marca/modelo na proposta", L.exigeMarcaModelo], ["Garantia do produto", L.garantiaProduto], ["Aceita similar", L.aceitaSimilar], ["Catálogo / Inmetro", L.exigeCatalogoInmetro]];
+function abaEdital(r, L) {
+  const linha = (k, v, base) => `<tr><td style="width:220px"><strong>${k}</strong></td><td style="${NAO_LOC.test(v || "") ? "color:var(--muted)" : ""}">${esc(v || "—")}</td><td class="muted" style="font-size:12px;width:240px">${esc(base || "")}</td></tr>`;
+  const entrega = `${L.entrega || "—"}${L.multiplosEnderecos ? " — múltiplos endereços" : ""}${L.entregaDetalhe ? ` (${L.entregaDetalhe})` : ""}`;
+  const extras = [L.criterioJulgamento ? `Julgamento: ${L.criterioJulgamento}` : "", L.srp === true ? "Registro de preços" : L.srp === false ? "Não é registro de preços" : "", L.valorEstimado ? `Valor estimado: ${L.valorEstimado}` : ""].filter(Boolean);
   return `
-    <div class="card" style="margin-bottom:16px"><div class="card-head"><h2>Dados e condições</h2></div><div class="card-body"><div class="info-box">${dados.map(([k, v]) => campo(k, v)).join("") || `<div class="muted">Sem dados extraídos</div>`}</div></div></div>
-    <div class="card" style="margin-bottom:16px"><div class="card-head"><h2>As 8 perguntas</h2></div><div class="card-body flush"><div class="table-wrap"><table><thead><tr><th style="width:220px">Pergunta</th><th>Resposta objetiva</th><th style="width:260px">Base no edital</th></tr></thead><tbody>
-      ${(r.perguntas || []).map((p) => `<tr><td><strong>${esc(p.pergunta)}</strong></td><td style="${NAO_LOC.test(p.resposta) ? "color:var(--muted)" : ""}">${esc(p.resposta)}</td><td class="muted" style="font-size:12px">${esc(p.base || "")}${p.pagina ? ` · pág. ${p.pagina}` : ""}</td></tr>`).join("")}</tbody></table></div></div></div>
-    ${(r.documentacaoEspecial || []).length ? `<div class="card" style="margin-bottom:16px;border-left:3px solid var(--red)"><div class="card-head"><h2>Alerta de documentação especial</h2></div><div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Documento</th><th>Fase</th><th>Cláusula</th><th>Risco</th></tr></thead><tbody>
-      ${r.documentacaoEspecial.map((d) => `<tr><td><strong>${esc(d.documento)}</strong></td><td>${esc(d.fase || "")}</td><td class="muted" style="font-size:12px">${esc(d.clausula || "")}${d.pagina ? ` · pág. ${d.pagina}` : ""}</td><td>${esc(d.risco || "")}</td></tr>`).join("")}</tbody></table></div></div></div>` : ""}
-    ${(r.observacoes || []).length ? `<div class="card"><div class="card-head"><h2>Observações relevantes</h2></div><div class="card-body"><ul style="margin:0;padding-left:18px;font-size:13.5px">${r.observacoes.map((o) => `<li>${esc(o)}</li>`).join("")}</ul></div></div>` : ""}`;
+    <div class="card" style="margin-bottom:16px"><div class="card-head"><h2>Resumo</h2>${extras.length ? `<span class="muted" style="font-size:12.5px">${esc(extras.join(" · "))}</span>` : ""}</div><div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Campo</th><th>Resposta</th><th>Base no edital</th></tr></thead><tbody>
+      ${linha("Órgão", `${L.orgao || "—"}${L.uasg && !NAO_LOC.test(L.uasg) ? ` (UASG ${L.uasg})` : ""}`)}
+      ${linha("Nº do pregão / dispensa", `${modalidadeCurta(L.modalidade)} ${numeroCurto(L.numero) || ""}`)}
+      ${linha("Município / UF", [L.municipio, L.estado].filter(Boolean).join(" / "))}
+      ${linha("Validade da proposta", L.validadeProposta, L.validadeBase)}
+      ${linha("Exige amostra", L.exigeAmostra, L.amostraBase)}
+      ${linha("Endereço de entrega", entrega, L.entregaBase)}
+      ${linha("Garantia contratual", L.garantiaContratual, L.garantiaBase)}
+    </tbody></table></div></div></div>
+    ${(r.documentacaoEspecial || []).length ? `<div class="card" style="margin-bottom:16px;border-left:3px solid var(--red)"><div class="card-head"><h2>Documentação especial (risco de inabilitação)</h2></div><div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Documento</th><th style="width:140px">Fase</th><th style="width:220px">Cláusula</th></tr></thead><tbody>
+      ${r.documentacaoEspecial.map((d) => `<tr><td><strong>${esc(d.documento)}</strong></td><td>${esc(d.fase || "")}</td><td class="muted" style="font-size:12px">${esc(d.clausula || "")}${d.pagina ? ` · pág. ${d.pagina}` : ""}</td></tr>`).join("")}</tbody></table></div></div></div>` : ""}
+    ${(r.observacoes || []).length ? `<div class="card"><div class="card-head"><h2>Observações</h2></div><div class="card-body"><ul style="margin:0;padding-left:18px;font-size:13.5px">${r.observacoes.map((o) => `<li>${esc(o)}</li>`).join("")}</ul></div></div>` : ""}`;
 }
 
 function abaItens(r) {
@@ -108,10 +113,11 @@ function abaItens(r) {
 }
 
 function textoResumo(r) {
-  const L = r.licitacao || {};
-  return [`${L.modalidade || "Licitação"} ${L.numero || ""} — ${L.orgao || ""}${L.uasg ? " (UASG " + L.uasg + ")" : ""}`, L.dataSessao ? `Sessão: ${fmtD(L.dataSessao)} ${L.horaSessao || ""}` : "", "",
-    ...(r.perguntas || []).map((p) => `${p.pergunta}: ${p.resposta}${p.base ? ` [${p.base}${p.pagina ? ", pág. " + p.pagina : ""}]` : ""}`), "",
-    (r.documentacaoEspecial || []).length ? "DOCUMENTAÇÃO ESPECIAL:\n" + r.documentacaoEspecial.map((d) => `- ${d.documento} (${d.fase}${d.clausula ? ", " + d.clausula : ""})${d.risco ? " — " + d.risco : ""}`).join("\n") : "",
+  const L = r.resumo || {};
+  return [`${L.orgao || ""}${L.uasg && !NAO_LOC.test(L.uasg) ? " (UASG " + L.uasg + ")" : ""}`, `${modalidadeCurta(L.modalidade)} nº ${numeroCurto(L.numero) || "—"} — ${[L.municipio, L.estado].filter(Boolean).join("/")}`, L.dataSessao ? `Sessão: ${fmtD(L.dataSessao)} ${L.horaSessao || ""}` : "", "",
+    `Validade da proposta: ${L.validadeProposta || "—"}${L.validadeBase ? ` [${L.validadeBase}]` : ""}`, `Exige amostra: ${L.exigeAmostra || "—"}${L.amostraBase ? ` [${L.amostraBase}]` : ""}`,
+    `Entrega: ${L.entrega || "—"}${L.multiplosEnderecos ? " — múltiplos endereços" : ""}${L.entregaDetalhe ? ` (${L.entregaDetalhe})` : ""}${L.entregaBase ? ` [${L.entregaBase}]` : ""}`, `Garantia contratual: ${L.garantiaContratual || "—"}${L.garantiaBase ? ` [${L.garantiaBase}]` : ""}`, "",
+    (r.documentacaoEspecial || []).length ? "DOCUMENTAÇÃO ESPECIAL:\n" + r.documentacaoEspecial.map((d) => `- ${d.documento} (${d.fase}${d.clausula ? ", " + d.clausula : ""}${d.pagina ? ", pág. " + d.pagina : ""})`).join("\n") : "",
     (r.itens || []).length ? `\nITENS (${r.itens.length}):\n` + r.itens.map((i) => `${i.item} | ${i.descricao} | ${i.quantidade ?? ""} ${i.unidade || ""} | ${i.precoReferencia != null ? fmt(i.precoReferencia) : ""}`).join("\n") : "",
   ].filter((x) => x !== null).join("\n");
 }

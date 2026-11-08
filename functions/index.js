@@ -6,13 +6,13 @@ const { setGlobalOptions } = require("firebase-functions/v2");
 const admin = require("firebase-admin");
 const Anthropic = require("@anthropic-ai/sdk");
 const { PDFParse } = require("pdf-parse");
-const { FAMILIAS_PADRAO, PERGUNTAS, NAO_LOCALIZADO, systemPrompt, TOOL, auditoria } = require("./edital.js");
+const { FAMILIAS_PADRAO, NAO_LOCALIZADO, systemPrompt, TOOL, auditoria } = require("./edital.js");
 
 admin.initializeApp({ storageBucket: "rlux-licitacoes.firebasestorage.app" });
 setGlobalOptions({ region: "southamerica-east1", maxInstances: 5 });
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
-const MODELO_PADRAO = "claude-sonnet-5-5";
+const MODELO_PADRAO = "claude-haiku-5-5";
 const MAX_PDF_MB = 30;
 
 // Texto por página (modo econômico: a IA recebe texto, não o PDF). Páginas sem texto (escaneadas)
@@ -78,7 +78,7 @@ async function analisar(req) {
   let resp;
   try {
     resp = await client.messages.create({
-      model: modelo, max_tokens: 16000, system: systemPrompt(fams),
+      model: modelo, max_tokens: 8000, system: systemPrompt(fams),
       tools: [TOOL], tool_choice: { type: "auto" },
       messages: [{ role: "user", content }],
     });
@@ -95,9 +95,8 @@ async function analisar(req) {
     if (!r) throw new HttpsError("internal", "A IA não devolveu a análise estruturada. Início da resposta: " + txt.slice(0, 300));
   }
 
-  // Garante as 8 perguntas na ordem, mesmo que a IA pule alguma
-  const respondidas = Array.isArray(r.perguntas) ? r.perguntas : [];
-  r.perguntas = PERGUNTAS.map((p) => respondidas.find((x) => (x.pergunta || "").toLowerCase().startsWith(p.toLowerCase().slice(0, 12))) || { pergunta: p, resposta: NAO_LOCALIZADO, base: "" });
+  r.resumo = r.resumo || {};
+  ["validadeProposta", "exigeAmostra", "entrega", "garantiaContratual"].forEach((k) => { if (!r.resumo[k]) r.resumo[k] = NAO_LOCALIZADO; });
   r.itens = (r.itens || []).map((i) => ({ ...i, item: String(i.item ?? "") }));
   r.auditoria = auditoria(todasPaginas, r.itens, fams);
   r.documentos = semTexto;

@@ -16,17 +16,6 @@ const FAMILIAS_PADRAO = [
   { nome: "Barramentos", termos: ["barramento", "barramentos", "pente", "barra de neutro", "barra de terra", "trilho DIN", "protetor de barramento", "conector de barramento"] },
 ];
 
-const PERGUNTAS = [
-  "Estado",
-  "Critério de julgamento",
-  "Garantia contratual",
-  "Validade mínima da proposta",
-  "Exclusividade regional",
-  "Exigência de amostra",
-  "Exigência de logística reversa",
-  "Documentação especial exigida",
-];
-
 const NAO_LOCALIZADO = "Não localizado de forma expressa no edital/anexos disponibilizados.";
 
 function systemPrompt(familias) {
@@ -38,12 +27,18 @@ Você recebe o(s) PDF(s) do edital e seus anexos (termo de referência, minuta d
 REGRA PRINCIPAL — NUNCA INVENTAR
 Nunca presuma, infira ou complete lacunas. Toda resposta precisa de base expressa no texto. Quando a informação não estiver expressa, use exatamente: "${NAO_LOCALIZADO}". Não use prática de mercado nem conhecimento externo. Em caso de conflito entre documentos, aponte a divergência em "observacoes". Informe cláusula/item e página sempre que possível.
 
-PARTE 1 — DADOS DA LICITAÇÃO
-Extraia os dados de identificação e as condições que afetam a decisão de participar e o preço: órgão, UASG, UF, número do processo/pregão, modalidade, portal/sistema, data e hora da sessão, objeto resumido, valor estimado (ou "sigiloso"), se é registro de preços (SRP), vigência da ATA, se permite adesão/carona e o limite, modo de disputa (aberto, aberto e fechado, fechado), intervalo mínimo de lances, prazo de validade da proposta, prazo e local de entrega, prazo de pagamento, prazo para envio de proposta readequada/documentos após a disputa, benefícios ME/EPP (itens exclusivos, cota reservada, empate ficto), se exige marca/modelo na proposta, garantia mínima do produto, se aceita produto similar/equivalente, se exige catálogo/ficha técnica/Inmetro.
+PARTE 1 — RESUMO DO EDITAL (responder sempre, cada campo com cláusula/item e página)
+1) Órgão (nome completo) e UASG se houver
+2) Modalidade e número do pregão/dispensa (número exatamente como no edital, sem repetir a modalidade)
+3) Município/UF do órgão
+4) Validade mínima da proposta
+5) Exige amostra? (sim/não + condição)
+6) Entrega: cidade/UF do local de entrega; se houver vários locais (unidades, escolas, secretarias, endereços distintos), marque multiplosEnderecos = true e resuma em uma frase
+7) Exige garantia contratual? (sim/não + percentual)
+Também, de forma curta: data e hora da sessão, se é registro de preços (SRP), valor estimado (ou "sigiloso") e critério de julgamento (menor preço por item, por lote, global).
 
-PARTE 2 — AS 8 PERGUNTAS OBRIGATÓRIAS (responder sempre, nesta ordem)
-${PERGUNTAS.map((p, i) => `${i + 1}) ${p}`).join("\n")}
-Para "Critério de julgamento" responda: menor preço por item, por lote, global ou outro (qual). Para "Documentação especial exigida" verifique qualquer documento não convencional na habilitação, proposta ou execução: declaração específica adicional, autorização/carta do fabricante, catálogo técnico obrigatório, ficha técnica, certificado INMETRO, ISO/ABNT/NBR, laudos laboratoriais, licença ambiental, logística reversa, CAT/ART/CREA/CRT, visita técnica, amostra como condição de habilitação, documentos dos sócios, declaração LGPD, assistência técnica local, comprovação de distribuidor autorizado, posto de coleta, autorização de descarte, homologações, licença sanitária, certificações compulsórias, quantitativo mínimo em atestados, índices contábeis específicos. Cada documento incomum vai também em "documentacaoEspecial" com fase, cláusula, página e risco de inabilitação.
+PARTE 2 — DOCUMENTAÇÃO ESPECIAL
+Liste só documentos NÃO convencionais exigidos na habilitação, proposta ou execução, cada um em uma linha curta (nome, fase, cláusula, página): declaração específica adicional, autorização/carta do fabricante, catálogo técnico obrigatório, ficha técnica, certificado INMETRO, ISO/ABNT/NBR, laudos, licença ambiental, logística reversa, CAT/ART/CREA/CRT, visita técnica, amostra como habilitação, documentos dos sócios, declaração LGPD, assistência técnica local, distribuidor autorizado, posto de coleta, certificações compulsórias, quantitativo mínimo em atestados, índices contábeis específicos. Certidões e declarações padrão (regularidade fiscal, trabalhista, FGTS, declarações do sistema) NÃO entram.
 
 PARTE 3 — ITENS DO PORTFÓLIO RLUX
 Localize a lista principal de itens (planilha/tabela) e percorra-a linha a linha, do primeiro ao último item, sem pular numeração; se houver mais de uma tabela, percorra todas. Depois, procure no documento inteiro pelas palavras-chave abaixo e reconcilie com a lista. Inclua SOMENTE os itens que pertençam a estas famílias (critério inclusivo: se pertence claramente à família, entra mesmo com especificação incompleta):
@@ -51,7 +46,7 @@ ${lista}
 Para cada item: número exatamente como no edital (preserve "07"), lote/grupo se houver, descrição fiel (texto completo ou resumo fiel sem perder especificação), unidade, quantidade (só se constar), preço unitário de referência (só se constar), se é exclusivo ME/EPP ou cota reservada, marca/modelo de referência citado e se o edital diz "ou similar/equivalente", família (uma das listadas) e página. Não inclua itens de outras famílias. É proibido parar antes da última página.
 
 AUDITORIA FINAL
-Antes de responder, confirme: (a) as 8 perguntas respondidas; (b) todo item achado por palavra-chave também está na lista; (c) se há "pilha/bateria", "lâmpada/LED", "disjuntor/DR/DPS", "fotocélula", "contator", "tomada/plug industrial", "barramento/pente" ou "fita isolante" no texto e nenhum item dessas famílias na lista, volte e corrija ou explique em "observacoes" por que não é item licitado (ex.: menção em cláusula genérica).
+Antes de responder, confirme: (a) os 7 campos do resumo respondidos; (b) todo item achado por palavra-chave também está na lista; (c) se há "pilha/bateria", "lâmpada/LED", "disjuntor/DR/DPS", "fotocélula", "contator", "tomada/plug industrial", "barramento/pente" ou "fita isolante" no texto e nenhum item dessas famílias na lista, volte e corrija ou explique em "observacoes" por que não é item licitado (ex.: menção em cláusula genérica).
 
 ESTILO
 Respostas objetivas e curtas: frases diretas, sem repetir o que já está em outro campo, sem explicações genéricas. Em "objeto", no máximo 2 frases. Nos campos de condições, só o dado e a referência (ex.: "5 dias da requisição (TR 5.1, p.27)"). Descrição de item: texto fiel do edital, sem comentários.
@@ -64,38 +59,33 @@ const TOOL = {
   description: "Registra a análise estruturada do edital.",
   input_schema: {
     type: "object",
-    required: ["licitacao", "perguntas", "documentacaoEspecial", "observacoes", "itens"],
+    required: ["resumo", "documentacaoEspecial", "observacoes", "itens"],
     properties: {
-      licitacao: {
+      resumo: {
         type: "object",
+        required: ["orgao", "numero", "municipio", "estado", "validadeProposta", "exigeAmostra", "entrega", "garantiaContratual"],
         properties: {
-          orgao: { type: "string" }, uasg: { type: "string" }, estado: { type: "string", description: "Sigla da UF" },
-          numero: { type: "string", description: "Número do pregão/processo como no edital" }, modalidade: { type: "string" }, portal: { type: "string" },
-          dataSessao: { type: "string", description: "AAAA-MM-DD" }, horaSessao: { type: "string" }, objeto: { type: "string" },
-          valorEstimado: { type: "string", description: "Valor total estimado em reais, 'sigiloso' ou vazio" },
-          srp: { type: "boolean" }, vigenciaAta: { type: "string" }, permiteAdesao: { type: "string", description: "sim/não/não localizado + limite" },
-          modoDisputa: { type: "string" }, intervaloLances: { type: "string" }, validadeProposta: { type: "string" },
-          prazoEntrega: { type: "string" }, localEntrega: { type: "string" }, prazoPagamento: { type: "string" }, prazoDocsPosDisputa: { type: "string" },
-          meEpp: { type: "string", description: "Resumo dos benefícios ME/EPP: itens exclusivos, cota reservada, empate ficto" },
-          exigeMarcaModelo: { type: "string" }, garantiaProduto: { type: "string" }, aceitaSimilar: { type: "string" }, exigeCatalogoInmetro: { type: "string" },
+          orgao: { type: "string" }, uasg: { type: "string" }, modalidade: { type: "string" }, numero: { type: "string", description: "Só o número, ex.: 009/2026" },
+          municipio: { type: "string" }, estado: { type: "string", description: "UF" },
+          validadeProposta: { type: "string" }, validadeBase: { type: "string", description: "cláusula e página" },
+          exigeAmostra: { type: "string", description: "Sim/Não + condição" }, amostraBase: { type: "string" },
+          entrega: { type: "string", description: "Cidade/UF do local de entrega" }, multiplosEnderecos: { type: "boolean" }, entregaDetalhe: { type: "string", description: "Uma frase sobre os locais, se forem vários" }, entregaBase: { type: "string" },
+          garantiaContratual: { type: "string", description: "Sim/Não + percentual" }, garantiaBase: { type: "string" },
+          dataSessao: { type: "string", description: "AAAA-MM-DD" }, horaSessao: { type: "string" }, srp: { type: "boolean" }, valorEstimado: { type: "string" }, criterioJulgamento: { type: "string" },
         },
-      },
-      perguntas: {
-        type: "array", description: "Exatamente as 8 perguntas, na ordem",
-        items: { type: "object", required: ["pergunta", "resposta", "base"], properties: { pergunta: { type: "string" }, resposta: { type: "string" }, base: { type: "string", description: "Cláusula/item e documento" }, pagina: { type: "integer" } } },
       },
       documentacaoEspecial: {
         type: "array",
-        items: { type: "object", required: ["documento", "fase"], properties: { documento: { type: "string" }, fase: { type: "string", description: "habilitação, proposta ou execução" }, clausula: { type: "string" }, pagina: { type: "integer" }, risco: { type: "string", description: "risco de inabilitação se não anexar" } } },
+        items: { type: "object", required: ["documento", "fase"], properties: { documento: { type: "string" }, fase: { type: "string" }, clausula: { type: "string" }, pagina: { type: "integer" } } },
       },
-      observacoes: { type: "array", items: { type: "string" }, description: "Ambiguidades, conflitos entre anexos, ressalvas" },
+      observacoes: { type: "array", items: { type: "string" }, description: "No máximo 3: ambiguidades ou conflitos entre anexos" },
       itens: {
         type: "array",
         items: {
           type: "object", required: ["item", "descricao", "familia"],
           properties: {
             item: { type: "string" }, lote: { type: "string" }, descricao: { type: "string" }, unidade: { type: "string" },
-            quantidade: { type: "number" }, precoReferencia: { type: "number", description: "Preço unitário de referência em reais, só se constar" },
+            quantidade: { type: "number" }, precoReferencia: { type: "number" },
             exclusivoMeEpp: { type: "string", description: "exclusivo, cota reservada, ampla ou vazio" }, marcaReferencia: { type: "string" },
             aceitaSimilar: { type: "boolean" }, familia: { type: "string" }, pagina: { type: "integer" },
           },
@@ -120,4 +110,4 @@ function auditoria(paginas, itens, familias) {
   return pend;
 }
 
-module.exports = { FAMILIAS_PADRAO, PERGUNTAS, NAO_LOCALIZADO, systemPrompt, TOOL, auditoria };
+module.exports = { FAMILIAS_PADRAO, NAO_LOCALIZADO, systemPrompt, TOOL, auditoria };
