@@ -274,7 +274,7 @@ async function preencherEffecti(file) {
     if (ri < 0) { faltam.push(it.item); return; }
     const pi = prop?.itens?.find((x) => String(x.num).replace(/^0+/, "") === alvo); const preco = pi ? pi.preco : precoInicial(it, p, L).preco;
     const set = (c, v, t = "s") => { if (c < 0) return; const ref = X.utils.encode_cell({ r: ri, c }); ex.ws[ref] = { ...(ex.ws[ref] || {}), t, v, ...(t === "n" ? { z: "#,##0.00" } : {}) }; delete ex.ws[ref].w; };
-    set(cMarca, p.marca || ""); set(cModelo, p.nome || p.codigo || ""); set(cValor, preco, "n");
+    const marcaModelo = [p.marca, p.codigo || p.nome].filter(Boolean).join(" ").trim(); set(cMarca, marcaModelo); set(cModelo, marcaModelo); set(cValor, preco, "n");
     if (cTotal >= 0) { const q = +ex.rows[ri][cQtd] || pi?.qtd || it.quantidade || 0; const ref = X.utils.encode_cell({ r: ri, c: cTotal }); const cell = ex.ws[ref] || {}; if (!cell.f) set(cTotal, +(q * preco).toFixed(2), "n"); }
     preenchidos++;
   });
