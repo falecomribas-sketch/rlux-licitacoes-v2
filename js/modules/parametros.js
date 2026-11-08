@@ -19,6 +19,8 @@ export const REGRAS_PADRAO = {
     { familia: "comando", regra: "Contator: corrente nominal e tensão da bobina têm prioridade sobre potência. Próxima corrente maior só sem conflito de bobina, polos, classe e contato auxiliar." },
     { familia: "conexao", regra: "Priorizar tipo, corrente, polos, tensão, padrão industrial (IEC 60309), IP e posição horária." },
     { familia: "barramento", regra: "Priorizar tipo, aplicação, polos/vias, corrente, padrão DIN/pente e compatibilidade dimensional." },
+    { familia: "pilhas", regra: "Pilha/bateria sem embalagem definida no edital (ou unidade 'pacote' sem contagem): cotar a MENOR embalagem disponível — unidade avulsa; se não houver, blister com 2. Nunca assumir blister com 4 ou mais sem o edital dizer." },
+    { familia: "pilhas", regra: "Pilha sem química informada = alcalina. 'Pilha palito' = AAA; 'pilha pequena' = AA; 'pilha média' = C; 'pilha grande' = D." },
   ],
   equivalencias: [
     { termoEdital: "relé fotoelétrico", termoBase: "relé fotocontrolador" },
@@ -26,6 +28,8 @@ export const REGRAS_PADRAO = {
     { termoEdital: "lâmpada tubular", termoBase: "lâmpada LED tubular T8" },
     { termoEdital: "interruptor diferencial residual", termoBase: "IDR" },
     { termoEdital: "tomada industrial", termoBase: "acoplador industrial" },
+    { termoEdital: "pilha palito", termoBase: "pilha alcalina AAA" },
+    { termoEdital: "bateria 9V 6LF22", termoBase: "bateria alcalina 9V 6LR61" },
   ],
 };
 let regras = null, unsubR = null, unsubC = null; const ouvintesR = new Set();
