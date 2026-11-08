@@ -3,7 +3,7 @@
   "description": "Funções de servidor do Rlux Licitações (IA). A chave da API fica aqui, nunca no site.",
   "private": true,
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "scripts": {
