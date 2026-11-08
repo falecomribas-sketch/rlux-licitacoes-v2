@@ -18,7 +18,7 @@ import {
 export const COLLECTIONS = [
   "portais", "categorias", "produtos", "orgaos", "licitacoes", "propostas",
   "atas", "adesoes", "empenhos", "crm", "cobrancas", "usuarios",
-  "exequibilidade", "reequilibrio",
+  "exequibilidade", "reequilibrio", "analises",
 ];
 
 const data = {};

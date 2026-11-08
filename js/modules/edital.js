@@ -7,7 +7,7 @@ import { iniciarPreco, piso, custoVencido, getCfg } from "../core/preco.js";
 import { getRegras, iniciarRegras } from "./parametros.js";
 import { store } from "../core/store.js";
 import { ssel } from "../core/ssel.js";
-import { podeEditar } from "../core/auth.js";
+import { podeEditar, currentUser } from "../core/auth.js";
 import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, UFS } from "../core/forms.js";
 import { newId } from "../core/store.js";
 import { navigate } from "../core/router.js";
@@ -33,7 +33,8 @@ export default {
         <div id="lista" style="margin-top:10px"></div>
         <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap"><button class="btn btn-primary" id="btn-analisar" disabled>${icon("bulb")} Analisar edital</button><label class="field field-inline"><span>Modelo</span><select id="sel-modelo">${MODELOS.map(([v, t]) => `<option value="${v}" ${modelo === v ? "selected" : ""}>${t}</option>`).join("")}</select></label><span class="muted" id="progresso" style="font-size:13px"></span></div>
       </div></div>
-      <div id="resultado" style="margin-top:16px"></div>`;
+      <div id="resultado" style="margin-top:16px"></div>
+      <div class="card" id="historico" style="margin-top:16px"></div>`;
     const inp = el.querySelector("input[type=file]"), dz = el.querySelector("#dz"), btn = el.querySelector("#btn-analisar"), prog = el.querySelector("#progresso");
     const lista = () => { el.querySelector("#lista").innerHTML = arquivos.length ? `<div class="list">${arquivos.map((f, i) => `<div class="list-item"><div class="list-main"><div class="list-title">${esc(f.name)}</div><div class="list-sub">${(f.size / 1024 / 1024).toFixed(1)} MB</div></div><button class="icon-btn sm danger" data-rm="${i}" title="Remover">${icon("x")}</button></div>`).join("")}</div>` : ""; btn.disabled = !arquivos.length || ocupado; };
     const add = (files) => { for (const f of files) { if (arquivos.length >= 4) { toast("No máximo 4 PDFs.", "erro"); break; } if (!/\.pdf$/i.test(f.name)) { toast(`${f.name} não é PDF.`, "erro"); continue; } arquivos.push(f); } lista(); };
@@ -44,7 +45,7 @@ export default {
     el.querySelector("#sel-modelo").addEventListener("change", (e) => { modelo = e.target.value; });
     btn.addEventListener("click", async () => {
       ocupado = true; lista(); prog.textContent = "Preparando…";
-      try { ultima = await analisarEdital(arquivos, { modelo, onProgresso: (t) => { prog.textContent = t; } }); ultima.arquivosNomes = arquivos.map((f) => f.name); prog.textContent = ""; toast("Análise concluída."); }
+      try { ultima = await analisarEdital(arquivos, { modelo, onProgresso: (t) => { prog.textContent = t; } }); ultima.arquivosNomes = arquivos.map((f) => f.name); ultima.criadoEm = new Date().toISOString(); ultima.usuario = currentUser?.email || ""; await salvarAnalise(); prog.textContent = ""; toast("Análise concluída."); }
       catch (e) { prog.textContent = ""; toast(e.message, "erro", 8000); }
       ocupado = false; lista(); mostrar(el);
     });
@@ -58,9 +59,11 @@ export default {
       if (act === "excel-corr") exportarExcel(linhasCorr().map((x) => ({ Item: x.it.item, "Descrição EDITAL": x.it.descricao, Quantidade: x.it.quantidade ?? "", Unidade: x.it.unidade || "", "Preço de Referência": x.it.precoReferencia ?? "", "Nosso Item": x.p ? `${x.p.codigo} — ${x.p.nome}` : "", Custo: x.p?.custo ?? "", Piso: x.p ? +piso(x.p.custo).toFixed(2) : "", CONFIANÇA: x.c?.confianca || "", JUSTIFICATIVA: x.c?.justificativa || "", Observação: x.c?.observacao || "" })), "Correspondência", "cruzamento_rlux");
     };
     el.addEventListener("click", (e) => { const b = e.target.closest("#resultado [data-act], #acoes [data-act]"); if (b) agir(b.dataset.act, b.dataset.id); });
+    el.querySelector("#historico").addEventListener("click", (e) => { const b = e.target.closest("[data-abrir]"); if (!b) return; const a = store.find("analises", b.dataset.abrir); if (!a) return; ultima = JSON.parse(JSON.stringify(a)); aba = "edital"; mostrar(el); window.scrollTo({ top: 0, behavior: "smooth" }); });
+    const hist = () => historico(el); hist(); unsubH = store.on("analises", hist);
     lista(); mostrar(el);
   },
-  destroy() {},
+  destroy() { unsubH?.(); unsubH = null; },
 };
 
 // Tira modalidade repetida e o processo do número ("Pregão Eletrônico nº 009/2026 (Processo nº 15…)" → "009/2026")
@@ -98,7 +101,20 @@ function mostrar(el) {
 }
 
 // ---------- Etapa C: correspondência ----------
-let casando = false;
+let casando = false, unsubH = null;
+async function salvarAnalise() {
+  if (!ultima) return; if (!ultima.id) ultima.id = newId();
+  const { arquivosNomes, ...dados } = ultima; // tudo é serializável (sem File)
+  try { await store.setItem("analises", { ...dados, arquivosNomes: arquivosNomes || [], atualizadoEm: new Date().toISOString() }); } catch (e) { console.error(e); toast("Não consegui gravar a análise (ela continua na tela).", "erro"); }
+}
+function historico(el) {
+  const box = el.querySelector("#historico"); if (!box) return;
+  const lst = store.get("analises").slice().sort((a, b) => (b.criadoEm || "").localeCompare(a.criadoEm || "")).slice(0, 40);
+  box.innerHTML = `<div class="card-head"><h2>Análises recentes</h2><span class="muted" style="font-size:12px">${lst.length} de ${store.get("analises").length}</span></div>` + (lst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Licitação</th><th>Órgão</th><th class="num">Itens</th><th>Correspondência</th><th>Situação</th><th></th></tr></thead><tbody>
+    ${lst.map((a) => { const L = a.resumo || {}; const n = (a.itens || []).length, c = (a.correspondencia || []).filter((x) => x.produtoId).length;
+      return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtD((a.criadoEm || "").slice(0, 10))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong>${L.dataSessao ? `<div class="muted" style="font-size:11px">sessão ${fmtD(L.dataSessao)}</div>` : ""}</td><td>${esc((L.orgao || "—").slice(0, 50))}<div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${a.criada ? tag(`Proposta #${a.criada.num}`, "tag-teal") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button></td></tr>`; }).join("")}
+  </tbody></table></div></div>` : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">As análises feitas a partir de agora ficam guardadas aqui.</p></div>`);
+}
 const linhasCorr = () => (ultima?.itens || []).map((it) => { const c = (ultima.correspondencia || []).find((x) => String(x.item) === String(it.item)); const p = c?.produtoId ? store.find("produtos", c.produtoId) : null; return { it, c, p }; });
 async function casar(el) {
   if (!ultima || casando) return; casando = true; mostrar(el);
@@ -106,7 +122,7 @@ async function casar(el) {
     const itens = ultima.itens.map((it) => { const { familia, candidatos } = candidatosPara(it); return { item: it.item, descricao: it.descricao, unidade: it.unidade, quantidade: it.quantidade, marcaReferencia: it.marcaReferencia, familia, candidatos }; });
     const r = await casarItens(itens, { regras: getRegras(), modelo });
     ultima.correspondencia = (r.itens || []).map((c) => ({ ...c, item: String(c.item) })); ultima.metaCorr = r.meta; ultima.candidatosEnviados = itens.reduce((s, i) => s + i.candidatos.length, 0);
-    toast("Correspondência concluída.");
+    await salvarAnalise(); toast("Correspondência concluída.");
   } catch (e) { toast(e.message, "erro", 8000); }
   casando = false; mostrar(el);
 }
@@ -134,7 +150,7 @@ function abaCorr(r) {
 function ligarCorr(el) {
   const opcoes = store.get("produtos").map((p) => ({ id: p.id, label: `${p.codigo} — ${p.nome}`, sub: p.descricaoTecnica || "", extra: p.marca })).sort((a, b) => a.label.localeCompare(b.label));
   el.querySelectorAll(".corr-ssel").forEach((host) => { const item = host.dataset.item; const c = (ultima.correspondencia || []).find((x) => x.item === item);
-    const sel = ssel(host, { placeholder: "Nenhum produto — buscar…", itens: opcoes, value: c?.produtoId || "", disabled: !podeEditar(), onSelect: (id) => { const cc = (ultima.correspondencia ||= []).find((x) => x.item === item); if (cc) { cc.produtoId = id; cc.confianca = id ? "alta" : "nenhuma"; cc.justificativa = id ? "Escolhido manualmente" : "Sem produto"; } else ultima.correspondencia.push({ item, produtoId: id, confianca: "alta", justificativa: "Escolhido manualmente" }); mostrar(el); } });
+    const sel = ssel(host, { placeholder: "Nenhum produto — buscar…", itens: opcoes, value: c?.produtoId || "", disabled: !podeEditar(), onSelect: (id) => { const cc = (ultima.correspondencia ||= []).find((x) => x.item === item); if (cc) { cc.produtoId = id; cc.confianca = id ? "alta" : "nenhuma"; cc.justificativa = id ? "Escolhido manualmente" : "Sem produto"; } else ultima.correspondencia.push({ item, produtoId: id, confianca: "alta", justificativa: "Escolhido manualmente" }); salvarAnalise(); mostrar(el); } });
     if (!c?.produtoId && c?.alternativas?.length) sel.enable(`Sugestões: ${c.alternativas.map((id) => store.find("produtos", id)?.codigo).filter(Boolean).join(", ")} — buscar…`); });
 }
 
@@ -227,7 +243,7 @@ function novaLicitacao(el) {
       const itens = linhas.map(({ it, p }, i) => { const qtd = +v[`qtd_${i}`] || 0, preco = +v[`preco_${i}`] || 0; return { num: it.item, produtoId: p.id, nome: p.nome, codigo: p.codigo, marca: p.marca || "", qtd, custo: p.custo || 0, preco, total: +(qtd * preco).toFixed(2), descricaoEdital: it.descricao, unidadeEdital: it.unidade || "", precoReferencia: it.precoReferencia ?? null }; });
       const num = Math.max(0, ...store.get("propostas").map((x) => +x.num || 0)) + 1;
       await store.setItem("propostas", { id: newId(), num, licitacaoId: licId, status: "Em Andamento", itens, criadoEm: new Date().toISOString(), origemIA: true });
-      ultima.criada = { num, numero: v.numero.trim(), licId }; closeModal(); mostrar(el);
+      ultima.criada = { num, numero: v.numero.trim(), licId }; await salvarAnalise(); closeModal(); mostrar(el);
       toast(`Licitação ${v.numero.trim()} e proposta #${num} criadas (rascunho IA).`, "ok", 6000);
     },
   });

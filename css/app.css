@@ -379,3 +379,4 @@ input[type=color] { height: 40px; padding: 3px; cursor: pointer; }
 
 .dropzone.over { border-color: var(--navy-2); background: var(--blue-bg); }
 a.btn { text-decoration: none; }
+.row-active td { background: var(--blue-bg); }
