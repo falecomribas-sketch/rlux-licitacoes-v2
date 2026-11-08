@@ -10,6 +10,7 @@ import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMa
 import { ssel } from "../core/ssel.js";
 import { opcoesOrgaos } from "./licitacoes.js";
 import { gerarPdfProposta } from "../pdf/proposta.js";
+import { iniciarPreco, piso } from "../core/preco.js";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -76,6 +77,7 @@ export default {
         { key: "status", label: "Status", render: (p) => tag(p.status || "Em Andamento", STATUS_CLASS[p.status || "Em Andamento"] || "tag-gray") },
         { key: "acoes", label: "", sort: false, width: "120px", render: (p) => acoes(
           `<button class="icon-btn sm" data-act="pdf" data-id="${esc(p.id)}" title="Gerar PDF">${icon("print")}</button>`,
+          ...(podeEditar() && !isEspelho(p) && ["Em Andamento", "Ag. Solic. Docs"].includes(p.status || "Em Andamento") ? [`<button class="icon-btn sm" data-act="resultado" data-id="${esc(p.id)}" title="Lançar resultado da disputa" style="color:var(--amber-txt)">${icon("trending")}</button>`] : []),
           ...(podeEditar() ? [btnEditar(p.id), btnExcluir(p.id, ataDaProposta(p.id) ? "Tem ATA vinculada" : "")] : [])) },
       ],
     });
@@ -86,6 +88,7 @@ export default {
       novo: () => abrirForm(),
       editar: (id) => abrirForm(store.find("propostas", id)),
       pdf: (id) => opcoesPdf(store.find("propostas", id)),
+      resultado: (id) => lancarResultado(store.find("propostas", id)),
       excluir: async (id) => {
         if (!await confirmar("Excluir esta proposta?", { ok: "Excluir", perigo: true })) return;
         await store.remove("propostas", id); toast("Proposta excluída.");
@@ -225,5 +228,40 @@ function opcoesPdf(p) {
     const o = { comCusto: m.querySelector("[name=custo]").checked, comMarca: m.querySelector("[name=marca]").checked, comCodigo: m.querySelector("[name=codigo]").checked, comFicha: m.querySelector("[name=ficha]").checked };
     closeModal(); toast("Gerando PDF…", "info");
     try { await gerarPdfProposta(p, o); } catch (e) { console.error(e); toast("Não foi possível gerar o PDF.", "erro"); }
+  });
+}
+
+
+// ---------- Etapa E: resultado da disputa → proposta readequada ----------
+function lancarResultado(p) {
+  if (!p) return; iniciarPreco(); const l = getLicit(p.licitacaoId), o = getOrgao(l.orgaoId); const itens = p.itens || [];
+  formModal({
+    titulo: `Resultado da disputa — ${l.numero || "?"} · ${toTitleCase(o.nome || "")}`, largura: "xl", salvarTexto: "Aplicar resultado",
+    corpo: `
+      <p class="muted" style="font-size:13px;margin:0 0 10px">Informe o <strong>preço arrematado</strong> dos itens que vocês venceram e marque os perdidos. A proposta vira a <strong>readequada</strong> (só os itens vencidos, com os preços finais), o status muda e a margem obtida fica registrada. Os preços iniciais ficam guardados no histórico.</p>
+      <div class="table-wrap"><table><thead><tr><th>Item</th><th>Produto</th><th class="num">Qtd</th><th class="num">Custo</th><th class="num">Piso</th><th class="num">Preço inicial</th><th style="width:130px">Arrematado</th><th class="num">Margem</th><th>Perdido</th></tr></thead><tbody>
+        ${itens.map((it, i) => `<tr data-i="${i}"><td><strong>${esc(it.num ?? i + 1)}</strong></td><td>${esc(it.nome)}<div class="muted" style="font-size:11px">${esc(it.codigo || "")}</div></td><td class="num">${fmtNum(it.qtd)}</td><td class="num">${fmt(it.custo)}</td><td class="num">${fmt(piso(it.custo))}</td><td class="num">${fmt(it.preco)}</td><td><input type="number" class="input input-sm" name="final_${i}" value="${it.preco ?? ""}" step="0.01" min="0" style="width:120px"></td><td class="num mg" style="font-weight:600"></td><td style="text-align:center"><input type="checkbox" name="perdido_${i}"></td></tr>`).join("")}
+      </tbody></table></div>
+      <div class="totais" style="margin-top:10px"><div class="total-geral"><span class="muted">Total readequado (itens vencidos)</span><strong id="t-final">—</strong></div></div>
+      ${linha(campo("Data da disputa", `<input type="date" name="dataDisputa" value="${new Date().toISOString().slice(0, 10)}">`), campo("Observação", `<input type="text" name="obsDisputa" placeholder="ex.: perdemos o item 3 por R$ 0,02">`))}`,
+    onAberto(form) {
+      const calc = () => { let tot = 0; form.querySelectorAll("tr[data-i]").forEach((tr) => { const i = +tr.dataset.i, it = itens[i]; const perdido = form.elements[`perdido_${i}`].checked; const v = +form.elements[`final_${i}`].value || 0; const mg = tr.querySelector(".mg"); tr.style.opacity = perdido ? ".45" : "1";
+        if (perdido || !v) { mg.textContent = perdido ? "perdido" : "—"; mg.style.color = "var(--muted)"; return; }
+        const pct = it.custo > 0 ? (v / it.custo - 1) * 100 : 0; const abaixo = v < piso(it.custo); mg.textContent = `${pct.toFixed(1)}%${abaixo ? " ⚠" : ""}`; mg.style.color = abaixo ? "var(--red)" : "var(--green)"; mg.title = abaixo ? "Abaixo do piso" : ""; tot += v * (it.qtd || 0); });
+        form.querySelector("#t-final").textContent = fmt(tot); };
+      form.addEventListener("input", calc); form.addEventListener("change", calc); calc();
+    },
+    async onSalvar(form) {
+      const v = lerForm(form); const vencidos = [], perdidos = [], hist = [];
+      itens.forEach((it, i) => { const perdido = !!v[`perdido_${i}`]; const fin = +v[`final_${i}`] || 0;
+        hist.push({ num: it.num ?? i + 1, codigo: it.codigo, precoInicial: it.preco, precoFinal: perdido ? null : fin, perdido });
+        if (perdido) perdidos.push(it); else { if (fin <= 0) throw new Error(`Informe o preço arrematado do item ${it.num ?? i + 1} ou marque como perdido.`); vencidos.push({ ...it, precoInicial: it.preco, preco: fin, total: +(fin * (it.qtd || 0)).toFixed(2) }); } });
+      const abaixo = vencidos.filter((it) => it.preco < piso(it.custo));
+      if (abaixo.length && !await confirmar(`${abaixo.length} item(ns) arrematado(s) abaixo do piso. Aplicar mesmo assim?`, { ok: "Aplicar" })) return;
+      const status = vencidos.length ? "Vencida" : "Perdida";
+      await store.setItem("propostas", { ...p, itens: vencidos.length ? vencidos : itens, status, resultadoDisputa: { data: v.dataDisputa || new Date().toISOString().slice(0, 10), obs: v.obsDisputa || "", itens: hist, perdidos: perdidos.map((it) => ({ num: it.num, codigo: it.codigo, nome: it.nome, qtd: it.qtd, preco: it.preco })) }, readequadaEm: vencidos.length ? new Date().toISOString() : "" });
+      closeModal(); toast(vencidos.length ? `Proposta readequada: ${vencidos.length} item(ns) vencido(s), ${perdidos.length} perdido(s). Status: Vencida.` : "Todos os itens perdidos. Status: Perdida.", "ok", 6000);
+      if (vencidos.length && await confirmar("Gerar o PDF da proposta readequada agora?", { ok: "Gerar PDF" })) opcoesPdf(store.find("propostas", p.id));
+    },
   });
 }
