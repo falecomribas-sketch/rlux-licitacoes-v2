@@ -47,6 +47,7 @@ export default {
   destroy() {},
 };
 
+const modalidadeCurta = (m) => { const t = String(m || ""); if (/preg[ãa]o/i.test(t)) return "Pregão Eletrônico"; if (/dispensa/i.test(t)) return "Dispensa Eletrônica"; if (/concorr/i.test(t)) return "Concorrência"; if (/credenc/i.test(t)) return "Credenciamento"; return t.split(/[(,–-]/)[0].trim() || "Licitação"; };
 function semaforo(r) {
   const perg = (n) => (r.perguntas?.[n]?.resposta || "");
   const sim = (t) => /^\s*sim|exig|obrigat/i.test(t) && !NAO_LOC.test(t);
@@ -71,13 +72,13 @@ function mostrar(el) {
   const campo = (k, v) => v && !NAO_LOC.test(v) ? `<div><div class="k">${k}</div>${esc(String(v))}</div>` : "";
   box.innerHTML = `
     <div class="card" style="margin-bottom:16px"><div class="card-body" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
-      <div style="flex:1;min-width:260px"><div style="font-size:16px;font-weight:600">${esc(L.modalidade || "Licitação")} ${esc(L.numero || "")}</div><div class="muted">${esc(L.orgao || "")}${L.uasg ? " · UASG " + esc(L.uasg) : ""}${L.estado ? " · " + esc(L.estado) : ""}${L.dataSessao ? " · sessão " + fmtD(L.dataSessao) + (L.horaSessao ? " " + esc(L.horaSessao) : "") : ""}</div></div>
-      <div style="text-align:right">${tag(s.txt, s.cor)}${s.lista.length ? `<div class="muted" style="font-size:12px;margin-top:4px">${esc(s.lista.join(" · "))}</div>` : ""}</div>
+      <div style="flex:1;min-width:260px"><div style="font-size:16px;font-weight:600">${esc(modalidadeCurta(L.modalidade))}${L.numero ? " nº " + esc(String(L.numero).replace(/^n[º°.]?\s*/i, "")) : ""}</div><div class="muted">${esc(L.orgao || "")}${L.uasg && !NAO_LOC.test(L.uasg) ? " · UASG " + esc(L.uasg) : ""}${L.estado ? " · " + esc(L.estado) : ""}${L.dataSessao ? " · sessão " + fmtD(L.dataSessao) + (L.horaSessao ? " " + esc(L.horaSessao) : "") : ""}</div></div>
+      <div style="text-align:right;max-width:420px">${tag(s.txt, s.cor)}${s.lista.length ? `<ul class="muted" style="font-size:12px;margin:6px 0 0;padding-left:18px;text-align:left">${s.lista.slice(0, 6).map((x) => `<li>${esc(x)}</li>`).join("")}${s.lista.length > 6 ? `<li>+ ${s.lista.length - 6} na aba Edital</li>` : ""}</ul>` : ""}</div>
     </div>
     ${semTexto.length ? `<div class="card-body" style="padding-top:0"><div class="info-box" style="border-color:var(--amber)"><div><div class="k">PDF lido por imagem — confira as referências</div>${semTexto.map((d) => `${esc(d.nome)}: ${d.semTexto} de ${d.paginas} páginas sem texto`).join(" · ")}</div></div></div>` : ""}</div>
     <div class="tabs"><button class="tab ${aba === "edital" ? "active" : ""}" data-act="aba" data-id="edital">Edital</button><button class="tab ${aba === "itens" ? "active" : ""}" data-act="aba" data-id="itens">Itens do portfólio (${(r.itens || []).length})</button></div>
     ${aba === "edital" ? abaEdital(r, L, campo) : abaItens(r)}
-    <p class="muted" style="font-size:11.5px;margin-top:12px">${esc(m.modelo || "")} · ${m.paginas || 0} página(s) · ${fmtNum(m.tokensEntrada)} tokens de entrada${m.tokensCache ? ` (${fmtNum(m.tokensCache)} em cache)` : ""} · ${fmtNum(m.tokensSaida)} de saída · ${m.segundos || 0}s${m.stopReason === "max_tokens" ? " · <strong style=\"color:var(--red)\">resposta truncada — edital muito extenso, divida os PDFs</strong>" : ""} · arquivos: ${esc((r.arquivosNomes || []).join(", "))}</p>`;
+    <p class="muted" style="font-size:11.5px;margin-top:12px">${esc(m.modelo || "")} · ${m.paginas || 0} página(s) · ${fmtNum((m.tokensEntrada || 0) + (m.tokensCache || 0))} tokens lidos · ${fmtNum(m.tokensSaida)} gerados${(r.documentos || []).some((d) => d.modo === "pdf") ? " · <strong>modo PDF (escaneado)</strong>" : ""} · ${m.segundos || 0}s${m.stopReason === "max_tokens" ? " · <strong style=\"color:var(--red)\">resposta truncada — edital muito extenso, divida os PDFs</strong>" : ""} · arquivos: ${esc((r.arquivosNomes || []).join(", "))}</p>`;
 }
 
 function abaEdital(r, L, campo) {

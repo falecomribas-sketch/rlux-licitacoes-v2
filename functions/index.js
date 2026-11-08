@@ -15,11 +15,21 @@ const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 const MODELO_PADRAO = "claude-sonnet-5-5";
 const MAX_PDF_MB = 30;
 
-// Texto por página (para contar páginas, detectar PDF escaneado e fazer a auditoria por palavra-chave)
-async function textoPorPagina(buffer) {
+// Texto por página (modo econômico: a IA recebe texto, não o PDF). Páginas sem texto (escaneadas)
+// são renderizadas como imagem só quando necessário.
+async function lerPdf(buffer) {
   const parser = new PDFParse({ data: buffer });
-  try { const r = await parser.getText(); return (r.pages || []).map((pg) => pg.text || ""); }
-  finally { await parser.destroy().catch(() => {}); }
+  try {
+    const r = await parser.getText();
+    const paginas = (r.pages || []).map((pg) => (pg.text || "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim());
+    const semTexto = paginas.map((t, i) => (t.length < 80 ? i + 1 : null)).filter(Boolean);
+    let imagens = [];
+    if (semTexto.length && semTexto.length <= 20) { // renderiza só as páginas escaneadas (limite para não explodir o custo)
+      try { const sc = await parser.getScreenshot({ partial: semTexto, desiredWidth: 1200, imageDataUrl: false }); imagens = (sc.pages || []).map((pg) => ({ pagina: pg.pageNumber, png: Buffer.from(pg.data).toString("base64") })); }
+      catch (e) { console.warn("screenshot falhou", e.message); }
+    }
+    return { paginas, semTexto, imagens };
+  } finally { await parser.destroy().catch(() => {}); }
 }
 
 exports.analisarEdital = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1GiB", timeoutSeconds: 540, cors: true, invoker: "public" }, async (req) => {
@@ -40,21 +50,29 @@ async function analisar(req) {
     if (typeof a.path !== "string" || !a.path.startsWith("anexos/editais/")) throw new HttpsError("invalid-argument", "Caminho de arquivo inválido.");
     let buf; try { [buf] = await bucket.file(a.path).download(); } catch (e) { e.etapa = "download"; e.message = `não consegui ler ${a.path} do Storage: ${e.message}`; throw e; }
     if (buf.length > MAX_PDF_MB * 1024 * 1024) throw new HttpsError("invalid-argument", `${a.nome || a.path}: acima de ${MAX_PDF_MB} MB.`);
-    let paginas = [];
-    try { paginas = await textoPorPagina(buf); } catch (e) { console.warn("pdf-parse falhou", a.path, e.message); }
-    docs.push({ nome: a.nome || a.path.split("/").pop(), buf, paginas });
+    let lido = { paginas: [], semTexto: [], imagens: [] }, falhou = false;
+    try { lido = await lerPdf(buf); } catch (e) { console.warn("pdf-parse falhou", a.path, e.message); falhou = true; }
+    docs.push({ nome: a.nome || a.path.split("/").pop(), buf, ...lido, falhou });
   }
   const fams = Array.isArray(familias) && familias.length ? familias : FAMILIAS_PADRAO;
   const todasPaginas = docs.flatMap((d) => d.paginas);
-  const semTexto = docs.map((d) => ({ nome: d.nome, paginas: d.paginas.length, semTexto: d.paginas.filter((t) => (t || "").trim().length < 80).length }));
+  const semTexto = docs.map((d) => ({ nome: d.nome, paginas: d.paginas.length, semTexto: d.semTexto.length, modo: d.falhou || (d.paginas.length && d.semTexto.length > d.paginas.length * 0.5) ? "pdf" : "texto" }));
 
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() });
   const content = [];
   docs.forEach((d, i) => {
-    content.push({ type: "text", text: `Documento ${i + 1}: ${d.nome} (${d.paginas.length || "?"} páginas)` });
-    content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: d.buf.toString("base64") }, title: d.nome, cache_control: i === docs.length - 1 ? { type: "ephemeral" } : undefined });
+    const info = semTexto[i];
+    if (info.modo === "pdf") { // PDF escaneado ou ilegível: manda o arquivo inteiro (mais caro, mas é o único jeito)
+      content.push({ type: "text", text: `Documento ${i + 1}: ${d.nome} (PDF sem texto extraível — lido por imagem)` });
+      content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: d.buf.toString("base64") }, title: d.nome });
+      return;
+    }
+    const texto = d.paginas.map((t, k) => `--- Documento ${i + 1}: ${d.nome} — página ${k + 1} ---\n${t || "[página sem texto]"}`).join("\n\n");
+    content.push({ type: "text", text: texto });
+    d.imagens.forEach((img) => { content.push({ type: "text", text: `Documento ${i + 1}, página ${img.pagina} (imagem — página sem texto):` }); content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: img.png } }); });
   });
-  content.push({ type: "text", text: "Analise os documentos acima e registre a análise completa com a ferramenta registrar_analise." });
+  if (content.length) content[content.length - 1].cache_control = { type: "ephemeral" };
+  content.push({ type: "text", text: "Analise os documentos acima (o número da página está no marcador de cada trecho) e registre a análise completa com a ferramenta registrar_analise." });
 
   const t0 = Date.now();
   let resp;
