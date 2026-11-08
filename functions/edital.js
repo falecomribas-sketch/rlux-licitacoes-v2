@@ -53,6 +53,9 @@ Para cada item: número exatamente como no edital (preserve "07"), lote/grupo se
 AUDITORIA FINAL
 Antes de responder, confirme: (a) as 8 perguntas respondidas; (b) todo item achado por palavra-chave também está na lista; (c) se há "pilha/bateria", "lâmpada/LED", "disjuntor/DR/DPS", "fotocélula", "contator", "tomada/plug industrial", "barramento/pente" ou "fita isolante" no texto e nenhum item dessas famílias na lista, volte e corrija ou explique em "observacoes" por que não é item licitado (ex.: menção em cláusula genérica).
 
+ESTILO
+Respostas objetivas e curtas: frases diretas, sem repetir o que já está em outro campo, sem explicações genéricas. Em "objeto", no máximo 2 frases. Nos campos de condições, só o dado e a referência (ex.: "5 dias da requisição (TR 5.1, p.27)"). Descrição de item: texto fiel do edital, sem comentários.
+
 Responda SOMENTE chamando a ferramenta registrar_analise. Textos em português do Brasil.`;
 }
 

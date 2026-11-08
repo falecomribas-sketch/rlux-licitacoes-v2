@@ -7,7 +7,8 @@ import { toast, icon, tag, vazio } from "../core/ui.js";
 import { esc, fmt, fmtNum, fmtD } from "../core/utils.js";
 import { copiarTexto } from "../core/regua.js";
 
-let ultima = null, arquivos = [], ocupado = false, aba = "edital";
+let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-sonnet-5-5";
+const MODELOS = [["claude-sonnet-5-5", "Sonnet — preciso"], ["claude-haiku-5-5", "Haiku — econômico (~3× mais barato)"]];
 const NAO_LOC = /não localizado/i;
 
 export default {
@@ -19,7 +20,7 @@ export default {
         <p class="muted" style="margin:0 0 10px;font-size:13px">Envie o edital e, se houver, o termo de referência e anexos (até 4 PDFs, 30 MB cada). A IA lê tudo no servidor e devolve as respostas com a cláusula/página. Nada é gravado: use para decidir se vale participar e quais itens cotar.</p>
         <label class="dropzone" id="dz" style="display:block">${icon("upload")} <span id="dz-txt">Clique para escolher os PDFs ou arraste aqui</span><input type="file" accept="application/pdf,.pdf" multiple hidden></label>
         <div id="lista" style="margin-top:10px"></div>
-        <div style="display:flex;gap:10px;align-items:center;margin-top:12px"><button class="btn btn-primary" id="btn-analisar" disabled>${icon("bulb")} Analisar edital</button><span class="muted" id="progresso" style="font-size:13px"></span></div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap"><button class="btn btn-primary" id="btn-analisar" disabled>${icon("bulb")} Analisar edital</button><label class="field field-inline"><span>Modelo</span><select id="sel-modelo">${MODELOS.map(([v, t]) => `<option value="${v}" ${modelo === v ? "selected" : ""}>${t}</option>`).join("")}</select></label><span class="muted" id="progresso" style="font-size:13px"></span></div>
       </div></div>
       <div id="resultado" style="margin-top:16px"></div>`;
     const inp = el.querySelector("input[type=file]"), dz = el.querySelector("#dz"), btn = el.querySelector("#btn-analisar"), prog = el.querySelector("#progresso");
@@ -29,9 +30,10 @@ export default {
     dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("over"); }); dz.addEventListener("dragleave", () => dz.classList.remove("over"));
     dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("over"); add(e.dataTransfer.files); });
     el.querySelector("#lista").addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (b) { arquivos.splice(+b.dataset.rm, 1); lista(); } });
+    el.querySelector("#sel-modelo").addEventListener("change", (e) => { modelo = e.target.value; });
     btn.addEventListener("click", async () => {
       ocupado = true; lista(); prog.textContent = "Preparando…";
-      try { ultima = await analisarEdital(arquivos, { onProgresso: (t) => { prog.textContent = t; } }); ultima.arquivosNomes = arquivos.map((f) => f.name); prog.textContent = ""; toast("Análise concluída."); }
+      try { ultima = await analisarEdital(arquivos, { modelo, onProgresso: (t) => { prog.textContent = t; } }); ultima.arquivosNomes = arquivos.map((f) => f.name); prog.textContent = ""; toast("Análise concluída."); }
       catch (e) { prog.textContent = ""; toast(e.message, "erro", 8000); }
       ocupado = false; lista(); mostrar(el);
     });

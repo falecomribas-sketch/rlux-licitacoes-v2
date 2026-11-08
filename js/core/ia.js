@@ -9,7 +9,7 @@ const functions = getFunctions(app, "southamerica-east1");
 export const LIMITE_PDF = 30 * 1024 * 1024;
 
 // Envia os PDFs e chama a análise. onProgresso(texto) recebe mensagens de andamento.
-export async function analisarEdital(files, { familias, onProgresso } = {}) {
+export async function analisarEdital(files, { familias, modelo, onProgresso } = {}) {
   const id = newId(); const arquivos = [];
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
@@ -23,7 +23,7 @@ export async function analisarEdital(files, { familias, onProgresso } = {}) {
   onProgresso?.("Lendo o edital com a IA — isso leva de 1 a 3 minutos…");
   const fn = httpsCallable(functions, "analisarEdital", { timeout: 540000 });
   try {
-    const r = await fn({ arquivos, familias });
+    const r = await fn({ arquivos, familias, modelo });
     return { id, arquivos, ...r.data };
   } catch (e) {
     const msg = [e?.message, e?.details?.etapa ? `(etapa: ${e.details.etapa})` : ""].filter(Boolean).join(" ") || String(e);

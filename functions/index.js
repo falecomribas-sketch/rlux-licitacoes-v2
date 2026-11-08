@@ -39,7 +39,7 @@ exports.analisarEdital = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1GiB", 
 
 async function analisar(req) {
   if (!req.auth) throw new HttpsError("unauthenticated", "Faça login para analisar editais.");
-  const { arquivos, familias, modelo } = req.data || {};
+  const { arquivos, familias } = req.data || {}; const modelo = ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"].includes(req.data?.modelo) ? req.data.modelo : MODELO_PADRAO;
   if (!Array.isArray(arquivos) || !arquivos.length) throw new HttpsError("invalid-argument", "Envie ao menos um PDF.");
   if (arquivos.length > 4) throw new HttpsError("invalid-argument", "No máximo 4 PDFs por análise.");
 
@@ -78,7 +78,7 @@ async function analisar(req) {
   let resp;
   try {
     resp = await client.messages.create({
-      model: modelo || MODELO_PADRAO, max_tokens: 16000, system: systemPrompt(fams),
+      model: modelo, max_tokens: 16000, system: systemPrompt(fams),
       tools: [TOOL], tool_choice: { type: "auto" },
       messages: [{ role: "user", content }],
     });
