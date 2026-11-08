@@ -43,13 +43,13 @@ Liste só documentos NÃO convencionais exigidos na habilitação, proposta ou e
 PARTE 3 — ITENS DO PORTFÓLIO RLUX
 Localize a lista principal de itens (planilha/tabela) e percorra-a linha a linha, do primeiro ao último item, sem pular numeração; se houver mais de uma tabela, percorra todas. Depois, procure no documento inteiro pelas palavras-chave abaixo e reconcilie com a lista. Inclua SOMENTE os itens que pertençam a estas famílias (critério inclusivo: se pertence claramente à família, entra mesmo com especificação incompleta):
 ${lista}
-Para cada item: número exatamente como no edital (preserve "07"), lote/grupo se houver, descrição fiel (texto completo ou resumo fiel sem perder especificação), unidade, quantidade (só se constar), preço unitário de referência (só se constar), se é exclusivo ME/EPP ou cota reservada, marca/modelo de referência citado e se o edital diz "ou similar/equivalente", família (uma das listadas) e página. Não inclua itens de outras famílias. É proibido parar antes da última página.
+Para cada item: número exatamente como no edital (preserve "07"), lote/grupo se houver, descrição fiel porém ENXUTA (no máximo 200 caracteres: o essencial da especificação, sem repetir o texto padrão do edital), unidade, quantidade (só se constar), preço unitário de referência (só se constar), se é exclusivo ME/EPP ou cota reservada, marca/modelo de referência citado e se o edital diz "ou similar/equivalente", família (uma das listadas) e página. Não inclua itens de outras famílias. É proibido parar antes da última página.
 
 AUDITORIA FINAL
 Antes de responder, confirme: (a) os 7 campos do resumo respondidos; (b) todo item achado por palavra-chave também está na lista; (c) se há "pilha/bateria", "lâmpada/LED", "disjuntor/DR/DPS", "fotocélula", "contator", "tomada/plug industrial", "barramento/pente" ou "fita isolante" no texto e nenhum item dessas famílias na lista, volte e corrija ou explique em "observacoes" por que não é item licitado (ex.: menção em cláusula genérica).
 
 ESTILO
-Respostas objetivas e curtas: frases diretas, sem repetir o que já está em outro campo, sem explicações genéricas. Em "objeto", no máximo 2 frases. Nos campos de condições, só o dado e a referência (ex.: "5 dias da requisição (TR 5.1, p.27)"). Descrição de item: texto fiel do edital, sem comentários.
+REGISTRE PRIMEIRO A LISTA DE ITENS (campo "itens"), depois o resumo, a documentação especial e as observações — nessa ordem. Respostas objetivas e curtas: frases diretas, sem repetir o que já está em outro campo, sem explicações genéricas. Em "objeto", no máximo 2 frases. Nos campos de condições, só o dado e a referência (ex.: "5 dias da requisição (TR 5.1, p.27)"). Descrição de item: texto fiel do edital, sem comentários.
 
 Responda SOMENTE chamando a ferramenta registrar_analise. Textos em português do Brasil.`;
 }
@@ -59,8 +59,20 @@ const TOOL = {
   description: "Registra a análise estruturada do edital.",
   input_schema: {
     type: "object",
-    required: ["resumo", "documentacaoEspecial", "observacoes", "itens"],
+    required: ["itens", "resumo", "documentacaoEspecial", "observacoes"],
     properties: {
+      itens: {
+        type: "array",
+        items: {
+          type: "object", required: ["item", "descricao", "familia"],
+          properties: {
+            item: { type: "string" }, lote: { type: "string" }, descricao: { type: "string" }, unidade: { type: "string" },
+            quantidade: { type: "number" }, precoReferencia: { type: "number" },
+            exclusivoMeEpp: { type: "string", description: "exclusivo, cota reservada, ampla ou vazio" }, marcaReferencia: { type: "string" },
+            aceitaSimilar: { type: "boolean" }, familia: { type: "string" }, pagina: { type: "integer" },
+          },
+        },
+      },
       resumo: {
         type: "object",
         required: ["orgao", "numero", "municipio", "estado", "validadeProposta", "exigeAmostra", "entrega", "garantiaContratual"],
@@ -79,18 +91,6 @@ const TOOL = {
         items: { type: "object", required: ["documento", "fase"], properties: { documento: { type: "string" }, fase: { type: "string" }, clausula: { type: "string" }, pagina: { type: "integer" } } },
       },
       observacoes: { type: "array", items: { type: "string" }, description: "No máximo 3: ambiguidades ou conflitos entre anexos" },
-      itens: {
-        type: "array",
-        items: {
-          type: "object", required: ["item", "descricao", "familia"],
-          properties: {
-            item: { type: "string" }, lote: { type: "string" }, descricao: { type: "string" }, unidade: { type: "string" },
-            quantidade: { type: "number" }, precoReferencia: { type: "number" },
-            exclusivoMeEpp: { type: "string", description: "exclusivo, cota reservada, ampla ou vazio" }, marcaReferencia: { type: "string" },
-            aceitaSimilar: { type: "boolean" }, familia: { type: "string" }, pagina: { type: "integer" },
-          },
-        },
-      },
     },
   },
 };

@@ -78,7 +78,7 @@ async function analisar(req) {
   let resp;
   try {
     resp = await client.messages.create({
-      model: modelo, max_tokens: 8000, system: systemPrompt(fams),
+      model: modelo, max_tokens: 24000, system: systemPrompt(fams),
       tools: [TOOL], tool_choice: { type: "auto" },
       messages: [{ role: "user", content }],
     });
