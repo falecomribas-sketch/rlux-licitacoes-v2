@@ -39,7 +39,7 @@ export default {
       <div class="card" id="historico" style="margin-top:16px"></div>`;
     const inp = el.querySelector("input[type=file]"), dz = el.querySelector("#dz"), btn = el.querySelector("#btn-analisar"), prog = el.querySelector("#progresso");
     const lista = () => { el.querySelector("#lista").innerHTML = arquivos.length ? `<div class="list">${arquivos.map((f, i) => `<div class="list-item"><div class="list-main"><div class="list-title">${esc(f.name)}</div><div class="list-sub">${(f.size / 1024 / 1024).toFixed(1)} MB</div></div><button class="icon-btn sm danger" data-rm="${i}" title="Remover">${icon("x")}</button></div>`).join("")}</div>` : ""; btn.disabled = !arquivos.length || ocupado; };
-    const add = (files) => { for (const f of files) { if (arquivos.length >= 4) { toast("No máximo 4 PDFs.", "erro"); break; } if (!/\.pdf$/i.test(f.name)) { toast(`${f.name} não é PDF.`, "erro"); continue; } arquivos.push(f); } lista(); };
+    const add = (files) => { for (const f of files) { if (arquivos.length >= 4) { toast("No máximo 4 PDFs.", "erro"); break; } if (!/\.pdf$/i.test(f.name)) { toast(`${f.name} não é PDF.`, "erro"); continue; } arquivos.push(f); if (/\bETP\b|estudo\s*t[ée]cnico/i.test(f.name)) toast("ETP (estudo técnico preliminar) raramente acrescenta algo ao Edital + TR e encarece a leitura. Inclua só se a planilha de itens estiver nele.", "aviso", 9000); } lista(); };
     inp.addEventListener("change", () => { add(inp.files); inp.value = ""; });
     dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("over"); }); dz.addEventListener("dragleave", () => dz.classList.remove("over"));
     dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("over"); add(e.dataTransfer.files); });
@@ -47,7 +47,14 @@ export default {
     el.querySelector("#sel-modelo").addEventListener("change", (e) => { modelo = e.target.value; });
     btn.addEventListener("click", async () => {
       ocupado = true; lista(); prog.textContent = "Preparando…";
-      try { ultima = await analisarEdital(arquivos, { modelo, prompt: getPrompts().analise, onProgresso: (t) => { prog.textContent = t; } }); ultima.arquivosNomes = arquivos.map((f) => f.name); ultima.criadoEm = new Date().toISOString(); ultima.usuario = currentUser?.email || ""; await salvarAnalise(); prog.textContent = ""; toast("Análise concluída."); }
+      // mesmo conjunto de PDFs já analisado? evita pagar duas vezes
+      let hash = ""; try { hash = await hashArquivos(arquivos); } catch { hash = ""; }
+      const igual = hash ? store.get("analises").find((a) => a.hashArquivos === hash) : null;
+      if (igual) {
+        const abrir = await confirmar(`Estes mesmos PDFs já foram analisados em ${fmtD((igual.criadoEm || "").slice(0, 10))} (${modalidadeCurta(igual.resumo?.modalidade)} ${numeroCurto(igual.resumo?.numero) || ""}). Abrir a análise existente em vez de pagar uma nova?`, { ok: "Abrir a existente", cancelar: "Analisar de novo" });
+        if (abrir) { ultima = JSON.parse(JSON.stringify(igual)); aba = "edital"; arquivos = []; ocupado = false; lista(); prog.textContent = ""; mostrar(el); return; }
+      }
+      try { ultima = await analisarEdital(arquivos, { modelo, prompt: getPrompts().analise, onProgresso: (t) => { prog.textContent = t; } }); ultima.hashArquivos = hash; registrarUso(ultima, "analise", ultima.meta); ultima.arquivosNomes = arquivos.map((f) => f.name); ultima.criadoEm = new Date().toISOString(); ultima.usuario = currentUser?.email || ""; await salvarAnalise(); prog.textContent = ""; toast("Análise concluída."); }
       catch (e) { prog.textContent = ""; toast(e.message, "erro", 8000); }
       ocupado = false; lista(); mostrar(el);
     });
@@ -116,6 +123,15 @@ function mostrar(el) {
 
 // ---------- Etapa C: correspondência ----------
 let casando = false, unsubH = null;
+// SHA-256 do conjunto de PDFs (independe da ordem)
+async function hashArquivos(files) {
+  const partes = []; for (const f of files) { const h = await crypto.subtle.digest("SHA-256", await f.arrayBuffer()); partes.push([...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("")); }
+  return partes.sort().join("|").slice(0, 200);
+}
+// Histórico de consumo de IA desta análise (para o painel de custo em Parâmetros)
+function registrarUso(r, etapa, meta) {
+  if (!r || !meta) return; (r.usoIA ||= []).push({ etapa, modelo: meta.modelo || "", entrada: (meta.tokensEntrada || 0) + (meta.tokensCache || 0), saida: meta.tokensSaida || 0, em: new Date().toISOString(), usuario: currentUser?.email || "" });
+}
 async function salvarAnalise() {
   if (!ultima) return; if (!ultima.id) ultima.id = newId();
   const { arquivosNomes, ...dados } = ultima; // tudo é serializável (sem File)
@@ -135,7 +151,7 @@ async function casar(el) {
   try {
     const itens = ultima.itens.map((it) => { const { familia, candidatos } = candidatosPara(it); return { item: it.item, descricao: it.descricao, unidade: it.unidade, quantidade: it.quantidade, marcaReferencia: it.marcaReferencia, familia, candidatos }; });
     const r = await casarItens(itens, { regras: getRegras(), modelo, prompt: getPrompts().casar });
-    ultima.correspondencia = (r.itens || []).map((c) => ({ ...c, item: String(c.item) })); ultima.metaCorr = r.meta; ultima.candidatosEnviados = itens.reduce((s, i) => s + i.candidatos.length, 0);
+    ultima.correspondencia = (r.itens || []).map((c) => ({ ...c, item: String(c.item) })); ultima.metaCorr = r.meta; registrarUso(ultima, "correspondencia", r.meta); ultima.candidatosEnviados = itens.reduce((s, i) => s + i.candidatos.length, 0);
     await salvarAnalise(); toast("Correspondência concluída.");
   } catch (e) { toast(e.message, "erro", 8000); }
   casando = false; mostrar(el);
@@ -389,7 +405,7 @@ function ligarDecl(el) {
       try {
         const empresa = { "Razão social": EMPRESA.nome, CNPJ: EMPRESA.cnpj, "Inscrição Estadual": EMPRESA.ie, "Endereço completo": EMPRESA.endereco, Telefone: EMPRESA.tel, "E-mail": EMPRESA.emailLicitacoes, "Representante legal": EMPRESA.representanteCompleto, "Cargo do representante": EMPRESA.cargoRepresentante, "RG do representante": EMPRESA.rg, "CPF do representante": EMPRESA.cpf, "Enquadramento": "Empresa de Pequeno Porte (EPP), optante pelo Simples Nacional", "Cidade para data": EMPRESA.cidade };
         const res = await extrairDeclaracoes(r.arquivos, { empresa, prompt: getPrompts().declaracoes, modelo });
-        r.declaracoes = res.declaracoes || []; r.declaracoesObs = res.observacoes || ""; r.declaracoesMeta = res.meta || null; r.declaracoesData = new Date().toISOString().slice(0, 10);
+        r.declaracoes = res.declaracoes || []; r.declaracoesObs = res.observacoes || ""; r.declaracoesMeta = res.meta || null; registrarUso(r, "declaracoes", res.meta); r.declaracoesData = new Date().toISOString().slice(0, 10);
         await salvarAnalise(); toast(`${r.declaracoes.length} declaração(ões) localizada(s)${res.meta?.stopReason === "max_tokens" ? " — resposta truncada, confira" : ""}.`, "ok", 6000);
       } catch (err) { toast(err.message || String(err), "erro", 9000); }
       gerandoDecl = false; mostrar(el); return;

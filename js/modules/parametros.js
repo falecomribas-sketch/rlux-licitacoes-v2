@@ -3,7 +3,7 @@
 import { store } from "../core/store.js";
 import { toast, icon, closeModal, confirmar } from "../core/ui.js";
 import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js";
-import { esc, fmt } from "../core/utils.js";
+import { esc, fmt, fmtNum } from "../core/utils.js";
 import { isAdmin } from "../core/auth.js";
 import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js";
 
@@ -39,6 +39,26 @@ export const REGRAS_PADRAO = {
 };
 let regras = null, unsubR = null, unsubC = null; const ouvintesR = new Set();
 export const getRegras = () => regras || REGRAS_PADRAO;
+
+// Preços da IA (config/precosIA): US$ por milhão de tokens e câmbio. Padrões aproximados — confira em anthropic.com/pricing.
+export const PRECOS_PADRAO = { cambio: 5.5, modelos: { "claude-haiku-5-5": { entrada: 1, saida: 5 }, "claude-sonnet-5-5": { entrada: 3, saida: 15 }, "claude-opus-5-5": { entrada: 15, saida: 75 } } };
+let precos = null, unsubPr = null;
+export const getPrecos = () => precos || PRECOS_PADRAO;
+export function iniciarPrecos() { if (unsubPr) return; unsubPr = store.watchObj("config", "precosIA", (d) => { precos = d && d.modelos ? { cambio: +d.cambio || PRECOS_PADRAO.cambio, modelos: { ...PRECOS_PADRAO.modelos, ...d.modelos } } : null; ouvintesR.forEach((f) => f()); }); }
+const chaveModelo = (m) => Object.keys(PRECOS_PADRAO.modelos).find((k) => (m || "").startsWith(k.replace(/-5-5$/, ""))) || "claude-haiku-5-5";
+export function custoUso(u, pr = getPrecos()) { const p = pr.modelos[chaveModelo(u.modelo)] || pr.modelos["claude-haiku-5-5"]; return ((u.entrada || 0) * p.entrada + (u.saida || 0) * p.saida) / 1e6 * pr.cambio; }
+// Lista todos os usos de IA registrados nas análises (com compatibilidade para análises antigas sem usoIA)
+export function usosIA() {
+  const out = [];
+  store.get("analises").forEach((a) => {
+    if (Array.isArray(a.usoIA) && a.usoIA.length) { a.usoIA.forEach((u) => out.push({ ...u, analiseId: a.id })); return; }
+    const em = a.criadoEm || "";
+    if (a.meta) out.push({ etapa: "analise", modelo: a.meta.modelo, entrada: (a.meta.tokensEntrada || 0) + (a.meta.tokensCache || 0), saida: a.meta.tokensSaida || 0, em, analiseId: a.id });
+    if (a.metaCorr) out.push({ etapa: "correspondencia", modelo: a.metaCorr.modelo, entrada: a.metaCorr.tokensEntrada || 0, saida: a.metaCorr.tokensSaida || 0, em, analiseId: a.id });
+    if (a.declaracoesMeta) out.push({ etapa: "declaracoes", modelo: a.declaracoesMeta.modelo, entrada: a.declaracoesMeta.tokensEntrada || 0, saida: a.declaracoesMeta.tokensSaida || 0, em, analiseId: a.id });
+  });
+  return out;
+}
 
 // Prompts da IA (config/promptsIA). Vazio = usa o padrão do servidor (functions/prompts-padrao.json).
 let prompts = {}, unsubP = null, padraoPrompts = null;
@@ -81,6 +101,17 @@ export default {
           <div class="card"><div class="card-head"><h2>Padrões por família</h2>${isAdmin() ? `<button class="btn btn-ghost btn-sm" data-act="add-padrao">${icon("plus")} Regra</button>` : ""}</div><div class="card-body flush" id="padroes"></div></div>
           <div class="card"><div class="card-head"><h2>Equivalências de termo</h2>${isAdmin() ? `<button class="btn btn-ghost btn-sm" data-act="add-equiv">${icon("plus")} Equivalência</button>` : ""}</div><div class="card-body flush" id="equivs"></div></div>
         </div>
+        <div class="section-title">Custo da IA (calculado pelos tokens gravados em cada análise)</div>
+        <div class="grid grid-2">
+          <div class="card"><div class="card-head"><h2>Consumo</h2></div><div class="card-body flush" id="custo-ia"></div></div>
+          <div class="card"><div class="card-head"><h2>Preços por milhão de tokens (US$)</h2></div><div class="card-body">
+            <form id="f-precos" class="form"><div class="form-row cols-2">
+              ${Object.entries(getPrecos().modelos).map(([k, v]) => `<label class="field"><span>${esc(k.replace("claude-", "").replace("-5-5", " 5.5"))} — entrada</span><input type="number" step="0.01" name="in_${k}" value="${v.entrada}" ${ro}></label><label class="field"><span>${esc(k.replace("claude-", "").replace("-5-5", " 5.5"))} — saída</span><input type="number" step="0.01" name="out_${k}" value="${v.saida}" ${ro}></label>`).join("")}
+              <label class="field"><span>Câmbio (R$ por US$)</span><input type="number" step="0.01" name="cambio" value="${getPrecos().cambio}" ${ro}></label>
+            </div><p class="muted" style="font-size:12px;margin:6px 0 0">Valores de referência; confira na tabela oficial da Anthropic e ajuste. Não inclui impostos sobre o pagamento internacional.</p>
+            ${isAdmin() ? `<div style="text-align:right;margin-top:8px"><button class="btn btn-primary btn-sm" type="submit">Salvar preços</button></div>` : ""}</form>
+          </div></div>
+        </div>
         <div class="section-title">Prompts da IA (texto que a IA recebe; a parte técnica do formato de resposta é fixa)</div>
         <div class="grid grid-2" id="prompts">
           ${[["analise", "Analisador de edital (Etapa 1: resumo, documentação e itens — antigo Leitor + GPT 1)", "Marcadores que o sistema preenche: {{familias}} (famílias e palavras-chave) e {{naoLocalizado}} (frase padrão para dado não encontrado)."], ["casar", "Correspondência item → produto (Etapa 3 — antigo GPT 2)", "Marcadores: {{padroes}} (regras por família acima) e {{equivalencias}} (tabela de equivalências acima)."], ["declaracoes", "Declarações exigidas no edital", "Marcador: {{empresa}} (dados da RLUX: razão social, CNPJ, IE, endereço, representante, RG, CPF, cargo, enquadramento)."]].map(([k, t, dica]) => `
@@ -90,6 +121,8 @@ export default {
             ${isAdmin() ? `<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn btn-ghost btn-sm" data-act="pr-padrao" data-k="${k}">Restaurar padrão</button><button class="btn btn-primary btn-sm" data-act="pr-salvar" data-k="${k}">Salvar</button></div>` : ""}
           </div></div>`).join("")}
         </div>`;
+      painelCusto(el);
+      el.querySelector("#f-precos").addEventListener("submit", async (e) => { e.preventDefault(); if (!isAdmin()) return; const f = e.target; const modelos = {}; Object.keys(PRECOS_PADRAO.modelos).forEach((k) => { modelos[k] = { entrada: +f.elements[`in_${k}`].value || 0, saida: +f.elements[`out_${k}`].value || 0 }; }); await store.setObj("config", "precosIA", { cambio: +f.elements.cambio.value || PRECOS_PADRAO.cambio, modelos, _atualizado: new Date().toISOString() }); toast("Preços salvos."); });
       carregarPadrao().then((pd) => ["analise", "casar", "declaracoes"].forEach((k) => { const ta = el.querySelector(`#pr-${k}`); if (ta && !ta.value) ta.value = getPrompts()[k] || pd[k] || ""; }));
       const simul = () => { const v = lerPreco(el); const ex = [16.44, 22.45, 142.68]; el.querySelector("#simul").innerHTML = `<div><div class="k">Fator</div>× ${(1 / Math.max(0.05, 1 - (v.simples + v.fretePct + v.lucroMin) / 100)).toFixed(3)}</div>` + ex.map((x) => `<div><div class="k">Custo ${fmt(x)}</div>piso ${fmt(piso(x, v))}</div>`).join(""); };
       el.querySelector("#f-preco").addEventListener("input", simul); simul();
@@ -119,10 +152,31 @@ export default {
         toast(igual ? "Prompt restaurado ao padrão." : "Prompt salvo. Vale para as próximas análises."); return; }
       if (b.dataset.act === "rm-padrao") { r.padroes.splice(i, 1); await salvarRegras(r); }
       if (b.dataset.act === "rm-equiv") { r.equivalencias.splice(i, 1); await salvarRegras(r); } });
-    iniciarRegras(); iniciarPrompts(); const fR = () => { if (el.querySelector("#padroes")) tabelas(el, getRegras()); }; ouvintesR.add(fR); el._fR = fR;
+    iniciarRegras(); iniciarPrompts(); iniciarPrecos(); const fR = () => { if (el.querySelector("#padroes")) { tabelas(el, getRegras()); painelCusto(el); } }; ouvintesR.add(fR); el._fR = fR;
     unsubC = onCfg(() => { if (document.activeElement?.form?.id !== "f-preco") desenhar(); });
     desenhar();
   },
   destroy() { unsubC?.(); unsubC = null; ouvintesR.clear(); },
 };
 const lerPreco = (el) => { const f = el.querySelector("#f-preco"); const n = (k) => parseFloat(f.elements[k].value) || 0; return { simples: n("simples"), lucroMin: n("lucroMin"), fretePct: n("fretePct"), freteMin: n("freteMin"), descontoRef: n("descontoRef"), custoValidadeDias: Math.round(n("custoValidadeDias")) || 90 }; };
+
+const ETAPAS = { analise: "Análise do edital", correspondencia: "Correspondência", declaracoes: "Declarações" };
+function painelCusto(el) {
+  const box = el.querySelector("#custo-ia"); if (!box) return;
+  const usos = usosIA(); const hoje = new Date().toISOString().slice(0, 10), mes = hoje.slice(0, 7);
+  const soma = (lst) => lst.reduce((a, u) => a + custoUso(u), 0);
+  const dia = usos.filter((u) => (u.em || "").slice(0, 10) === hoje), doMes = usos.filter((u) => (u.em || "").slice(0, 7) === mes);
+  const porEtapa = Object.keys(ETAPAS).map((k) => { const l = doMes.filter((u) => u.etapa === k); return { k, n: l.length, custo: soma(l), entrada: l.reduce((a, u) => a + (u.entrada || 0), 0), saida: l.reduce((a, u) => a + (u.saida || 0), 0) }; });
+  const analisesMes = new Set(doMes.map((u) => u.analiseId)).size;
+  const diasUteis = Math.max(1, new Set(doMes.map((u) => (u.em || "").slice(0, 10))).size);
+  const projecao = soma(doMes) / diasUteis * 22;
+  box.innerHTML = `<div class="kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-bottom:1px solid var(--border)">
+      <div style="padding:12px 16px"><div class="muted" style="font-size:11px">Hoje</div><div style="font-size:18px;font-weight:700">${fmt(soma(dia))}</div><div class="muted" style="font-size:11px">${dia.length} chamada(s)</div></div>
+      <div style="padding:12px 16px;border-left:1px solid var(--border)"><div class="muted" style="font-size:11px">Este mês</div><div style="font-size:18px;font-weight:700">${fmt(soma(doMes))}</div><div class="muted" style="font-size:11px">${analisesMes} edital(is) · ${analisesMes ? fmt(soma(doMes) / analisesMes) : "—"} por edital</div></div>
+      <div style="padding:12px 16px;border-left:1px solid var(--border)"><div class="muted" style="font-size:11px">Projeção (22 dias úteis)</div><div style="font-size:18px;font-weight:700">${fmt(projecao)}</div><div class="muted" style="font-size:11px">no ritmo dos ${diasUteis} dia(s) com uso</div></div>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Etapa (mês)</th><th class="num">Chamadas</th><th class="num">Tokens lidos</th><th class="num">Gerados</th><th class="num">Custo</th><th class="num">Média</th></tr></thead><tbody>
+      ${porEtapa.map((e) => `<tr><td>${ETAPAS[e.k]}</td><td class="num">${e.n}</td><td class="num">${fmtNum(e.entrada)}</td><td class="num">${fmtNum(e.saida)}</td><td class="num">${fmt(e.custo)}</td><td class="num">${e.n ? fmt(e.custo / e.n) : "—"}</td></tr>`).join("")}
+    </tbody></table></div>
+    <p class="muted" style="font-size:11.5px;padding:8px 16px;margin:0">Texto gerado custa ~5× mais por token do que texto lido. Análises refeitas e declarações entram cada vez que são executadas.</p>`;
+}

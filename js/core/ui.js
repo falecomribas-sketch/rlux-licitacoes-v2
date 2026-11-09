@@ -48,13 +48,13 @@ export function closeModal() {
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
 // confirmar("Excluir proposta?") -> Promise<boolean>
-export function confirmar(msg, { ok = "Confirmar", perigo = false } = {}) {
+export function confirmar(msg, { ok = "Confirmar", perigo = false, cancelar = "Cancelar" } = {}) {
   return new Promise((resolve) => {
     const m = openModal({
       titulo: "Confirmação",
       largura: "sm",
       corpo: `<p class="confirm-text">${esc(msg)}</p>`,
-      rodape: `<button class="btn btn-ghost" data-close>Cancelar</button>
+      rodape: `<button class="btn btn-ghost" data-close>${esc(cancelar)}</button>
                <button class="btn ${perigo ? "btn-danger" : "btn-primary"}" data-ok>${esc(ok)}</button>`,
       onClose: () => resolve(false),
     });
