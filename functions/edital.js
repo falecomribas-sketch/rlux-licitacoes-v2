@@ -117,7 +117,7 @@ const TOOL_DECL = {
   input_schema: { type: "object", required: ["declaracoes"], properties: {
     declaracoes: { type: "array", items: { type: "object", required: ["titulo", "texto"], properties: {
       titulo: { type: "string" }, referencia: { type: "string" }, fase: { type: "string", enum: ["proposta", "habilitacao", "contratacao", "outra"] }, destinatario: { type: "string" },
-      texto: { type: "string" }, pendencias: { type: "array", items: { type: "string" } }, quemAssina: { type: "string", enum: ["representante", "contador"] } } } },
+      texto: { type: "string" }, pendencias: { type: "array", items: { type: "string" } }, quemAssina: { type: "string", enum: ["representante", "contador"] }, forma: { type: "string", enum: ["documento", "sistema"], description: "documento = arquivo/papel assinado; sistema = marcada em campo próprio do portal" } } } },
     observacoes: { type: "string" } } },
 };
 module.exports.systemPromptDeclaracoes = systemPromptDeclaracoes;
