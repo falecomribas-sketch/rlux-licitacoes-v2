@@ -53,7 +53,7 @@ const TOOL = {
         type: "object",
         required: ["orgao", "numero", "municipio", "estado", "validadeProposta", "exigeAmostra", "entrega", "garantiaContratual"],
         properties: {
-          orgao: { type: "string" }, uasg: { type: "string" }, modalidade: { type: "string" }, numero: { type: "string", description: "Só o número, ex.: 009/2026" },
+          orgao: { type: "string" }, uasg: { type: "string" }, cnpj: { type: "string", description: "CNPJ do órgão, se constar" }, contatos: { type: "array", description: "Contatos do setor de licitações/pregoeiro citados no edital", items: { type: "object", properties: { nome: { type: "string" }, cargo: { type: "string" }, email: { type: "string" }, telefone: { type: "string" } } } }, modalidade: { type: "string" }, numero: { type: "string", description: "Só o número, ex.: 009/2026" },
           municipio: { type: "string" }, estado: { type: "string", description: "UF" },
           validadeProposta: { type: "string" }, validadeBase: { type: "string", description: "cláusula e página" },
           exigeAmostra: { type: "string", description: "Sim/Não + condição" }, amostraBase: { type: "string" },

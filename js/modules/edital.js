@@ -171,7 +171,8 @@ function abaEdital(r, L) {
   const extras = [L.criterioJulgamento ? `Julgamento: ${L.criterioJulgamento}` : "", L.srp === true ? "Registro de preços" : L.srp === false ? "Não é registro de preços" : "", L.valorEstimado ? `Valor estimado: ${L.valorEstimado}` : ""].filter(Boolean);
   return `
     <div class="card" style="margin-bottom:16px"><div class="card-head"><h2>Resumo</h2>${extras.length ? `<span class="muted" style="font-size:12.5px">${esc(extras.join(" · "))}</span>` : ""}</div><div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Campo</th><th>Resposta</th><th>Base no edital</th></tr></thead><tbody>
-      ${linha("Órgão", `${L.orgao || "—"}${L.uasg && !NAO_LOC.test(L.uasg) ? ` (UASG ${L.uasg})` : ""}`)}
+      ${linha("Órgão", `${L.orgao || "—"}${L.uasg && !NAO_LOC.test(L.uasg) ? ` (UASG ${L.uasg})` : ""}${limparNaoLoc(L.cnpj) ? ` · CNPJ ${limparNaoLoc(L.cnpj)}` : ""}`)}
+      ${contatosIA(L).length ? linha("Contatos", contatosIA(L).map((c) => [c.nome, c.cargo, c.email, c.telefone].filter(Boolean).join(" · ")).join("; ")) : ""}
       ${linha("Nº do pregão / dispensa", `${modalidadeCurta(L.modalidade)} ${numeroCurto(L.numero) || ""}`)}
       ${linha("Município / UF", [L.municipio, L.estado].filter(Boolean).join(" / "))}
       ${linha("Validade da proposta", L.validadeProposta, L.validadeBase)}
@@ -207,6 +208,22 @@ function textoResumo(r) {
 
 // ---------- Etapa D: "Nova licitação" — cria órgão (se preciso), licitação e proposta-rascunho ----------
 const normTxt = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+const limparNaoLoc = (v) => (!v || NAO_LOC.test(String(v))) ? "" : String(v).trim();
+// Contatos que a IA achou no edital, já limpos
+function contatosIA(L) {
+  return (Array.isArray(L.contatos) ? L.contatos : []).map((c) => ({ nome: limparNaoLoc(c.nome), cargo: limparNaoLoc(c.cargo), email: limparNaoLoc(c.email).toLowerCase(), telefone: limparNaoLoc(c.telefone) })).filter((c) => c.email || c.telefone || c.nome);
+}
+// Órgão já cadastrado: preenche CNPJ/UASG/município se estiverem vazios e acrescenta contatos novos (por e-mail/telefone)
+async function complementarOrgao(id, L) {
+  const o = store.find("orgaos", id); if (!o) return;
+  const novo = { ...o }; let mudou = false;
+  const preencher = (k, val) => { if (!novo[k] && val) { novo[k] = val; mudou = true; } };
+  preencher("cnpj", limparNaoLoc(L.cnpj)); preencher("uasg", limparNaoLoc(L.uasg)); preencher("municipio", limparNaoLoc(L.municipio)); preencher("estado", limparNaoLoc(L.estado));
+  const atuais = Array.isArray(o.contatos) ? o.contatos : []; const chave = (c) => (c.email || "").toLowerCase() || (c.telefone || "").replace(/\D/g, "");
+  const tem = new Set(atuais.map(chave).filter(Boolean)); const add = contatosIA(L).filter((c) => chave(c) && !tem.has(chave(c)));
+  if (add.length) { novo.contatos = [...atuais, ...add]; mudou = true; }
+  if (mudou) await store.setItem("orgaos", novo);
+}
 function acharOrgao(L) {
   const orgs = store.get("orgaos"); const uasg = String(L.uasg || "").replace(/\D/g, "");
   if (uasg && !NAO_LOC.test(L.uasg || "")) { const o = orgs.find((x) => String(x.uasg || "").replace(/\D/g, "") === uasg); if (o) return o; }
@@ -236,7 +253,9 @@ function novaLicitacao(el) {
       ${orgaoEx ? `<div class="info-box"><div><div class="k">Órgão já cadastrado</div><strong>${esc(toTitleCase(orgaoEx.nome))}</strong>${orgaoEx.uasg ? " · UASG " + esc(orgaoEx.uasg) : ""}${orgaoEx.municipio ? " · " + esc(orgaoEx.municipio) + "/" + esc(orgaoEx.estado || "") : ""}</div></div><input type="hidden" name="orgaoId" value="${esc(orgaoEx.id)}">`
         : `<div class="info-box" style="border-color:var(--amber)"><div><div class="k">Órgão não encontrado no cadastro</div>Será criado com os dados abaixo — ou escolha um existente.</div></div>
            ${linha(`<div class="field"><span>Usar órgão existente (opcional)</span><div id="org-ssel"></div></div>`)}
-           ${linha(campo("Nome do órgão", inputTxt("orgaoNome", L.orgao || "")), campo("UASG", inputTxt("orgaoUasg", NAO_LOC.test(L.uasg || "") ? "" : L.uasg || "")), campo("Município", inputTxt("orgaoMunicipio", L.municipio || "")), campo("UF", select("orgaoEstado", [["", "—"], ...UFS.map((u) => [u, u])], L.estado || "")))}`}
+           ${linha(campo("Nome do órgão", inputTxt("orgaoNome", L.orgao || "")), campo("UASG", inputTxt("orgaoUasg", NAO_LOC.test(L.uasg || "") ? "" : L.uasg || "")), campo("Município", inputTxt("orgaoMunicipio", L.municipio || "")), campo("UF", select("orgaoEstado", [["", "—"], ...UFS.map((u) => [u, u])], L.estado || "")))}
+           ${linha(campo("CNPJ", inputTxt("orgaoCnpj", limparNaoLoc(L.cnpj))))}`}
+      ${contatosIA(L).length ? `<div class="info-box"><div><div class="k">Contatos encontrados no edital</div>${contatosIA(L).map((c) => esc([c.nome, c.cargo, c.email, c.telefone].filter(Boolean).join(" · "))).join("<br>")}<div class="muted" style="font-size:11.5px;margin-top:4px">${orgaoEx ? "Serão acrescentados ao órgão (sem duplicar e-mails já cadastrados)." : "Serão gravados no órgão criado."}</div></div></div>` : ""}
       <div class="form-section">Licitação</div>
       ${linha(campo("Tipo", select("tipo", TIPOS, tipoIni)), campo("Número", inputTxt("numero", numeroCurto(L.numero) || "", "required")), campo("Data da sessão", inputData("data", L.dataSessao || "")), campo("Portal", select("portalId", [["", "—"], ...portais.map((pt) => [pt.id, pt.sigla])], portalIni)))}
       <div class="form-section">Proposta inicial — ${linhas.length} item(ns) <span class="muted" style="font-weight:400">preço = referência do órgão; sem referência, histórico; sem histórico, piso + 15%. Ajuste aqui ou depois em Propostas.</span></div>
@@ -248,7 +267,8 @@ function novaLicitacao(el) {
     async onSalvar(form) {
       const v = lerForm(form); if (!v.numero.trim()) throw new Error("Informe o número da licitação.");
       let orgaoId = v.orgaoId || orgSel?.value || "";
-      if (!orgaoId) { if (!v.orgaoNome?.trim()) throw new Error("Informe o nome do órgão ou escolha um existente."); orgaoId = newId(); await store.setItem("orgaos", { id: orgaoId, nome: v.orgaoNome.trim(), uasg: (v.orgaoUasg || "").trim(), municipio: (v.orgaoMunicipio || "").trim(), estado: v.orgaoEstado || "", cnpj: "", contatos: [], origemIA: true }); }
+      if (!orgaoId) { if (!v.orgaoNome?.trim()) throw new Error("Informe o nome do órgão ou escolha um existente."); orgaoId = newId(); await store.setItem("orgaos", { id: orgaoId, nome: v.orgaoNome.trim(), uasg: (v.orgaoUasg || "").trim(), municipio: (v.orgaoMunicipio || "").trim(), estado: v.orgaoEstado || "", cnpj: (v.orgaoCnpj || "").trim(), contatos: contatosIA(L), origemIA: true }); }
+      else await complementarOrgao(orgaoId, L);
       const licId = newId();
       await store.setItem("licitacoes", { id: licId, numero: v.numero.trim(), tipo: v.tipo, data: v.data || "", portalId: v.portalId || "", orgaoId, obs: `Criada pela análise de edital (IA). Validade: ${L.validadeProposta || "—"}. Entrega: ${L.entrega || "—"}${L.multiplosEnderecos ? " (múltiplos endereços)" : ""}. Amostra: ${L.exigeAmostra || "—"}. Garantia: ${L.garantiaContratual || "—"}.`, origemIA: true, analiseIA: { resumo: L, documentacaoEspecial: r.documentacaoEspecial || [], observacoes: r.observacoes || [], meta: r.meta || null, arquivos: r.arquivos || [] } });
       const itens = linhas.map(({ it, p }, i) => { const qtd = +v[`qtd_${i}`] || 0, preco = +v[`preco_${i}`] || 0; return { num: it.item, produtoId: p.id, nome: it.descricao || p.nome, produtoNome: p.nome, codigo: p.codigo, marca: p.marca || "", qtd, custo: p.custo || 0, preco, total: +(qtd * preco).toFixed(2), descricaoEdital: it.descricao, unidadeEdital: it.unidade || "", precoReferencia: it.precoReferencia ?? null }; });
