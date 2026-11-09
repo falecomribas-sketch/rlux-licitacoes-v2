@@ -89,12 +89,24 @@ async function analisar(req) {
     throw new HttpsError("internal", `Falha na IA: ${e.status || ""} ${e.message || e}`);
   }
   const uso = resp.usage || {};
+  const textoLivre = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+  console.log("analisar: blocos", (resp.content || []).map((c) => c.type).join(","), "textoLivre", textoLivre.length, "stop", resp.stop_reason, "saida", uso.output_tokens);
   const bloco = (resp.content || []).find((c) => c.type === "tool_use");
   let r = bloco?.input;
   if (!r) { // modelo respondeu em texto: tenta extrair o JSON
-    const txt = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
-    const m = txt.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; }
-    if (!r) throw new HttpsError("internal", "A IA não devolveu a análise estruturada. Início da resposta: " + txt.slice(0, 300));
+    const m = textoLivre.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; }
+    if (!r) throw new HttpsError("internal", "A IA não devolveu a análise estruturada. Início da resposta: " + textoLivre.slice(0, 300));
+  }
+  let complemento = null;
+  // Resposta cortada no limite antes de chegar ao resumo (itens vêm primeiro): pede só o resumo numa 2ª chamada curta
+  if (resp.stop_reason === "max_tokens" && !(r.resumo && r.resumo.orgao)) {
+    try {
+      const content2 = content.slice(0, -1).concat([{ type: "text", text: "Os itens já foram extraídos em outra etapa. Agora registre com a ferramenta registrar_analise APENAS: o resumo (PARTE 1), a documentação especial (PARTE 2) e as observações. Envie \"itens\" como lista vazia []." }]);
+      const resp2 = await client.messages.stream({ model: modelo, max_tokens: 6000, system: systemPrompt(fams, prompt), tools: [TOOL], tool_choice: { type: "auto" }, messages: [{ role: "user", content: content2 }] }).finalMessage();
+      const b2 = (resp2.content || []).find((c) => c.type === "tool_use"); const r2 = b2?.input;
+      if (r2) { r.resumo = r2.resumo || r.resumo; r.documentacaoEspecial = r2.documentacaoEspecial || r.documentacaoEspecial; r.observacoes = [r.observacoes, r2.observacoes].filter(Boolean).join(" "); }
+      complemento = resp2.usage || {};
+    } catch (e) { console.warn("complemento do resumo falhou", e.message); }
   }
 
   r.resumo = r.resumo || {};
@@ -102,7 +114,8 @@ async function analisar(req) {
   r.itens = (r.itens || []).map((i) => ({ ...i, item: String(i.item ?? "") }));
   r.auditoria = auditoria(todasPaginas, r.itens, fams);
   r.documentos = semTexto;
-  r.meta = { modelo: resp.model, tokensEntrada: uso.input_tokens || 0, tokensSaida: uso.output_tokens || 0, tokensCache: (uso.cache_read_input_tokens || 0) + (uso.cache_creation_input_tokens || 0), segundos: Math.round((Date.now() - t0) / 1000), paginas: todasPaginas.length, stopReason: resp.stop_reason };
+  const c2 = complemento || {};
+  r.meta = { modelo: resp.model, tokensEntrada: (uso.input_tokens || 0) + (c2.input_tokens || 0), tokensSaida: (uso.output_tokens || 0) + (c2.output_tokens || 0), tokensCache: (uso.cache_read_input_tokens || 0) + (uso.cache_creation_input_tokens || 0) + (c2.cache_read_input_tokens || 0) + (c2.cache_creation_input_tokens || 0), segundos: Math.round((Date.now() - t0) / 1000), paginas: todasPaginas.length, stopReason: resp.stop_reason, complementoResumo: !!complemento, textoLivre: textoLivre.length };
   return r;
 }
 

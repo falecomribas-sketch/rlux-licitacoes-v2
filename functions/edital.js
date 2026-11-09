@@ -42,7 +42,7 @@ const TOOL = {
         items: {
           type: "object", required: ["item", "descricao", "familia"],
           properties: {
-            item: { type: "string" }, lote: { type: "string" }, descricao: { type: "string" }, unidade: { type: "string" },
+            item: { type: "string" }, lote: { type: "string" }, descricao: { type: "string", description: "Especificação essencial, no máximo 200 caracteres" }, unidade: { type: "string" },
             quantidade: { type: "number" }, precoReferencia: { type: "number" },
             exclusivoMeEpp: { type: "string", description: "exclusivo, cota reservada, ampla ou vazio" }, marcaReferencia: { type: "string" },
             aceitaSimilar: { type: "boolean" }, familia: { type: "string" }, pagina: { type: "integer" },
