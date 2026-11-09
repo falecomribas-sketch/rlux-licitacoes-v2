@@ -132,9 +132,9 @@ async function hashArquivos(files) {
 function registrarUso(r, etapa, meta) {
   if (!r || !meta) return; (r.usoIA ||= []).push({ etapa, modelo: meta.modelo || "", entrada: (meta.tokensEntrada || 0) + (meta.tokensCache || 0), saida: meta.tokensSaida || 0, em: new Date().toISOString(), usuario: currentUser?.email || "" });
 }
-async function salvarAnalise() {
-  if (!ultima) return; if (!ultima.id) ultima.id = newId();
-  const { arquivosNomes, ...dados } = ultima; // tudo é serializável (sem File)
+async function salvarAnalise(alvo = ultima) {
+  if (!alvo) return; if (!alvo.id) alvo.id = newId();
+  const { arquivosNomes, ...dados } = alvo; // tudo é serializável (sem File)
   try { await store.setItem("analises", { ...dados, arquivosNomes: arquivosNomes || [], atualizadoEm: new Date().toISOString() }); } catch (e) { console.error(e); toast("Não consegui gravar a análise (ela continua na tela).", "erro"); }
 }
 function historico(el) {
@@ -393,7 +393,7 @@ function abaDecl(r) {
   if (!ds) return `<div class="card">${cab}<div class="card-body"><p class="muted" style="margin:0;font-size:13px">A IA relê os PDFs desta análise, localiza cada declaração que a licitante precisa apresentar (modelos em anexo e exigências no corpo do edital) e devolve o texto preenchido com os dados da RLUX. Você confere, ajusta o que estiver marcado como pendente e gera os PDFs no papel timbrado, datados de "${esc(EMPRESA.cidade)}, dia de mês de ano".</p><p class="muted" style="margin:8px 0 0;font-size:12px">Custo estimado: semelhante ao da análise (lê o edital inteiro de novo).</p>${gerandoDecl ? `<p id="decl-prog" class="muted" style="font-size:13px;margin-top:10px">Lendo o edital…</p>` : ""}</div></div>`;
   const hoje = new Date().toISOString().slice(0, 10);
   return `<div class="card">${cab}<div class="card-body">
-    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><label class="field" style="margin:0;max-width:180px"><span>Data das declarações</span><input type="date" id="decl-data" value="${r.declaracoesData || hoje}"></label><span class="muted" style="font-size:12px">${ds.length} declaração(ões)${r.declaracoesObs ? ` · ${esc(r.declaracoesObs)}` : ""}. Edite os textos à vontade — as alterações ficam salvas nesta análise.</span></div>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><label class="field" style="margin:0;max-width:180px"><span>Data das declarações</span><input type="date" id="decl-data" value="${r.declaracoesData || hoje}"></label><span class="muted" style="font-size:12px">${ds.length} declaração(ões)${r.declaracoesMeta?.arquivos?.length ? ` · lidas de: ${esc(r.declaracoesMeta.arquivos.join(", "))}${r.declaracoesMeta.paginasTotal ? ` (${r.declaracoesMeta.paginas}/${r.declaracoesMeta.paginasTotal} páginas)` : ""}` : ""}${r.declaracoesObs ? ` · ${esc(r.declaracoesObs)}` : ""}. Edite os textos à vontade — as alterações ficam salvas nesta análise.</span></div>
     ${ds.map((d, i) => `<div class="card" style="margin-bottom:12px;border:1px solid var(--border)"><div class="card-head" style="align-items:flex-start"><div><h2 style="font-size:14px">${i + 1}. ${esc(d.titulo)}</h2><div class="muted" style="font-size:11.5px;margin-top:2px">${esc(d.referencia || "")}${d.quemAssina === "contador" ? " · <strong>assinatura do contador</strong>" : ""}</div></div><div style="display:flex;gap:6px;align-items:center">${tag(...(FASE_DECL[d.fase] || FASE_DECL.outra))}<button class="btn btn-ghost btn-sm" data-act="decl-pdf" data-i="${i}">${icon("download")} PDF</button><button class="icon-btn sm danger" data-act="decl-rm" data-i="${i}" title="Remover">${icon("trash")}</button></div></div>
       <div class="card-body">
         ${d.pendencias?.length ? `<div class="info-box" style="border-color:var(--amber);margin-bottom:8px"><div><div class="k">Pendências — confira antes de assinar</div>${d.pendencias.map((x) => esc(x)).join("<br>")}</div></div>` : ""}
@@ -416,8 +416,9 @@ function ligarDecl(el) {
       try {
         const empresa = { "Razão social": EMPRESA.nome, CNPJ: EMPRESA.cnpj, "Inscrição Estadual": EMPRESA.ie, "Endereço completo": EMPRESA.endereco, Telefone: EMPRESA.tel, "E-mail": EMPRESA.emailLicitacoes, "Representante legal": EMPRESA.representanteCompleto, "Cargo do representante": EMPRESA.cargoRepresentante, "RG do representante": EMPRESA.rg, "CPF do representante": EMPRESA.cpf, "Enquadramento": "Empresa de Pequeno Porte (EPP), optante pelo Simples Nacional", "Cidade para data": EMPRESA.cidade };
         const res = await extrairDeclaracoes(r.arquivos, { empresa, prompt: getPrompts().declaracoes, modelo });
-        r.declaracoes = res.declaracoes || []; r.declaracoesObs = res.observacoes || ""; r.declaracoesMeta = res.meta || null; registrarUso(r, "declaracoes", res.meta); r.declaracoesData = new Date().toISOString().slice(0, 10);
-        await salvarAnalise(); toast(`${r.declaracoes.length} declaração(ões) localizada(s)${res.meta?.stopReason === "max_tokens" ? " — resposta truncada, confira" : ""}.`, "ok", 6000);
+        r.declaracoes = res.declaracoes || []; r.declaracoesObs = res.observacoes || ""; r.declaracoesMeta = { ...(res.meta || {}), arquivos: (r.arquivos || []).map((a) => a.nome), pasta: (r.arquivos?.[0]?.path || "").split("/")[2] || "" }; registrarUso(r, "declaracoes", res.meta); r.declaracoesData = new Date().toISOString().slice(0, 10);
+        await salvarAnalise(r); if (ultima !== r) { gerandoDecl = false; toast("Declarações prontas na análise anterior (você trocou de análise enquanto a IA lia). Abra-a no histórico.", "aviso", 9000); return; }
+        toast(`${r.declaracoes.length} declaração(ões) localizada(s)${res.meta?.stopReason === "max_tokens" ? " — resposta truncada, confira" : ""}.`, "ok", 6000);
       } catch (err) { toast(err.message || String(err), "erro", 9000); }
       gerandoDecl = false; mostrar(el); return;
     }
