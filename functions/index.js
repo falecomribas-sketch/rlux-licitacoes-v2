@@ -135,9 +135,10 @@ exports.casarItens = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "512MiB", ti
     resp = await client.messages.stream({ model: modelo, max_tokens: 12000, system: systemPromptCasar(regras, prompt), tools: [TOOL_CASAR], tool_choice: { type: "auto" }, messages: [{ role: "user", content: texto + "\n\nRegistre a correspondência de todos os itens com a ferramenta registrar_correspondencia." }] }).finalMessage();
   } catch (e) { console.error("Anthropic:", e); throw new HttpsError("internal", `Falha na IA: ${e.status || ""} ${e.message || e}`); }
   const bloco = (resp.content || []).find((c) => c.type === "tool_use"); let r = bloco?.input;
-  if (!r) { const txt = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"); const m = txt.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; } if (!r) throw new HttpsError("internal", "A IA não devolveu a correspondência estruturada."); }
+  if (!r) { const txt = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"); const m = txt.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; } if (!r) throw new HttpsError("internal", resp.stop_reason === "max_tokens" ? "A resposta da IA foi cortada no limite — envie menos itens por vez." : "A IA não devolveu a correspondência estruturada."); }
   const uso = resp.usage || {};
-  return { itens: r.itens || [], meta: { modelo: resp.model, tokensEntrada: (uso.input_tokens || 0) + (uso.cache_read_input_tokens || 0) + (uso.cache_creation_input_tokens || 0), tokensSaida: uso.output_tokens || 0, segundos: Math.round((Date.now() - t0) / 1000) } };
+  console.log("casarItens:", itens.length, "itens, stop", resp.stop_reason, "saida", uso.output_tokens, "devolvidos", (r.itens || []).length);
+  return { itens: r.itens || [], meta: { modelo: resp.model, tokensEntrada: (uso.input_tokens || 0) + (uso.cache_read_input_tokens || 0) + (uso.cache_creation_input_tokens || 0), tokensSaida: uso.output_tokens || 0, segundos: Math.round((Date.now() - t0) / 1000), stopReason: resp.stop_reason } };
 });
 
 // Seleciona, sem IA, as páginas que podem conter declarações (ou a exigência delas) + 1 página de contexto de cada lado.

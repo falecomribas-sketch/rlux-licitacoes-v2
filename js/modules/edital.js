@@ -150,16 +150,23 @@ async function casar(el) {
   if (!ultima || casando) return; casando = true; mostrar(el);
   try {
     const itens = ultima.itens.map((it) => { const { familia, candidatos } = candidatosPara(it); return { item: it.item, descricao: it.descricao, unidade: it.unidade, quantidade: it.quantidade, marcaReferencia: it.marcaReferencia, familia, candidatos }; });
-    const r = await casarItens(itens, { regras: getRegras(), modelo, prompt: getPrompts().casar });
-    ultima.correspondencia = (r.itens || []).map((c) => ({ ...c, item: String(c.item) })); ultima.metaCorr = r.meta; registrarUso(ultima, "correspondencia", r.meta); ultima.candidatosEnviados = itens.reduce((s, i) => s + i.candidatos.length, 0);
-    await salvarAnalise(); toast("Correspondência concluída.");
+    // Em lotes de até 10 itens, em paralelo: respostas curtas (sem risco de corte) e mais rápido
+    const LOTE = 10; const lotes = []; for (let i = 0; i < itens.length; i += LOTE) lotes.push(itens.slice(i, i + LOTE));
+    const prog = el.querySelector("#corr-prog"); let feitos = 0;
+    const partes = await Promise.all(lotes.map(async (lote) => { const r = await casarItens(lote, { regras: getRegras(), modelo, prompt: getPrompts().casar }); feitos += lote.length; if (prog) prog.textContent = `${feitos}/${itens.length} itens…`; return r; }));
+    const todos = partes.flatMap((r) => r.itens || []); const metas = partes.map((r) => r.meta || {});
+    const meta = { modelo: metas[0]?.modelo || "", tokensEntrada: metas.reduce((a, m) => a + (m.tokensEntrada || 0), 0), tokensSaida: metas.reduce((a, m) => a + (m.tokensSaida || 0), 0), segundos: Math.max(...metas.map((m) => m.segundos || 0)), chamadas: lotes.length };
+    const semResposta = itens.filter((it) => !todos.some((c) => String(c.item) === String(it.item)));
+    ultima.correspondencia = itens.map((it) => { const c = todos.find((x) => String(x.item) === String(it.item)); return c ? { ...c, item: String(c.item) } : { item: String(it.item), produtoId: "", confianca: "nenhuma", justificativa: "A IA não devolveu resposta para este item — use Refazer ou escolha manualmente.", observacao: "" }; });
+    ultima.metaCorr = meta; registrarUso(ultima, "correspondencia", meta); ultima.candidatosEnviados = itens.reduce((s, i) => s + i.candidatos.length, 0);
+    await salvarAnalise(); toast(semResposta.length ? `Correspondência concluída, mas ${semResposta.length} item(ns) ficaram sem resposta da IA.` : "Correspondência concluída.", semResposta.length ? "aviso" : "ok", 6000);
   } catch (e) { toast(e.message, "erro", 8000); }
   casando = false; mostrar(el);
 }
 function abaCorr(r) {
   const L = r.resumo || {}; const linhas = linhasCorr(); const tem = !!r.correspondencia;
   const CONF = { alta: "tag-green", media: "tag-amber", baixa: "tag-orange", nenhuma: "tag-red" };
-  if (!tem) return `<div class="card"><div class="card-body" style="text-align:center;padding:36px"><p class="muted" style="margin:0 0 14px">Para cada item do edital, o sistema separa os produtos da mesma família e a IA escolhe o mais aderente, aplicando as regras de <strong>Parâmetros</strong>. Você confirma ou troca.</p><button class="btn btn-primary" data-act="casar" ${casando || !r.itens?.length ? "disabled" : ""}>${icon("bulb")} ${casando ? "Casando itens…" : `Casar ${r.itens?.length || 0} item(ns) com o cadastro`}</button></div></div>`;
+  if (!tem) return `<div class="card"><div class="card-body" style="text-align:center;padding:36px"><p class="muted" style="margin:0 0 14px">Para cada item do edital, o sistema separa os produtos da mesma família e a IA escolhe o mais aderente, aplicando as regras de <strong>Parâmetros</strong>. Você confirma ou troca.</p><button class="btn btn-primary" data-act="casar" ${casando || !r.itens?.length ? "disabled" : ""}>${icon("bulb")} ${casando ? "Casando itens…" : `Casar ${r.itens?.length || 0} item(ns) com o cadastro`}</button>${casando ? `<p id="corr-prog" class="muted" style="margin:10px 0 0;font-size:13px">Enviando…</p>` : ""}</div></div>`;
   const m = r.metaCorr || {};
   return `
     <div class="card"><div class="card-head"><h2>Correspondência item → produto RLUX</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-act="effecti" title="Sobe a planilha exportada da Effecti e devolve preenchida">${icon("upload")} Preencher planilha da Effecti</button><input type="file" id="effecti-file" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" data-act="disputa" title="Sobe a planilha de disputa da Effecti e devolve com o Valor limite = lance mínimo (piso)">${icon("upload")} Preencher lance mínimo (disputa)</button><input type="file" id="disputa-file" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" data-act="excel-corr">${icon("download")} Excel</button><button class="btn btn-ghost btn-sm" data-act="casar" ${casando ? "disabled" : ""}>${icon("refresh")} Refazer</button></div></div>
