@@ -122,7 +122,7 @@ function itemHtml(d = {}) {
       <div class="field" style="grid-column:span 3"><span>Produto do catálogo</span><div class="prod-ssel"></div></div>
     </div>
     <div class="form-row cols-3">
-      ${campo("Descrição", `<input type="text" name="nome" value="${esc(d.nome || "")}" required>`)}
+      <label class="field"><span>Descrição${d.descricaoEdital ? ` <button type="button" class="btn btn-ghost btn-sm" data-desc-edital style="padding:0 6px;font-size:11px;height:18px;line-height:18px;margin-left:6px;vertical-align:middle" title="Substituir pela descrição do item no edital/TR">usar a do edital/TR</button>` : ""}</span><textarea name="nome" rows="2" required style="resize:vertical;min-height:38px">${esc(d.nome || "")}</textarea></label>
       ${campo("Código", `<input type="text" name="codigo" value="${esc(d.codigo || "")}">`)}
       ${campo("Marca", `<input type="text" name="marca" value="${esc(d.marca || "")}">`)}
     </div>
@@ -134,6 +134,7 @@ function itemHtml(d = {}) {
       ${campo("Total", `<input type="text" class="ro-total" readonly>`)}
     </div>
     <input type="hidden" name="produtoId" value="${esc(d.produtoId || "")}">
+    <input type="hidden" name="extra" value="${esc(JSON.stringify({ descricaoEdital: d.descricaoEdital || "", unidadeEdital: d.unidadeEdital || "", precoReferencia: d.precoReferencia ?? null, produtoNome: d.produtoNome || "", precoInicial: d.precoInicial ?? null }))}">
   </div>`;
 }
 
@@ -164,12 +165,13 @@ function abrirForm(p = null) {
       function ligarItem(node, d) {
         const ps = ssel(node.querySelector(".prod-ssel"), { placeholder: "Código ou nome do produto…", itens: prodOpts(), value: d.produtoId || "", onSelect: (id) => {
           const prod = store.find("produtos", id); node.querySelector("[name=produtoId]").value = id || ""; node.querySelector(".item-warn").hidden = !!id;
-          if (prod) { node.querySelector("[name=nome]").value = prod.nome; node.querySelector("[name=codigo]").value = prod.codigo; node.querySelector("[name=marca]").value = prod.marca || "";
+          if (prod) { if (!d.descricaoEdital) node.querySelector("[name=nome]").value = prod.nome; node.querySelector("[name=codigo]").value = prod.codigo; node.querySelector("[name=marca]").value = prod.marca || "";
             node.querySelector("[name=custo]").value = prod.custo || 0; node.querySelector("[name=preco]").value = ((prod.custo || 0) * 1.3).toFixed(2); calcItem(node); } } });
         node.querySelectorAll("[name=qtd],[name=custo],[name=preco]").forEach((i) => i.addEventListener("input", () => calcItem(node)));
         node.querySelector("[data-rm]").addEventListener("click", () => { node.remove(); calcTotais(); });
         node.querySelector("[data-dup]").addEventListener("click", () => addItem({ ...lerItem(node), num: "" }, node.nextElementSibling));
         node.querySelector("[data-ins]").addEventListener("click", () => addItem({}, node));
+        node.querySelector("[data-desc-edital]")?.addEventListener("click", () => { node.querySelector("[name=nome]").value = d.descricaoEdital || ""; });
         calcItem(node);
       }
       function calcItem(node) {
@@ -205,7 +207,9 @@ function abrirForm(p = null) {
 function lerItem(n) {
   const g = (name) => n.querySelector(`[name=${name}]`).value;
   const qtd = +g("qtd") || 0, preco = +g("preco") || 0;
-  return { num: parseInt(g("num")) || "", produtoId: g("produtoId") || "", nome: g("nome").trim(), codigo: g("codigo").trim(), marca: g("marca").trim(), qtd, custo: +g("custo") || 0, preco, total: qtd * preco };
+  let extra = {}; try { extra = JSON.parse(g("extra") || "{}"); } catch { extra = {}; }
+  const limpo = Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== "" && v !== null && v !== undefined));
+  return { ...limpo, num: parseInt(g("num")) || "", produtoId: g("produtoId") || "", nome: g("nome").trim(), codigo: g("codigo").trim(), marca: g("marca").trim(), qtd, custo: +g("custo") || 0, preco, total: qtd * preco };
 }
 
 // ---------- PDF: opções ----------
