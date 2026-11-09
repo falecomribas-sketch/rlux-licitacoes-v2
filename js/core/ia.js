@@ -39,3 +39,10 @@ export async function casarItens(itens, { regras, modelo, prompt } = {}) {
   try { const r = await fn({ itens, regras, modelo, prompt: prompt || undefined }); return r.data; }
   catch (e) { throw new Error((e?.message || String(e)).replace(/^FirebaseError:\s*/, "")); }
 }
+
+// Declarações exigidas no edital — usa os PDFs já guardados na análise (arquivos: [{path,nome}])
+export async function extrairDeclaracoes(arquivos, { empresa, prompt, modelo } = {}) {
+  const fn = httpsCallable(functions, "extrairDeclaracoes", { timeout: 540000 });
+  try { const r = await fn({ arquivos, empresa, prompt: prompt || undefined, modelo }); return r.data; }
+  catch (e) { const msg = (e?.message || String(e)).replace(/^FirebaseError:\s*/, ""); if (/not-found|NOT_FOUND|404/i.test(msg) && !/Storage/.test(msg)) throw new Error("A função de declarações ainda não foi publicada no servidor."); throw new Error(msg); }
+}

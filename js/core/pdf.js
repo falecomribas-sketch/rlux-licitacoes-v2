@@ -7,6 +7,7 @@ export const EMPRESA = {
   cnpj: "23.535.805/0001-35", ie: "26.228.270-4",
   tel: "(19) 2139-7145 / (19) 2139-7155", email: "contato@rlux.com.br", emailLicitacoes: "licitacao@rlux.com.br", site: "https://www.rlux.com.br",
   representante: "Marcos Ribas", cpf: "286.176.978-57",
+  representanteCompleto: "Marcos Alberto Spina Ribas", rg: "29.685.143-7", cargoRepresentante: "Sócio Administrador", cidade: "Itajaí",
   bancos: ["Banco: 001 - Banco do Brasil  |  Agência: 2447-3  |  C/C: 63587-1", "Banco: 237 - Banco Bradesco  |  Agência: 2297  |  C/C: 129805-4"],
 };
 
@@ -89,3 +90,18 @@ export const tabelaPadrao = (extra = {}) => ({
   alternateRowStyles: { fillColor: [240, 245, 255] },
   ...extra,
 });
+
+export const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+export const dataExtenso = (d = new Date()) => `${EMPRESA.cidade}, ${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
+
+// Papel timbrado (assets/timbrado.jpg, A4 retrato). Devolve as margens úteis em mm.
+let timbrado = null;
+export async function carregarTimbrado() {
+  if (timbrado) return timbrado;
+  timbrado = await new Promise((res) => { const img = new Image(); img.onload = () => { const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext("2d").drawImage(img, 0, 0); res(c.toDataURL("image/jpeg", 0.85)); }; img.onerror = () => res(null); img.src = "assets/timbrado.jpg"; });
+  return timbrado;
+}
+export function aplicarTimbrado(doc, dataUrl) {
+  if (dataUrl) doc.addImage(dataUrl, "JPEG", 0, 0, doc._W, doc._H, undefined, "FAST");
+  return { topo: 48, base: doc._H - 36 };
+}

@@ -1,7 +1,9 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens } from "../core/ia.js";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js";
+import { EMPRESA } from "../core/pdf.js";
 import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js";
 import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js";
 import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js";
@@ -105,10 +107,11 @@ function mostrar(el) {
       <div style="text-align:right;max-width:420px">${tag(s.txt, s.cor)}${s.lista.length ? `<ul class="muted" style="font-size:12px;margin:6px 0 0;padding-left:18px;text-align:left">${s.lista.slice(0, 4).map((x) => `<li>${esc(x.length > 90 ? x.slice(0, 87) + "…" : x)}</li>`).join("")}${s.lista.length > 4 ? `<li>+ ${s.lista.length - 4} — veja o alerta completo abaixo</li>` : ""}</ul>` : ""}</div>
     </div>
     ${semTexto.length ? `<div class="card-body" style="padding-top:0"><div class="info-box" style="border-color:var(--amber)"><div><div class="k">PDF lido por imagem — confira as referências</div>${semTexto.map((d) => `${esc(d.nome)}: ${d.semTexto} de ${d.paginas} páginas sem texto`).join(" · ")}</div></div></div>` : ""}</div>
-    <div class="tabs"><button class="tab ${aba === "edital" ? "active" : ""}" data-act="aba" data-id="edital">Resumo do edital</button><button class="tab ${aba === "itens" ? "active" : ""}" data-act="aba" data-id="itens">Itens do portfólio (${(r.itens || []).length})</button><button class="tab ${aba === "corr" ? "active" : ""}" data-act="aba" data-id="corr">Correspondência${r.correspondencia ? ` (${r.correspondencia.filter((c) => c.produtoId).length}/${(r.itens || []).length})` : ""}</button></div>
-    ${aba === "edital" ? abaEdital(r, L) : aba === "itens" ? abaItens(r) : abaCorr(r, el)}
+    <div class="tabs"><button class="tab ${aba === "edital" ? "active" : ""}" data-act="aba" data-id="edital">Resumo do edital</button><button class="tab ${aba === "itens" ? "active" : ""}" data-act="aba" data-id="itens">Itens do portfólio (${(r.itens || []).length})</button><button class="tab ${aba === "corr" ? "active" : ""}" data-act="aba" data-id="corr">Correspondência${r.correspondencia ? ` (${r.correspondencia.filter((c) => c.produtoId).length}/${(r.itens || []).length})` : ""}</button><button class="tab ${aba === "decl" ? "active" : ""}" data-act="aba" data-id="decl">Declarações${r.declaracoes ? ` (${r.declaracoes.length})` : ""}</button></div>
+    ${aba === "edital" ? abaEdital(r, L) : aba === "itens" ? abaItens(r) : aba === "decl" ? abaDecl(r) : abaCorr(r, el)}
     <p class="muted" style="font-size:11.5px;margin-top:12px">${esc(m.modelo || "")} · ${m.paginas || 0} página(s) · ${fmtNum((m.tokensEntrada || 0) + (m.tokensCache || 0))} tokens lidos · ${fmtNum(m.tokensSaida)} gerados${(r.documentos || []).some((d) => d.modo === "pdf") ? " · <strong>modo PDF (escaneado)</strong>" : ""} · ${m.segundos || 0}s${m.stopReason === "max_tokens" ? " · <strong style=\"color:var(--red)\">resposta truncada — edital muito extenso, divida os PDFs</strong>" : ""} · arquivos: ${esc((r.arquivosNomes || []).join(", "))}</p>`;
   if (aba === "corr") ligarCorr(el);
+  if (aba === "decl") ligarDecl(el);
 }
 
 // ---------- Etapa C: correspondência ----------
@@ -352,4 +355,49 @@ async function preencherDisputa(file) {
   if (!n) return toast(`Nenhum item da planilha coincide com os itens casados. Itens na planilha: ${itensDaPlanilha(ex, cItem, cLote).slice(0, 15).join(", ") || "nenhum"} · itens casados: ${casados.map((x) => x.it.item).join(", ")}.`, "erro", 12000);
   salvarWorkbook(ex.wb, `disputa_effecti_${(numeroCurto(L.numero) || "edital").replace(/[^\w]+/g, "_")}`);
   toast(`Lance mínimo preenchido em ${n} item(ns)${faltam.length ? ` · não encontrados na planilha: ${faltam.join(", ")}` : ""}${acima.length ? ` · ATENÇÃO, piso acima do valor atual: ${acima.join("; ")}` : ""}.`, acima.length ? "aviso" : "ok", 10000);
+}
+
+// ---------- Declarações exigidas no edital ----------
+let gerandoDecl = false;
+const FASE_DECL = { proposta: ["Proposta", "tag-blue"], habilitacao: ["Habilitação", "tag-teal"], contratacao: ["Contratação", "tag-purple"], outra: ["Outra", "tag-gray"] };
+function abaDecl(r) {
+  const ds = r.declaracoes;
+  const cab = `<div class="card-head"><h2>Declarações exigidas no edital</h2><div style="display:flex;gap:8px;flex-wrap:wrap">${ds?.length ? `<button class="btn btn-ghost btn-sm" data-act="decl-pdf-todas">${icon("download")} PDF com todas</button>` : ""}<button class="btn ${ds ? "btn-ghost" : "btn-primary"} btn-sm" data-act="decl-gerar" ${gerandoDecl ? "disabled" : ""}>${icon(ds ? "refresh" : "bulb")} ${gerandoDecl ? "Lendo o edital…" : ds ? "Refazer com IA" : "Localizar e preencher com IA"}</button></div></div>`;
+  if (!ds) return `<div class="card">${cab}<div class="card-body"><p class="muted" style="margin:0;font-size:13px">A IA relê os PDFs desta análise, localiza cada declaração que a licitante precisa apresentar (modelos em anexo e exigências no corpo do edital) e devolve o texto preenchido com os dados da RLUX. Você confere, ajusta o que estiver marcado como pendente e gera os PDFs no papel timbrado, datados de "${esc(EMPRESA.cidade)}, dia de mês de ano".</p><p class="muted" style="margin:8px 0 0;font-size:12px">Custo estimado: semelhante ao da análise (lê o edital inteiro de novo).</p>${gerandoDecl ? `<p id="decl-prog" class="muted" style="font-size:13px;margin-top:10px">Lendo o edital…</p>` : ""}</div></div>`;
+  const hoje = new Date().toISOString().slice(0, 10);
+  return `<div class="card">${cab}<div class="card-body">
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><label class="field" style="margin:0;max-width:180px"><span>Data das declarações</span><input type="date" id="decl-data" value="${r.declaracoesData || hoje}"></label><span class="muted" style="font-size:12px">${ds.length} declaração(ões)${r.declaracoesObs ? ` · ${esc(r.declaracoesObs)}` : ""}. Edite os textos à vontade — as alterações ficam salvas nesta análise.</span></div>
+    ${ds.map((d, i) => `<div class="card" style="margin-bottom:12px;border:1px solid var(--border)"><div class="card-head" style="align-items:flex-start"><div><h2 style="font-size:14px">${i + 1}. ${esc(d.titulo)}</h2><div class="muted" style="font-size:11.5px;margin-top:2px">${esc(d.referencia || "")}${d.quemAssina === "contador" ? " · <strong>assinatura do contador</strong>" : ""}</div></div><div style="display:flex;gap:6px;align-items:center">${tag(...(FASE_DECL[d.fase] || FASE_DECL.outra))}<button class="btn btn-ghost btn-sm" data-act="decl-pdf" data-i="${i}">${icon("download")} PDF</button><button class="icon-btn sm danger" data-act="decl-rm" data-i="${i}" title="Remover">${icon("trash")}</button></div></div>
+      <div class="card-body">
+        ${d.pendencias?.length ? `<div class="info-box" style="border-color:var(--amber);margin-bottom:8px"><div><div class="k">Pendências — confira antes de assinar</div>${d.pendencias.map((x) => esc(x)).join("<br>")}</div></div>` : ""}
+        <label class="field" style="margin-bottom:6px"><span>Destinatário</span><textarea data-decl="destinatario" data-i="${i}" rows="2" style="font-size:13px;resize:vertical">${esc(d.destinatario || "")}</textarea></label>
+        <label class="field" style="margin:0"><span>Texto</span><textarea data-decl="texto" data-i="${i}" rows="${Math.min(14, Math.max(5, Math.ceil((d.texto || "").length / 110)))}" style="font-size:13px;line-height:1.5;resize:vertical">${esc(d.texto || "")}</textarea></label>
+      </div></div>`).join("")}
+  </div></div>`;
+}
+function ligarDecl(el) {
+  const box = el.querySelector("#resultado"); if (!box || box._declLigado) return; box._declLigado = true;
+  let t = null; const salvarDepois = () => { clearTimeout(t); t = setTimeout(() => salvarAnalise(), 800); };
+  box.addEventListener("input", (e) => { const i = e.target.closest("[data-decl]"); if (!i || !ultima?.declaracoes?.[+i.dataset.i]) return; ultima.declaracoes[+i.dataset.i][i.dataset.decl] = i.value; salvarDepois(); });
+  box.addEventListener("change", (e) => { if (e.target.id === "decl-data") { ultima.declaracoesData = e.target.value; salvarDepois(); } });
+  box.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-act]"); if (!b) return; const act = b.dataset.act; const r = ultima; if (!r) return;
+    if (act === "decl-gerar") {
+      if (!r.arquivos?.length) return toast("Esta análise não tem os PDFs guardados — analise o edital novamente para usar as declarações.", "erro", 7000);
+      if (r.declaracoes && !await confirmar("Refazer as declarações com a IA? Os textos editados serão substituídos.")) return;
+      gerandoDecl = true; mostrar(el);
+      try {
+        const empresa = { "Razão social": EMPRESA.nome, CNPJ: EMPRESA.cnpj, "Inscrição Estadual": EMPRESA.ie, "Endereço completo": EMPRESA.endereco, Telefone: EMPRESA.tel, "E-mail": EMPRESA.emailLicitacoes, "Representante legal": EMPRESA.representanteCompleto, "Cargo do representante": EMPRESA.cargoRepresentante, "RG do representante": EMPRESA.rg, "CPF do representante": EMPRESA.cpf, "Enquadramento": "Empresa de Pequeno Porte (EPP), optante pelo Simples Nacional", "Cidade para data": EMPRESA.cidade };
+        const res = await extrairDeclaracoes(r.arquivos, { empresa, prompt: getPrompts().declaracoes, modelo });
+        r.declaracoes = res.declaracoes || []; r.declaracoesObs = res.observacoes || ""; r.declaracoesMeta = res.meta || null; r.declaracoesData = new Date().toISOString().slice(0, 10);
+        await salvarAnalise(); toast(`${r.declaracoes.length} declaração(ões) localizada(s)${res.meta?.stopReason === "max_tokens" ? " — resposta truncada, confira" : ""}.`, "ok", 6000);
+      } catch (err) { toast(err.message || String(err), "erro", 9000); }
+      gerandoDecl = false; mostrar(el); return;
+    }
+    const data = new Date((el.querySelector("#decl-data")?.value || new Date().toISOString().slice(0, 10)) + "T12:00:00");
+    const nomeBase = (numeroCurto(r.resumo?.numero) || "edital").replace(/[^\w]+/g, "_");
+    if (act === "decl-pdf") { const d = r.declaracoes[+b.dataset.i]; const doc = await gerarPdfDeclaracoes([d], { data }); doc.save(`${nomeArquivoDecl(d.titulo)}_${nomeBase}.pdf`); return; }
+    if (act === "decl-pdf-todas") { const doc = await gerarPdfDeclaracoes(r.declaracoes, { data }); doc.save(`declaracoes_${nomeBase}.pdf`); return; }
+    if (act === "decl-rm") { if (!await confirmar("Remover esta declaração da lista?")) return; r.declaracoes.splice(+b.dataset.i, 1); await salvarAnalise(); mostrar(el); }
+  });
 }

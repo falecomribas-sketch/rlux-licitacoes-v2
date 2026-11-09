@@ -37,9 +37,11 @@ exports.analisarEdital = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1GiB", 
   catch (e) { if (e instanceof HttpsError) throw e; console.error("analisarEdital:", e); throw new HttpsError("internal", `Erro no servidor: ${e.message || e}`, { etapa: e.etapa || "" }); }
 });
 
+const escolherModelo = (m) => ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"].includes(m) ? m : MODELO_PADRAO;
+
 async function analisar(req) {
   if (!req.auth) throw new HttpsError("unauthenticated", "Faça login para analisar editais.");
-  const { arquivos, familias, prompt } = req.data || {}; const modelo = ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"].includes(req.data?.modelo) ? req.data.modelo : MODELO_PADRAO;
+  const { arquivos, familias, prompt } = req.data || {}; const modelo = escolherModelo(req.data?.modelo);
   if (!Array.isArray(arquivos) || !arquivos.length) throw new HttpsError("invalid-argument", "Envie ao menos um PDF.");
   if (arquivos.length > 4) throw new HttpsError("invalid-argument", "No máximo 4 PDFs por análise.");
 
@@ -123,4 +125,35 @@ exports.casarItens = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "512MiB", ti
   if (!r) { const txt = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"); const m = txt.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; } if (!r) throw new HttpsError("internal", "A IA não devolveu a correspondência estruturada."); }
   const uso = resp.usage || {};
   return { itens: r.itens || [], meta: { modelo: resp.model, tokensEntrada: (uso.input_tokens || 0) + (uso.cache_read_input_tokens || 0) + (uso.cache_creation_input_tokens || 0), tokensSaida: uso.output_tokens || 0, segundos: Math.round((Date.now() - t0) / 1000) } };
+});
+
+// Declarações: relê os mesmos PDFs já guardados no Storage e devolve as declarações preenchidas
+const { systemPromptDeclaracoes, TOOL_DECL } = require("./edital.js");
+exports.extrairDeclaracoes = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1GiB", timeoutSeconds: 540, cors: true, invoker: "public" }, async (req) => {
+  try {
+    if (!req.auth) throw new HttpsError("unauthenticated", "Faça login para usar a IA.");
+    const { arquivos, empresa, prompt } = req.data || {}; const modelo = escolherModelo(req.data?.modelo);
+    if (!Array.isArray(arquivos) || !arquivos.length) throw new HttpsError("invalid-argument", "A análise não tem os PDFs guardados; analise o edital novamente.");
+    if (arquivos.length > 4) throw new HttpsError("invalid-argument", "No máximo 4 PDFs.");
+    const bucket = admin.storage().bucket(); const content = [];
+    for (let i = 0; i < arquivos.length; i++) {
+      const a = arquivos[i]; if (typeof a.path !== "string" || !a.path.startsWith("anexos/editais/")) throw new HttpsError("invalid-argument", "Caminho de arquivo inválido.");
+      let buf; try { [buf] = await bucket.file(a.path).download(); } catch (e) { throw new HttpsError("not-found", `Não encontrei ${a.nome || a.path} no Storage (os PDFs da análise podem ter sido apagados).`); }
+      let lido = { paginas: [], semTexto: [], imagens: [] }, falhou = false; try { lido = await lerPdf(buf); } catch (e) { falhou = true; }
+      const nome = a.nome || a.path.split("/").pop();
+      if (falhou || (lido.paginas.length && lido.semTexto.length > lido.paginas.length * 0.5)) { content.push({ type: "text", text: `Documento ${i + 1}: ${nome} (lido por imagem)` }); content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: buf.toString("base64") }, title: nome }); continue; }
+      content.push({ type: "text", text: lido.paginas.map((t, k) => `--- Documento ${i + 1}: ${nome} — página ${k + 1} ---\n${t || "[página sem texto]"}`).join("\n\n") });
+      lido.imagens.forEach((img) => { content.push({ type: "text", text: `Documento ${i + 1}, página ${img.pagina} (imagem):` }); content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: img.png } }); });
+    }
+    if (content.length) content[content.length - 1].cache_control = { type: "ephemeral" };
+    content.push({ type: "text", text: "Localize todas as declarações exigidas da licitante nos documentos acima e registre-as preenchidas com a ferramenta registrar_declaracoes." });
+    const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() }); const t0 = Date.now();
+    let resp;
+    try { resp = await client.messages.stream({ model: modelo, max_tokens: 24000, system: systemPromptDeclaracoes(empresa, prompt), tools: [TOOL_DECL], tool_choice: { type: "auto" }, messages: [{ role: "user", content }] }).finalMessage(); }
+    catch (e) { console.error("Anthropic:", e); throw new HttpsError("internal", `Falha na IA: ${e.status || ""} ${e.message || e}`); }
+    const bloco = (resp.content || []).find((c) => c.type === "tool_use"); let r = bloco?.input;
+    if (!r) { const txt = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"); const m = txt.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; } if (!r) throw new HttpsError("internal", "A IA não devolveu as declarações estruturadas."); }
+    const uso = resp.usage || {};
+    return { declaracoes: (r.declaracoes || []).map((d) => ({ titulo: String(d.titulo || "Declaração"), referencia: d.referencia || "", fase: d.fase || "outra", destinatario: d.destinatario || "", texto: String(d.texto || ""), pendencias: Array.isArray(d.pendencias) ? d.pendencias : [], quemAssina: d.quemAssina === "contador" ? "contador" : "representante" })), observacoes: r.observacoes || "", meta: { modelo: resp.model, tokensEntrada: (uso.input_tokens || 0) + (uso.cache_read_input_tokens || 0) + (uso.cache_creation_input_tokens || 0), tokensSaida: uso.output_tokens || 0, segundos: Math.round((Date.now() - t0) / 1000), stopReason: resp.stop_reason } };
+  } catch (e) { if (e instanceof HttpsError) throw e; console.error("extrairDeclaracoes:", e); throw new HttpsError("internal", `Erro no servidor: ${e.message || e}`); }
 });

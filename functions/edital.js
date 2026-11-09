@@ -105,3 +105,20 @@ const TOOL_CASAR = {
 };
 module.exports.systemPromptCasar = systemPromptCasar;
 module.exports.TOOL_CASAR = TOOL_CASAR;
+
+// ---------- Declarações exigidas no edital ----------
+const CAUDA_DECL = "\n\nResponda SOMENTE chamando a ferramenta registrar_declaracoes.";
+function systemPromptDeclaracoes(empresa, custom) {
+  const linhas = Object.entries(empresa || {}).filter(([, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join("\n") || "- (não informado)";
+  return textoPrompt(custom, PROMPTS_PADRAO.declaracoes).replaceAll("{{empresa}}", linhas) + CAUDA_DECL;
+}
+const TOOL_DECL = {
+  name: "registrar_declaracoes", description: "Registra as declarações exigidas pelo edital, já preenchidas.",
+  input_schema: { type: "object", required: ["declaracoes"], properties: {
+    declaracoes: { type: "array", items: { type: "object", required: ["titulo", "texto"], properties: {
+      titulo: { type: "string" }, referencia: { type: "string" }, fase: { type: "string", enum: ["proposta", "habilitacao", "contratacao", "outra"] }, destinatario: { type: "string" },
+      texto: { type: "string" }, pendencias: { type: "array", items: { type: "string" } }, quemAssina: { type: "string", enum: ["representante", "contador"] } } } },
+    observacoes: { type: "string" } } },
+};
+module.exports.systemPromptDeclaracoes = systemPromptDeclaracoes;
+module.exports.TOOL_DECL = TOOL_DECL;
