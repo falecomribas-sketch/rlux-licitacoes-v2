@@ -1,7 +1,7 @@
 // Parâmetros: precificação (piso) e regras da IA (padrões por família e equivalências de termo).
 // Firestore: config/precificacao e config/regrasIA. Só Admin edita; todos podem ver.
 import { store } from "../core/store.js";
-import { toast, icon, closeModal } from "../core/ui.js";
+import { toast, icon, closeModal, confirmar } from "../core/ui.js";
 import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js";
 import { esc, fmt } from "../core/utils.js";
 import { isAdmin } from "../core/auth.js";
@@ -39,6 +39,12 @@ export const REGRAS_PADRAO = {
 };
 let regras = null, unsubR = null, unsubC = null; const ouvintesR = new Set();
 export const getRegras = () => regras || REGRAS_PADRAO;
+
+// Prompts da IA (config/promptsIA). Vazio = usa o padrão do servidor (functions/prompts-padrao.json).
+let prompts = {}, unsubP = null, padraoPrompts = null;
+export const getPrompts = () => ({ analise: prompts.analise || "", casar: prompts.casar || "" });
+export function iniciarPrompts() { if (unsubP) return; unsubP = store.watchObj("config", "promptsIA", (d) => { prompts = d || {}; ouvintesR.forEach((f) => f()); }); }
+async function carregarPadrao() { if (padraoPrompts) return padraoPrompts; try { padraoPrompts = await (await fetch("functions/prompts-padrao.json", { cache: "no-cache" })).json(); } catch { padraoPrompts = { analise: "", casar: "" }; } return padraoPrompts; }
 export function iniciarRegras() { if (unsubR) return; unsubR = store.watchObj("config", "regrasIA", (d) => { regras = d && Array.isArray(d.padroes) ? { padroes: d.padroes, equivalencias: d.equivalencias || [] } : null; ouvintesR.forEach((f) => f()); }); }
 
 export default {
@@ -74,7 +80,17 @@ export default {
         <div class="grid grid-2">
           <div class="card"><div class="card-head"><h2>Padrões por família</h2>${isAdmin() ? `<button class="btn btn-ghost btn-sm" data-act="add-padrao">${icon("plus")} Regra</button>` : ""}</div><div class="card-body flush" id="padroes"></div></div>
           <div class="card"><div class="card-head"><h2>Equivalências de termo</h2>${isAdmin() ? `<button class="btn btn-ghost btn-sm" data-act="add-equiv">${icon("plus")} Equivalência</button>` : ""}</div><div class="card-body flush" id="equivs"></div></div>
+        </div>
+        <div class="section-title">Prompts da IA (texto que a IA recebe; a parte técnica do formato de resposta é fixa)</div>
+        <div class="grid grid-2" id="prompts">
+          ${[["analise", "Analisador de edital (Etapa 1: resumo, documentação e itens — antigo Leitor + GPT 1)", "Marcadores que o sistema preenche: {{familias}} (famílias e palavras-chave) e {{naoLocalizado}} (frase padrão para dado não encontrado)."], ["casar", "Correspondência item → produto (Etapa 3 — antigo GPT 2)", "Marcadores: {{padroes}} (regras por família acima) e {{equivalencias}} (tabela de equivalências acima)."]].map(([k, t, dica]) => `
+          <div class="card"><div class="card-head"><h2 style="font-size:14px">${t}</h2><span class="tag ${getPrompts()[k] ? "tag-amber" : "tag-gray"}" id="pst-${k}">${getPrompts()[k] ? "editado" : "padrão"}</span></div><div class="card-body">
+            <textarea id="pr-${k}" rows="14" style="width:100%;font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;resize:vertical" ${ro} placeholder="Carregando o texto padrão…"></textarea>
+            <p class="muted" style="font-size:12px;margin:6px 0 0">${dica}</p>
+            ${isAdmin() ? `<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn btn-ghost btn-sm" data-act="pr-padrao" data-k="${k}">Restaurar padrão</button><button class="btn btn-primary btn-sm" data-act="pr-salvar" data-k="${k}">Salvar</button></div>` : ""}
+          </div></div>`).join("")}
         </div>`;
+      carregarPadrao().then((pd) => ["analise", "casar"].forEach((k) => { const ta = el.querySelector(`#pr-${k}`); if (ta && !ta.value) ta.value = getPrompts()[k] || pd[k] || ""; }));
       const simul = () => { const v = lerPreco(el); const ex = [16.44, 22.45, 142.68]; el.querySelector("#simul").innerHTML = `<div><div class="k">Fator</div>× ${(1 / Math.max(0.05, 1 - (v.simples + v.fretePct + v.lucroMin) / 100)).toFixed(3)}</div>` + ex.map((x) => `<div><div class="k">Custo ${fmt(x)}</div>piso ${fmt(piso(x, v))}</div>`).join(""); };
       el.querySelector("#f-preco").addEventListener("input", simul); simul();
       el.querySelector("#f-preco").addEventListener("submit", async (e) => { e.preventDefault(); if (!isAdmin()) return; await salvarCfg(lerPreco(el)); toast("Parâmetros salvos."); });
@@ -92,9 +108,18 @@ export default {
           async onSalvar(form) { const v = lerForm(form); if (!v.regra.trim()) throw new Error("Escreva a regra."); if (ed) r.padroes[i] = { familia: v.familia, regra: v.regra.trim() }; else r.padroes.push({ familia: v.familia, regra: v.regra.trim() }); await salvarRegras(r); closeModal(); } }); return; }
       if (b.dataset.act === "add-equiv") { formModal({ titulo: "Nova equivalência", corpo: linha(campo("Termo como aparece no edital", inputTxt("termoEdital", "", "required")), campo("Equivale a (termo da base RLUX)", inputTxt("termoBase", "", "required"))),
           async onSalvar(form) { const v = lerForm(form); if (!v.termoEdital.trim() || !v.termoBase.trim()) throw new Error("Preencha os dois termos."); r.equivalencias.push({ termoEdital: v.termoEdital.trim(), termoBase: v.termoBase.trim() }); await salvarRegras(r); closeModal(); } }); return; }
+      if (b.dataset.act === "pr-salvar" || b.dataset.act === "pr-padrao") { const k = b.dataset.k; const ta = el.querySelector(`#pr-${k}`); const pd = await carregarPadrao();
+        if (b.dataset.act === "pr-padrao") { ta.value = pd[k] || ""; }
+        const txt = ta.value.trim(); const igual = txt === (pd[k] || "").trim();
+        if (!igual && txt.length < 50) return toast("O prompt ficou curto demais.", "erro");
+        const marcadores = k === "analise" ? ["{{familias}}"] : ["{{padroes}}"]; const faltando = marcadores.filter((m) => !txt.includes(m));
+        if (!igual && faltando.length && !await confirmar(`O texto não contém ${faltando.join(", ")}: a IA não receberá essa parte. Salvar mesmo assim?`)) return;
+        await store.setObj("config", "promptsIA", { ...prompts, [k]: igual ? "" : txt, _atualizado: new Date().toISOString() });
+        const st = el.querySelector(`#pst-${k}`); if (st) { st.textContent = igual ? "padrão" : "editado"; st.className = `tag ${igual ? "tag-gray" : "tag-amber"}`; }
+        toast(igual ? "Prompt restaurado ao padrão." : "Prompt salvo. Vale para as próximas análises."); return; }
       if (b.dataset.act === "rm-padrao") { r.padroes.splice(i, 1); await salvarRegras(r); }
       if (b.dataset.act === "rm-equiv") { r.equivalencias.splice(i, 1); await salvarRegras(r); } });
-    iniciarRegras(); const fR = () => { if (el.querySelector("#padroes")) tabelas(el, getRegras()); }; ouvintesR.add(fR); el._fR = fR;
+    iniciarRegras(); iniciarPrompts(); const fR = () => { if (el.querySelector("#padroes")) tabelas(el, getRegras()); }; ouvintesR.add(fR); el._fR = fR;
     unsubC = onCfg(() => { if (document.activeElement?.form?.id !== "f-preco") desenhar(); });
     desenhar();
   },

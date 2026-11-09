@@ -39,7 +39,7 @@ exports.analisarEdital = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1GiB", 
 
 async function analisar(req) {
   if (!req.auth) throw new HttpsError("unauthenticated", "Faça login para analisar editais.");
-  const { arquivos, familias } = req.data || {}; const modelo = ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"].includes(req.data?.modelo) ? req.data.modelo : MODELO_PADRAO;
+  const { arquivos, familias, prompt } = req.data || {}; const modelo = ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"].includes(req.data?.modelo) ? req.data.modelo : MODELO_PADRAO;
   if (!Array.isArray(arquivos) || !arquivos.length) throw new HttpsError("invalid-argument", "Envie ao menos um PDF.");
   if (arquivos.length > 4) throw new HttpsError("invalid-argument", "No máximo 4 PDFs por análise.");
 
@@ -78,7 +78,7 @@ async function analisar(req) {
   let resp;
   try {
     resp = await client.messages.stream({
-      model: modelo, max_tokens: 24000, system: systemPrompt(fams),
+      model: modelo, max_tokens: 24000, system: systemPrompt(fams, prompt),
       tools: [TOOL], tool_choice: { type: "auto" },
       messages: [{ role: "user", content }],
     }).finalMessage();
@@ -108,7 +108,7 @@ async function analisar(req) {
 const { systemPromptCasar, TOOL_CASAR } = require("./edital.js");
 exports.casarItens = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "512MiB", timeoutSeconds: 300, cors: true, invoker: "public" }, async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Faça login para usar a IA.");
-  const { itens, regras } = req.data || {};
+  const { itens, regras, prompt } = req.data || {};
   if (!Array.isArray(itens) || !itens.length) throw new HttpsError("invalid-argument", "Nenhum item para casar.");
   if (itens.length > 60) throw new HttpsError("invalid-argument", "No máximo 60 itens por chamada.");
   const modelo = ["claude-sonnet-5-5", "claude-haiku-5-5"].includes(req.data?.modelo) ? req.data.modelo : MODELO_PADRAO;
@@ -117,7 +117,7 @@ exports.casarItens = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "512MiB", ti
   const t0 = Date.now();
   let resp;
   try {
-    resp = await client.messages.stream({ model: modelo, max_tokens: 12000, system: systemPromptCasar(regras), tools: [TOOL_CASAR], tool_choice: { type: "auto" }, messages: [{ role: "user", content: texto + "\n\nRegistre a correspondência de todos os itens com a ferramenta registrar_correspondencia." }] }).finalMessage();
+    resp = await client.messages.stream({ model: modelo, max_tokens: 12000, system: systemPromptCasar(regras, prompt), tools: [TOOL_CASAR], tool_choice: { type: "auto" }, messages: [{ role: "user", content: texto + "\n\nRegistre a correspondência de todos os itens com a ferramenta registrar_correspondencia." }] }).finalMessage();
   } catch (e) { console.error("Anthropic:", e); throw new HttpsError("internal", `Falha na IA: ${e.status || ""} ${e.message || e}`); }
   const bloco = (resp.content || []).find((c) => c.type === "tool_use"); let r = bloco?.input;
   if (!r) { const txt = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"); const m = txt.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; } if (!r) throw new HttpsError("internal", "A IA não devolveu a correspondência estruturada."); }

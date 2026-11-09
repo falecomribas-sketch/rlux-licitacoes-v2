@@ -9,7 +9,7 @@ const functions = getFunctions(app, "southamerica-east1");
 export const LIMITE_PDF = 30 * 1024 * 1024;
 
 // Envia os PDFs e chama a análise. onProgresso(texto) recebe mensagens de andamento.
-export async function analisarEdital(files, { familias, modelo, onProgresso } = {}) {
+export async function analisarEdital(files, { familias, modelo, prompt, onProgresso } = {}) {
   const id = newId(); const arquivos = [];
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
@@ -23,7 +23,7 @@ export async function analisarEdital(files, { familias, modelo, onProgresso } = 
   onProgresso?.("Lendo o edital com a IA — isso leva de 1 a 3 minutos…");
   const fn = httpsCallable(functions, "analisarEdital", { timeout: 540000 });
   try {
-    const r = await fn({ arquivos, familias, modelo });
+    const r = await fn({ arquivos, familias, modelo, prompt: prompt || undefined });
     return { id, arquivos, ...r.data };
   } catch (e) {
     const msg = [e?.message, e?.details?.etapa ? `(etapa: ${e.details.etapa})` : ""].filter(Boolean).join(" ") || String(e);
@@ -34,8 +34,8 @@ export async function analisarEdital(files, { familias, modelo, onProgresso } = 
 }
 
 // Etapa C — correspondência. candidatosPorItem: [{ item, descricao, unidade, quantidade, marcaReferencia, candidatos:[{id,nome,descricaoTecnica,tecnico,unidade}] }]
-export async function casarItens(itens, { regras, modelo } = {}) {
+export async function casarItens(itens, { regras, modelo, prompt } = {}) {
   const fn = httpsCallable(functions, "casarItens", { timeout: 300000 });
-  try { const r = await fn({ itens, regras, modelo }); return r.data; }
+  try { const r = await fn({ itens, regras, modelo, prompt: prompt || undefined }); return r.data; }
   catch (e) { throw new Error((e?.message || String(e)).replace(/^FirebaseError:\s*/, "")); }
 }

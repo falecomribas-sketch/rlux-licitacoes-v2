@@ -4,7 +4,7 @@
 import { analisarEdital, casarItens } from "../core/ia.js";
 import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js";
 import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js";
-import { getRegras, iniciarRegras } from "./parametros.js";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js";
 import { store } from "../core/store.js";
 import { ssel } from "../core/ssel.js";
 import { podeEditar, currentUser } from "../core/auth.js";
@@ -24,7 +24,7 @@ const NAO_LOC = /não localizado/i;
 export default {
   id: "edital", titulo: "Analisar edital (IA)", grupo: "Licitações", icone: "bulb",
   render(el) {
-    iniciarPreco(); iniciarRegras();
+    iniciarPreco(); iniciarRegras(); iniciarPrompts();
     el.innerHTML = `
       <div class="page-head"><h2>Analisar edital (IA)</h2><div class="actions" id="acoes"></div></div>
       <div class="card" id="entrada"><div class="card-body">
@@ -45,7 +45,7 @@ export default {
     el.querySelector("#sel-modelo").addEventListener("change", (e) => { modelo = e.target.value; });
     btn.addEventListener("click", async () => {
       ocupado = true; lista(); prog.textContent = "Preparando…";
-      try { ultima = await analisarEdital(arquivos, { modelo, onProgresso: (t) => { prog.textContent = t; } }); ultima.arquivosNomes = arquivos.map((f) => f.name); ultima.criadoEm = new Date().toISOString(); ultima.usuario = currentUser?.email || ""; await salvarAnalise(); prog.textContent = ""; toast("Análise concluída."); }
+      try { ultima = await analisarEdital(arquivos, { modelo, prompt: getPrompts().analise, onProgresso: (t) => { prog.textContent = t; } }); ultima.arquivosNomes = arquivos.map((f) => f.name); ultima.criadoEm = new Date().toISOString(); ultima.usuario = currentUser?.email || ""; await salvarAnalise(); prog.textContent = ""; toast("Análise concluída."); }
       catch (e) { prog.textContent = ""; toast(e.message, "erro", 8000); }
       ocupado = false; lista(); mostrar(el);
     });
@@ -131,7 +131,7 @@ async function casar(el) {
   if (!ultima || casando) return; casando = true; mostrar(el);
   try {
     const itens = ultima.itens.map((it) => { const { familia, candidatos } = candidatosPara(it); return { item: it.item, descricao: it.descricao, unidade: it.unidade, quantidade: it.quantidade, marcaReferencia: it.marcaReferencia, familia, candidatos }; });
-    const r = await casarItens(itens, { regras: getRegras(), modelo });
+    const r = await casarItens(itens, { regras: getRegras(), modelo, prompt: getPrompts().casar });
     ultima.correspondencia = (r.itens || []).map((c) => ({ ...c, item: String(c.item) })); ultima.metaCorr = r.meta; ultima.candidatosEnviados = itens.reduce((s, i) => s + i.candidatos.length, 0);
     await salvarAnalise(); toast("Correspondência concluída.");
   } catch (e) { toast(e.message, "erro", 8000); }

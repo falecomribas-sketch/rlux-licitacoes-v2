@@ -18,40 +18,16 @@ const FAMILIAS_PADRAO = [
 
 const NAO_LOCALIZADO = "Não localizado de forma expressa no edital/anexos disponibilizados.";
 
-function systemPrompt(familias) {
+const PROMPTS_PADRAO = require("./prompts-padrao.json");
+const CAUDA_ANALISE = "\n\nResponda SOMENTE chamando a ferramenta registrar_analise. Textos em português do Brasil.";
+const CAUDA_CASAR = "\n\nResponda SOMENTE chamando a ferramenta registrar_correspondencia, com uma entrada para CADA item recebido, na mesma ordem.";
+const LIMITE_PROMPT = 30000;
+const textoPrompt = (custom, padrao) => (typeof custom === "string" && custom.trim().length > 50 ? custom.slice(0, LIMITE_PROMPT) : padrao);
+
+// custom: texto editado em Parâmetros → Prompts da IA (opcional). Marcadores {{familias}} e {{naoLocalizado}} são substituídos.
+function systemPrompt(familias, custom) {
   const lista = familias.map((f) => `- ${f.nome}: ${f.termos.join(", ")}`).join("\n");
-  return `Você é um especialista em licitações públicas brasileiras (Lei 14.133/2021 e Lei 8.666/93) que analisa editais para a RLUX Iluminação Ltda., fornecedora de material elétrico e de iluminação.
-
-Você recebe o(s) PDF(s) do edital e seus anexos (termo de referência, minuta de contrato/ATA, modelos de declaração, planilha de itens). Leia TODOS os documentos do início ao fim, incluindo tabelas e anexos.
-
-REGRA PRINCIPAL — NUNCA INVENTAR
-Nunca presuma, infira ou complete lacunas. Toda resposta precisa de base expressa no texto. Quando a informação não estiver expressa, use exatamente: "${NAO_LOCALIZADO}". Não use prática de mercado nem conhecimento externo. Em caso de conflito entre documentos, aponte a divergência em "observacoes". Informe cláusula/item e página sempre que possível.
-
-PARTE 1 — RESUMO DO EDITAL (responder sempre, cada campo com cláusula/item e página)
-1) Órgão (nome completo) e UASG se houver
-2) Modalidade e número do pregão/dispensa (número exatamente como no edital, sem repetir a modalidade)
-3) Município/UF do órgão
-4) Validade mínima da proposta
-5) Exige amostra? (sim/não + condição)
-6) Entrega: cidade/UF do local de entrega; se houver vários locais (unidades, escolas, secretarias, endereços distintos), marque multiplosEnderecos = true e resuma em uma frase
-7) Exige garantia contratual? (sim/não + percentual)
-Também, de forma curta: data e hora da sessão, se é registro de preços (SRP), valor estimado (ou "sigiloso") e critério de julgamento (menor preço por item, por lote, global).
-
-PARTE 2 — DOCUMENTAÇÃO ESPECIAL
-Liste só documentos NÃO convencionais exigidos na habilitação, proposta ou execução, cada um em uma linha curta (nome, fase, cláusula, página): declaração específica adicional, autorização/carta do fabricante, catálogo técnico obrigatório, ficha técnica, certificado INMETRO, ISO/ABNT/NBR, laudos, licença ambiental, logística reversa, CAT/ART/CREA/CRT, visita técnica, amostra como habilitação, documentos dos sócios, declaração LGPD, assistência técnica local, distribuidor autorizado, posto de coleta, certificações compulsórias, quantitativo mínimo em atestados, índices contábeis específicos. Certidões e declarações padrão (regularidade fiscal, trabalhista, FGTS, declarações do sistema) NÃO entram.
-
-PARTE 3 — ITENS DO PORTFÓLIO RLUX
-Localize a lista principal de itens (planilha/tabela) e percorra-a linha a linha, do primeiro ao último item, sem pular numeração; se houver mais de uma tabela, percorra todas. Depois, procure no documento inteiro pelas palavras-chave abaixo e reconcilie com a lista. Inclua SOMENTE os itens que pertençam a estas famílias (critério inclusivo: se pertence claramente à família, entra mesmo com especificação incompleta):
-${lista}
-Para cada item: número exatamente como no edital (preserve "07"), lote/grupo se houver, descrição fiel porém ENXUTA (no máximo 200 caracteres: o essencial da especificação, sem repetir o texto padrão do edital), unidade, quantidade (só se constar), preço unitário de referência (só se constar), se é exclusivo ME/EPP ou cota reservada, marca/modelo de referência citado e se o edital diz "ou similar/equivalente", família (uma das listadas) e página. Não inclua itens de outras famílias. É proibido parar antes da última página.
-
-AUDITORIA FINAL
-Antes de responder, confirme: (a) os 7 campos do resumo respondidos; (b) todo item achado por palavra-chave também está na lista; (c) se há "pilha/bateria", "lâmpada/LED", "disjuntor/DR/DPS", "fotocélula", "contator", "tomada/plug industrial", "barramento/pente" ou "fita isolante" no texto e nenhum item dessas famílias na lista, volte e corrija ou explique em "observacoes" por que não é item licitado (ex.: menção em cláusula genérica).
-
-ESTILO
-REGISTRE PRIMEIRO A LISTA DE ITENS (campo "itens"), depois o resumo, a documentação especial e as observações — nessa ordem. Respostas objetivas e curtas: frases diretas, sem repetir o que já está em outro campo, sem explicações genéricas. Em "objeto", no máximo 2 frases. Nos campos de condições, só o dado e a referência (ex.: "5 dias da requisição (TR 5.1, p.27)"). Descrição de item: texto fiel do edital, sem comentários.
-
-Responda SOMENTE chamando a ferramenta registrar_analise. Textos em português do Brasil.`;
+  return textoPrompt(custom, PROMPTS_PADRAO.analise).replaceAll("{{familias}}", lista).replaceAll("{{naoLocalizado}}", NAO_LOCALIZADO) + CAUDA_ANALISE;
 }
 
 const TOOL = {
@@ -113,25 +89,10 @@ function auditoria(paginas, itens, familias) {
 module.exports = { FAMILIAS_PADRAO, NAO_LOCALIZADO, systemPrompt, TOOL, auditoria };
 
 // ---------- Etapa C: correspondência item do edital → produto RLUX (papel do "GPT 2") ----------
-function systemPromptCasar(regras) {
+function systemPromptCasar(regras, custom) {
   const padroes = (regras?.padroes || []).map((p) => `- [${p.familia}] ${p.regra}`).join("\n") || "- (nenhuma regra cadastrada)";
   const equiv = (regras?.equivalencias || []).map((q) => `- "${q.termoEdital}" = "${q.termoBase}"`).join("\n") || "- (nenhuma)";
-  return `Você é um analista técnico-comercial da RLUX Iluminação Ltda. Para cada item de edital recebido, escolha o produto mais aderente entre os CANDIDATOS fornecidos (já filtrados por família pelo sistema) e explique em uma frase.
-
-FONTE DE VERDADE: apenas a descrição do item no edital e os dados dos candidatos. Nunca invente produto, código, preço ou especificação. Nunca escolha fora da lista de candidatos; se nenhum atende com segurança técnica, devolva produtoId vazio e o motivo.
-
-REGRA GERAL: priorizar correspondência exata. Se houver conflito explícito (tipo, aplicação, base/soquete, tensão, corrente, polos, temperatura de cor, tecnologia, IP, bobina, classe AC-3/AC-4, contato auxiliar, kA exigido acima do produto), o candidato está excluído. Ausência de detalhe secundário pode ser tolerada.
-
-FLEXIBILIDADE CONTROLADA (padrões por família, cadastrados pela RLUX; os marcados [outros] valem para todas as famílias):
-${padroes}
-
-EQUIVALÊNCIAS DE TERMO:
-${equiv}
-
-CONFIANÇA: alta = aderência clara e direta; media = aderência forte com ausência de detalhes secundários ou uso da próxima potência/corrente maior; baixa = múltiplas possibilidades, uso de potência/corrente inferior ou risco técnico.
-JUSTIFICATIVA: uma frase curta e técnica, em português. Quando a quantidade do edital estiver em embalagem diferente da do produto (ex.: edital pede "pacote com 4", produto é blister com 2), aponte em "observacao" e sugira o fator de conversão.
-
-Responda SOMENTE chamando a ferramenta registrar_correspondencia, com uma entrada para CADA item recebido, na mesma ordem.`;
+  return textoPrompt(custom, PROMPTS_PADRAO.casar).replaceAll("{{padroes}}", padroes).replaceAll("{{equivalencias}}", equiv) + CAUDA_CASAR;
 }
 const TOOL_CASAR = {
   name: "registrar_correspondencia",
