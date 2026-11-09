@@ -108,9 +108,9 @@ module.exports.TOOL_CASAR = TOOL_CASAR;
 
 // ---------- Declarações exigidas no edital ----------
 const CAUDA_DECL = "\n\nResponda SOMENTE chamando a ferramenta registrar_declaracoes.";
-function systemPromptDeclaracoes(empresa, custom) {
-  const linhas = Object.entries(empresa || {}).filter(([, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join("\n") || "- (não informado)";
-  return textoPrompt(custom, PROMPTS_PADRAO.declaracoes).replaceAll("{{empresa}}", linhas) + CAUDA_DECL;
+function systemPromptDeclaracoes(empresa, custom, certame) {
+  const lista = (o) => Object.entries(o || {}).filter(([, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join("\n") || "- (não informado)";
+  return textoPrompt(custom, PROMPTS_PADRAO.declaracoes).replaceAll("{{empresa}}", lista(empresa)).replaceAll("{{certame}}", lista(certame)) + CAUDA_DECL;
 }
 const TOOL_DECL = {
   name: "registrar_declaracoes", description: "Registra as declarações exigidas pelo edital, já preenchidas.",

@@ -415,7 +415,8 @@ function ligarDecl(el) {
       gerandoDecl = true; mostrar(el);
       try {
         const empresa = { "Razão social": EMPRESA.nome, CNPJ: EMPRESA.cnpj, "Inscrição Estadual": EMPRESA.ie, "Endereço completo": EMPRESA.endereco, Telefone: EMPRESA.tel, "E-mail": EMPRESA.emailLicitacoes, "Representante legal": EMPRESA.representanteCompleto, "Cargo do representante": EMPRESA.cargoRepresentante, "RG do representante": EMPRESA.rg, "CPF do representante": EMPRESA.cpf, "Enquadramento": "Empresa de Pequeno Porte (EPP), optante pelo Simples Nacional", "Cidade para data": EMPRESA.cidade };
-        const res = await extrairDeclaracoes(r.arquivos, { empresa, prompt: getPrompts().declaracoes, modelo });
+        const Lr = r.resumo || {}; const certame = { "Órgão": limparNaoLoc(Lr.orgao), "UASG": limparNaoLoc(Lr.uasg), "Modalidade": modalidadeCurta(Lr.modalidade), "Número": numeroCurto(Lr.numero), "Município/UF": [Lr.municipio, Lr.estado].filter(Boolean).join("/"), "Objeto": limparNaoLoc(Lr.objeto), "Data da sessão": Lr.dataSessao ? fmtD(Lr.dataSessao) : "" };
+        const res = await extrairDeclaracoes(r.arquivos, { empresa, certame, prompt: getPrompts().declaracoes, modelo });
         r.declaracoes = res.declaracoes || []; r.declaracoesObs = res.observacoes || ""; r.declaracoesMeta = { ...(res.meta || {}), arquivos: (r.arquivos || []).map((a) => a.nome), pasta: (r.arquivos?.[0]?.path || "").split("/")[2] || "" }; registrarUso(r, "declaracoes", res.meta); r.declaracoesData = new Date().toISOString().slice(0, 10);
         await salvarAnalise(r); if (ultima !== r) { gerandoDecl = false; toast("Declarações prontas na análise anterior (você trocou de análise enquanto a IA lia). Abra-a no histórico.", "aviso", 9000); return; }
         toast(`${r.declaracoes.length} declaração(ões) localizada(s)${res.meta?.stopReason === "max_tokens" ? " — resposta truncada, confira" : ""}.`, "ok", 6000);

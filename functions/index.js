@@ -147,12 +147,12 @@ const RE_FORTE = /declara[çc][ãa]o|declaro|declaramos|declarante/i;
 const RE_SECAO = /(documenta[çc][ãa]o|documentos?)\s+(de|para|relativ[ao]s?\s+[àa])\s+habilita|^\s*(\d+[.\d]*\s*[-–.]?\s*)?da\s+habilita[çc][ãa]o|habilita[çc][ãa]o\s+jur[íi]dica|qualifica[çc][ãa]o\s+(t[ée]cnica|econ[ôo]mico)/im;
 const RE_ANEXO_INICIO = /^\s*anexo\s+[ivxlc\d]+/i;
 function paginasDeclaracoes(paginas) {
-  const sel = new Set();
+  const sel = new Set([0, 1].filter((k) => k < paginas.length)); // capa e preâmbulo sempre
   paginas.forEach((t, k) => {
     const txt = t || ""; const inicio = txt.slice(0, 400);
     if (RE_FORTE.test(txt) || RE_SECAO.test(txt) || RE_ANEXO_INICIO.test(inicio)) { sel.add(k); if (k + 1 < paginas.length && RE_FORTE.test(txt)) sel.add(k + 1); }
   });
-  if (!sel.size || sel.size >= paginas.length * 0.8) return paginas.map((_, k) => k); // filtro inútil → manda tudo
+  if (sel.size >= paginas.length * 0.8) return paginas.map((_, k) => k); // filtro inútil → manda tudo
   return [...sel].sort((a, b) => a - b);
 }
 
@@ -161,7 +161,7 @@ const { systemPromptDeclaracoes, TOOL_DECL } = require("./edital.js");
 exports.extrairDeclaracoes = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1GiB", timeoutSeconds: 540, cors: true, invoker: "public" }, async (req) => {
   try {
     if (!req.auth) throw new HttpsError("unauthenticated", "Faça login para usar a IA.");
-    const { arquivos, empresa, prompt } = req.data || {}; const modelo = escolherModelo(req.data?.modelo);
+    const { arquivos, empresa, prompt, certame } = req.data || {}; const modelo = escolherModelo(req.data?.modelo);
     if (!Array.isArray(arquivos) || !arquivos.length) throw new HttpsError("invalid-argument", "A análise não tem os PDFs guardados; analise o edital novamente.");
     if (arquivos.length > 4) throw new HttpsError("invalid-argument", "No máximo 4 PDFs.");
     const bucket = admin.storage().bucket(); const content = []; let paginasTotal = 0, paginasEnviadas = 0;
@@ -178,7 +178,7 @@ exports.extrairDeclaracoes = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1Gi
     content.push({ type: "text", text: `Os trechos acima são as páginas dos documentos que mencionam declarações, habilitação ou anexos (${paginasEnviadas} de ${paginasTotal} páginas; o número da página está no marcador). Localize todas as declarações exigidas da licitante e registre-as preenchidas com a ferramenta registrar_declaracoes.` });
     const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() }); const t0 = Date.now();
     let resp;
-    try { resp = await client.messages.stream({ model: modelo, max_tokens: 24000, system: systemPromptDeclaracoes(empresa, prompt), tools: [TOOL_DECL], tool_choice: { type: "auto" }, messages: [{ role: "user", content }] }).finalMessage(); }
+    try { resp = await client.messages.stream({ model: modelo, max_tokens: 24000, system: systemPromptDeclaracoes(empresa, prompt, certame), tools: [TOOL_DECL], tool_choice: { type: "auto" }, messages: [{ role: "user", content }] }).finalMessage(); }
     catch (e) { console.error("Anthropic:", e); throw new HttpsError("internal", `Falha na IA: ${e.status || ""} ${e.message || e}`); }
     const bloco = (resp.content || []).find((c) => c.type === "tool_use"); let r = bloco?.input;
     if (!r) { const txt = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"); const m = txt.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; } if (!r) throw new HttpsError("internal", "A IA não devolveu as declarações estruturadas."); }
