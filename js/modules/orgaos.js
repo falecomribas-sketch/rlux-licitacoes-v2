@@ -3,7 +3,7 @@ import { store, newId } from "../core/store.js";
 import { dataTable, acoes, btnEditar, btnExcluir, btnVer, onAction } from "../core/table.js";
 import { formModal, lerForm, campo, inputTxt, select, linha, exportarExcel, UFS, mascaraCnpj } from "../core/forms.js";
 import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js";
-import { esc, h, raw, toTitleCase } from "../core/utils.js";
+import { esc, h, raw, toTitleCase, cnpjDigitos, cnpjFormatado } from "../core/utils.js";
 import { podeEditar } from "../core/auth.js";
 import { getPortal } from "../core/domain.js";
 import { popover } from "../core/popover.js";
@@ -136,8 +136,8 @@ function abrirForm(o = null) {
       const v = lerForm(form);
       const nome = v.nome.trim();
       if (!nome) throw new Error("Informe o nome do órgão.");
-      const cnpj = v.cnpj.trim();
-      if (cnpj && store.get("orgaos").some((x) => x.cnpj === cnpj && x.id !== o?.id)) throw new Error("Já existe um órgão com este CNPJ.");
+      const cnpj = cnpjFormatado(v.cnpj); const dig = cnpjDigitos(cnpj);
+      if (dig) { const dup = store.get("orgaos").find((x) => cnpjDigitos(x.cnpj) === dig && x.id !== o?.id); if (dup) throw new Error(`Já existe um órgão com este CNPJ: ${dup.nome}.`); }
       const contatos = [...form.querySelectorAll(".contato")].map((c) => ({
         nome: c.querySelector("[name=c_nome]").value.trim(), cargo: c.querySelector("[name=c_cargo]").value.trim(),
         email: c.querySelector("[name=c_email]").value.trim(), telefone: c.querySelector("[name=c_tel]").value.trim(),

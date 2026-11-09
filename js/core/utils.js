@@ -54,3 +54,7 @@ export const debounce = (fn, ms = 250) => {
   let t;
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 };
+
+// CNPJ: só dígitos para comparar; formatado 00.000.000/0000-00 para exibir. Aceita texto com "lixo" em volta (ex.: referência de página).
+export const cnpjDigitos = (v) => { const m = String(v || "").match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/); return m ? m[0].replace(/\D/g, "") : ""; };
+export const cnpjFormatado = (v) => { const d = cnpjDigitos(v); return d.length === 14 ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : String(v || "").trim(); };
