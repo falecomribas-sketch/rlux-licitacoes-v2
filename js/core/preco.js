@@ -39,8 +39,10 @@ export const FAMILIAS_TEC = {
 // Deduz a família técnica pelo nome da categoria ou do produto
 export function deduzirFamilia(txt) {
   const t = String(txt || "").toLowerCase();
+  const ilum = /l[aâ]mpada|\bled\b|bulbo|tubular|painel|plafon|refletor|lumin[aá]ria|emerg[eê]ncia|arandela|mr16|fotoc[eé]lula|bocal|soquete/;
+  if (ilum.test(t.slice(0, 14))) return "iluminacao"; // o que o item É vem no começo da descrição
   if (/pilha|bateria/.test(t)) return "pilhas";
-  if (/disjuntor|idr|\bdr\b|dps|surto|caixa moldada/.test(t)) return "protecao";
+  if (/disjuntor|\bidr\b|\bdr\b|\bdps\b|surto|caixa moldada/.test(t)) return "protecao";
   if (/contator|rel[eé] t[eé]rmico|comando/.test(t)) return "comando";
   if (/acoplador|plug|tomada|conector industrial|iec ?60309|steck/.test(t)) return "conexao";
   if (/barramento|pente|trilho|barra de/.test(t)) return "barramento";
