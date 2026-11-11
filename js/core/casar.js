@@ -13,7 +13,7 @@ export function candidatosPara(item) {
   const pontua = (p) => { const t = norm(`${p.nome} ${p.descricaoTecnica || ""} ${JSON.stringify(p.tecnico || {})}`); let s = 0;
     termos.forEach((w) => { if (t.includes(w)) s += 2; }); nums.forEach((n) => { if (t.replace(/\s+/g, "").includes(n)) s += 3; }); return s; };
   const prods = store.get("produtos").filter((p) => (p.familia || deduzirFamilia(`${p.nome} ${p.descricaoTecnica || ""}`)) === fam);
-  return { familia: fam, candidatos: prods.map((p) => ({ p, s: pontua(p) })).sort((a, b) => b.s - a.s).slice(0, 40).map(({ p }) => ({ id: p.id, nome: p.nome, descricaoTecnica: p.descricaoTecnica || "", unidade: p.unidade || "", tecnico: Object.entries(p.tecnico || {}).map(([k, v]) => `${k}=${v}`).join(", ") })) };
+  return { familia: fam, candidatos: prods.map((p) => ({ p, s: pontua(p) })).sort((a, b) => b.s - a.s).slice(0, 40).map(({ p }) => ({ id: p.id, nome: p.nome, descricaoTecnica: p.descricaoTecnica || "", unidade: p.unidade || "", tecnico: Object.entries(p.tecnico || {}).map(([k, v]) => `${k}=${v}`).join(", "), custo: +p.custo || 0, preferido: !!p.preferido })) };
 }
 export const nomeFamilia = (f) => FAMILIAS_TEC[f]?.nome.split(" (")[0] || f;
 

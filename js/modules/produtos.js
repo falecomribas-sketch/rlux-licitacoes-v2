@@ -67,7 +67,7 @@ export default {
       empty: "Nenhum produto neste filtro",
       columns: [
         { key: "codigo", label: "Código", width: "120px", render: (p) => tag(p.codigo || "—", "tag-blue") },
-        { key: "nome", label: "Nome", render: (p) => `<strong>${esc(p.nome)}</strong>${p.prodFichaData ? ` <span class="muted" title="Tem ficha técnica">${icon("image", "ic-inline")}</span>` : ""}` },
+        { key: "nome", label: "Nome", render: (p) => `<button type="button" class="icon-btn sm star-btn ${p.preferido ? "on" : ""}" data-act="preferido" data-id="${esc(p.id)}" title="${p.preferido ? "Preferido — a IA escolhe este entre equivalentes" : "Marcar como preferido entre equivalentes"}">${icon("star")}</button> <strong>${esc(p.nome)}</strong>${p.prodFichaData ? ` <span class="muted" title="Tem ficha técnica">${icon("image", "ic-inline")}</span>` : ""}` },
         { key: "marca", label: "Marca", render: (p) => esc(p.marca || "—") },
         { key: "cat", label: "Categoria", sort: (p) => getCat(p.catId).nome || "", render: (p) => { const c = getCat(p.catId); return c.nome ? `<span class="color-dot" style="background:${esc(c.cor || "#3b82f6")}"></span>${esc(c.nome)}` : '<span class="muted">—</span>'; } },
         { key: "custo", label: "Custo", num: true, sort: (p) => p.custo || 0, render: (p) => { const d = diasCusto(p); return `<strong>${fmt(p.custo)}</strong><div style="font-size:11px;${custoVencido(p) ? "color:var(--red)" : "color:var(--muted)"}">${d === null ? "sem data" : d === 0 ? "hoje" : `há ${d} dias`}</div>`; } },
@@ -84,6 +84,7 @@ export default {
       cat: (id) => { catFiltro = id; chips(); tabela.refresh(); },
       sit: (id) => { sitFiltro = id; chips(); tabela.refresh(); },
       "importar-tec": () => el.querySelector("#imp-tec").click(),
+      preferido: async (id) => { if (!podeEditar()) return; const p = store.find("produtos", id); if (!p) return; await store.setItem("produtos", { ...p, preferido: !p.preferido }); toast(p.preferido ? "Preferência removida." : `${p.codigo} marcado como preferido.`); },
       novo: () => abrirForm(),
       editar: (id) => abrirForm(store.find("produtos", id)),
       excluir: async (id) => {
@@ -91,7 +92,7 @@ export default {
         await store.remove("produtos", id); toast("Produto excluído.");
       },
       props: (id, btn) => abrirPopoverPropostas(store.find("produtos", id), btn),
-      excel: () => exportarExcel(store.get("produtos").map((p) => ({ Código: p.codigo, Nome: p.nome, Marca: p.marca || "", Unidade: p.unidade || "", Custo: p.custo, "Custo em": p.custoData ? fmtD(p.custoData) : "", Piso: +piso(p.custo).toFixed(2), Categoria: getCat(p.catId).nome || "", CategoriaId: p.catId || "", Família: p.familia || "", "Descrição técnica": p.descricaoTecnica || "", ...Object.fromEntries(Object.entries(p.tecnico || {}).map(([k, v]) => ["tec:" + k, v])) })), "Produtos", "produtos"),
+      excel: () => exportarExcel(store.get("produtos").map((p) => ({ Código: p.codigo, Nome: p.nome, Marca: p.marca || "", Unidade: p.unidade || "", Custo: p.custo, "Custo em": p.custoData ? fmtD(p.custoData) : "", Piso: +piso(p.custo).toFixed(2), Categoria: getCat(p.catId).nome || "", CategoriaId: p.catId || "", Família: p.familia || "", Preferido: p.preferido ? "sim" : "", "Descrição técnica": p.descricaoTecnica || "", ...Object.fromEntries(Object.entries(p.tecnico || {}).map(([k, v]) => ["tec:" + k, v])) })), "Produtos", "produtos"),
       importar: () => el.querySelector("#imp-file").click(),
     });
     el.querySelector("#imp-file")?.addEventListener("change", (e) => { if (e.target.files[0]) importarExcel(e.target.files[0]); e.target.value = ""; });
@@ -115,7 +116,7 @@ function abrirForm(p = null) {
     titulo: p ? "Editar produto" : "Novo produto", largura: "lg",
     corpo:
       linha(campo("Nome", inputTxt("nome", p?.nome || "", "required")), campo("Código / SKU", inputTxt("codigo", p?.codigo || "", "required")), campo("Marca", inputTxt("marca", p?.marca || "", "required")))
-      + linha(campo("Categoria", select("catId", [["", "Selecione…"], ...cats.map((c) => [c.id, c.nome])], p?.catId || "")), campo("Família técnica", select("familia", Object.entries(FAMILIAS_TEC).map(([k, v]) => [k, v.nome]), famIni)), campo("Unidade", inputTxt("unidade", p?.unidade || "", 'placeholder="UN, PCT, RL…"')))
+      + linha(campo("Categoria", select("catId", [["", "Selecione…"], ...cats.map((c) => [c.id, c.nome])], p?.catId || "")), campo("Família técnica", select("familia", Object.entries(FAMILIAS_TEC).map(([k, v]) => [k, v.nome]), famIni)), campo("Unidade", inputTxt("unidade", p?.unidade || "", 'placeholder="UN, PCT, RL…"')), `<label class="field"><span>Preferido</span><label style="display:flex;align-items:center;gap:8px;padding:9px 0;font-weight:500"><input type="checkbox" name="preferido" ${p?.preferido ? "checked" : ""}> entre equivalentes, a IA escolhe este</label></label>`)
       + linha(campo("Custo (R$)", inputNum("custo", p?.custo ?? "", 'step="0.01" min="0" required')), campo("Custo atualizado em", inputData("custoData", p?.custoData || (p ? "" : hojeIso()))), campo("Origem do custo", inputTxt("custoOrigem", p?.custoOrigem || "", 'placeholder="fornecedor / tabela"')), `<div class="field"><span>Piso de venda</span><div id="piso-vis" style="padding:9px 0;font-weight:600;color:var(--navy-2)">—</div></div>`)
       + `<div class="form-section">Descrição técnica <span class="muted" style="font-weight:400">— é o que a IA lê para casar com o edital</span></div>`
       + campo("Descrição técnica", textarea("descricaoTecnica", p?.descricaoTecnica || "", 'rows="2" placeholder="Ex.: Lâmpada LED Tubular T8 18 W 120 cm 6500 K base G13 bivolt, Inmetro, garantia 12 meses"'))
@@ -157,7 +158,7 @@ function abrirForm(p = null) {
       Object.entries(v).forEach(([k, val]) => { if (k.startsWith("tec_") && String(val).trim() !== "") tecnico[k.slice(4)] = isNaN(+val) || String(val).trim() === "" ? String(val).trim() : +val; });
       const custoMudou = p && p.custo !== custo;
       await store.setItem("produtos", { ...(p || {}), id: p?.id || newId(), nome, codigo, marca, custo, catId: v.catId, prodFichaData: ficha,
-        familia: v.familia, unidade: v.unidade.trim(), descricaoTecnica: v.descricaoTecnica.trim(), tecnico,
+        familia: v.familia, unidade: v.unidade.trim(), descricaoTecnica: v.descricaoTecnica.trim(), tecnico, preferido: !!form.querySelector("[name=preferido]")?.checked,
         custoData: v.custoData || (custoMudou ? hojeIso() : p?.custoData || ""), custoOrigem: v.custoOrigem.trim(), ...(custoMudou ? { custoAnterior: p.custo } : {}) });
       closeModal(); toast(p ? "Produto atualizado." : "Produto criado.");
     },
@@ -211,6 +212,7 @@ async function importarExcel(file) {
     set("catId", acharCat(val("Categoria"), val("CategoriaId")), "categoria");
     set("familia", acharFam(val("Família") ?? val("Familia")), "família");
     set("descricaoTecnica", val("Descrição técnica") ?? val("Descricao tecnica"), "descrição técnica");
+    if (r["Preferido"] !== undefined && r["Preferido"] !== null) { const pref = /^(sim|s|x|1|true|yes)$/i.test(String(r["Preferido"]).trim()); if (pref !== !!ex?.preferido) { upd.preferido = pref; mud.push("preferido"); } }
     const tec = { ...(ex?.tecnico || {}) }; let tecMudou = false;
     Object.keys(r).filter((k) => /^tec:/i.test(k)).forEach((k) => { const ch = k.slice(4).trim(); const v = val(k); if (v === undefined) return; if (String(tec[ch] ?? "") !== v) { tec[ch] = v; tecMudou = true; } });
     if (tecMudou) { upd.tecnico = tec; mud.push("dados técnicos"); }

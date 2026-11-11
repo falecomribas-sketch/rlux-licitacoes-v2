@@ -127,7 +127,7 @@ exports.casarItens = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "512MiB", ti
   if (!Array.isArray(itens) || !itens.length) throw new HttpsError("invalid-argument", "Nenhum item para casar.");
   if (itens.length > 60) throw new HttpsError("invalid-argument", "No máximo 60 itens por chamada.");
   const modelo = ["claude-sonnet-5-5", "claude-haiku-5-5"].includes(req.data?.modelo) ? req.data.modelo : MODELO_PADRAO;
-  const texto = itens.map((it, i) => `ITEM ${it.item} (${i + 1}/${itens.length})\nDescrição no edital: ${it.descricao}\nUnidade: ${it.unidade || "—"} · Quantidade: ${it.quantidade ?? "—"}${it.marcaReferencia ? ` · Marca de referência: ${it.marcaReferencia}` : ""}\nCANDIDATOS:\n${(it.candidatos || []).map((c) => `  - id=${c.id} | ${c.nome}${c.descricaoTecnica ? ` | ${c.descricaoTecnica}` : ""}${c.tecnico ? ` | ${c.tecnico}` : ""}${c.unidade ? ` | un: ${c.unidade}` : ""}`).join("\n") || "  (nenhum candidato na família)"}`).join("\n\n");
+  const texto = itens.map((it, i) => `ITEM ${it.item} (${i + 1}/${itens.length})\nDescrição no edital: ${it.descricao}\nUnidade: ${it.unidade || "—"} · Quantidade: ${it.quantidade ?? "—"}${it.marcaReferencia ? ` · Marca de referência: ${it.marcaReferencia}` : ""}\nCANDIDATOS:\n${(it.candidatos || []).map((c) => `  - id=${c.id} | ${c.nome}${c.descricaoTecnica ? ` | ${c.descricaoTecnica}` : ""}${c.tecnico ? ` | ${c.tecnico}` : ""}${c.unidade ? ` | un: ${c.unidade}` : ""}${c.custo ? ` | custo R$ ${Number(c.custo).toFixed(2)}` : ""}${c.preferido ? " | PREFERIDO" : ""}`).join("\n") || "  (nenhum candidato na família)"}`).join("\n\n");
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() });
   const t0 = Date.now();
   let resp;

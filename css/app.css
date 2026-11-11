@@ -380,3 +380,7 @@ input[type=color] { height: 40px; padding: 3px; cursor: pointer; }
 .dropzone.over { border-color: var(--navy-2); background: var(--blue-bg); }
 a.btn { text-decoration: none; }
 .row-active td { background: var(--blue-bg); }
+
+.star-btn svg { stroke: var(--muted); fill: none; }
+.star-btn.on svg { stroke: #d97706; fill: #fbbf24; }
+.star-btn:hover svg { stroke: #d97706; }
