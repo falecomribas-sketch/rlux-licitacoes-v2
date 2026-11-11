@@ -91,7 +91,7 @@ export default {
         await store.remove("produtos", id); toast("Produto excluído.");
       },
       props: (id, btn) => abrirPopoverPropostas(store.find("produtos", id), btn),
-      excel: () => exportarExcel(store.get("produtos").map((p) => ({ Código: p.codigo, Nome: p.nome, Marca: p.marca, Custo: p.custo, "Custo em": fmtD(p.custoData), Piso: +piso(p.custo).toFixed(2), Categoria: getCat(p.catId).nome || "", CategoriaId: p.catId || "", Família: p.familia || "", "Descrição técnica": p.descricaoTecnica || "", ...Object.fromEntries(Object.entries(p.tecnico || {}).map(([k, v]) => ["tec:" + k, v])) })), "Produtos", "produtos"),
+      excel: () => exportarExcel(store.get("produtos").map((p) => ({ Código: p.codigo, Nome: p.nome, Marca: p.marca || "", Unidade: p.unidade || "", Custo: p.custo, "Custo em": p.custoData ? fmtD(p.custoData) : "", Piso: +piso(p.custo).toFixed(2), Categoria: getCat(p.catId).nome || "", CategoriaId: p.catId || "", Família: p.familia || "", "Descrição técnica": p.descricaoTecnica || "", ...Object.fromEntries(Object.entries(p.tecnico || {}).map(([k, v]) => ["tec:" + k, v])) })), "Produtos", "produtos"),
       importar: () => el.querySelector("#imp-file").click(),
     });
     el.querySelector("#imp-file")?.addEventListener("change", (e) => { if (e.target.files[0]) importarExcel(e.target.files[0]); e.target.value = ""; });
@@ -192,31 +192,48 @@ function comprimirImagem(file) {
 async function importarExcel(file) {
   let rows;
   try { rows = await lerExcel(file); } catch (e) { toast("Não foi possível ler a planilha.", "erro"); return; }
-  const atuais = store.get("produtos");
-  const ops = []; let atualizados = 0, adicionados = 0;
+  const atuais = store.get("produtos"); const cats = store.get("categorias");
+  const famPorNome = Object.fromEntries(Object.entries(FAMILIAS_TEC).map(([k, v]) => [v.nome.toLowerCase(), k]));
+  const acharFam = (t) => { const x = String(t || "").trim().toLowerCase(); if (!x) return undefined; if (FAMILIAS_TEC[x]) return x; const k = Object.keys(famPorNome).find((n) => n.startsWith(x) || n.split(" (")[0] === x); return k ? famPorNome[k] : undefined; };
+  const acharCat = (nome, id) => { if (id && cats.some((c) => c.id === id)) return id; const n = String(nome || "").trim().toLowerCase(); const c = n ? cats.find((c) => (c.nome || "").toLowerCase() === n) : null; return c ? c.id : undefined; };
+  const num = (v) => { const n = parseFloat(String(v).replace(/\./g, (m, i, str) => (str.includes(",") ? "" : m)).replace(",", ".")); return isNaN(n) ? undefined : n; };
+  const linhas = []; const hoje = hojeIso();
   for (const r of rows) {
-    const codigo = String(r["Código"] ?? r["Codigo"] ?? "").trim(); if (!codigo) continue;
+    const codigo = String(r["Código"] ?? r["Codigo"] ?? r["SKU"] ?? "").trim(); if (!codigo) continue;
     const val = (k) => r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== "" ? String(r[k]).trim() : undefined;
-    const ex = atuais.find((p) => p.codigo === codigo);
-    if (ex) {
-      const upd = { ...ex };
-      if (val("Nome")) upd.nome = val("Nome");
-      if (val("Marca")) upd.marca = val("Marca");
-      if (val("Custo")) upd.custo = parseFloat(val("Custo").replace(",", ".")) || 0;
-      if (val("CategoriaId")) upd.catId = val("CategoriaId");
-      ops.push(upd); atualizados++;
-    } else {
-      ops.push({ id: newId(), nome: val("Nome") || "", codigo, marca: val("Marca") || "", custo: parseFloat((val("Custo") || "0").replace(",", ".")) || 0, catId: val("CategoriaId") || "" });
-      adicionados++;
-    }
+    const ex = atuais.find((p) => p.codigo === codigo) || atuais.find((p) => normCod(p.codigo) === normCod(codigo));
+    const upd = ex ? { ...ex } : { id: newId(), codigo, nome: "", marca: "", custo: 0, catId: "" }; const mud = [];
+    const set = (campo, v, rotulo) => { if (v === undefined) return; const antes = upd[campo]; if (JSON.stringify(antes ?? "") !== JSON.stringify(v ?? "")) { upd[campo] = v; mud.push(rotulo || campo); } };
+    set("nome", val("Nome"), "nome"); set("marca", val("Marca"), "marca"); set("unidade", val("Unidade"), "unidade");
+    const custo = val("Custo") !== undefined ? num(val("Custo")) : undefined;
+    if (custo !== undefined && custo !== (ex?.custo ?? null)) { upd.custo = custo; mud.push("custo"); const d = isoDeData(r["Custo em"]); upd.custoData = d || hoje; upd.custoOrigem = "planilha"; }
+    else if (val("Custo em")) { const d = isoDeData(r["Custo em"]); if (d && d !== ex?.custoData) { upd.custoData = d; mud.push("data do custo"); } }
+    set("catId", acharCat(val("Categoria"), val("CategoriaId")), "categoria");
+    set("familia", acharFam(val("Família") ?? val("Familia")), "família");
+    set("descricaoTecnica", val("Descrição técnica") ?? val("Descricao tecnica"), "descrição técnica");
+    const tec = { ...(ex?.tecnico || {}) }; let tecMudou = false;
+    Object.keys(r).filter((k) => /^tec:/i.test(k)).forEach((k) => { const ch = k.slice(4).trim(); const v = val(k); if (v === undefined) return; if (String(tec[ch] ?? "") !== v) { tec[ch] = v; tecMudou = true; } });
+    if (tecMudou) { upd.tecnico = tec; mud.push("dados técnicos"); }
+    if (!ex && !upd.nome) continue; // novo sem nome: ignora
+    linhas.push({ codigo, ex, upd, mud });
   }
-  if (!ops.length) { toast("A planilha não tem a coluna Código ou está vazia.", "erro"); return; }
-  if (!await confirmar(`Importar: ${atualizados} produto(s) atualizado(s) e ${adicionados} novo(s)?`, { ok: "Importar" })) return;
-  toast("Importando…", "info");
-  for (const item of ops) await store.setItem("produtos", item);
-  toast(`Importação concluída: ${atualizados} atualizado(s), ${adicionados} adicionado(s).`);
+  if (!linhas.length) { toast("A planilha não tem a coluna Código ou está vazia.", "erro"); return; }
+  const alterados = linhas.filter((l) => l.ex && l.mud.length), novos = linhas.filter((l) => !l.ex), iguais = linhas.length - alterados.length - novos.length;
+  if (!alterados.length && !novos.length) { toast(`Nada a importar: ${iguais} produto(s) já estão iguais à planilha.`, "info", 6000); return; }
+  const porCampo = {}; alterados.forEach((l) => l.mud.forEach((m) => { porCampo[m] = (porCampo[m] || 0) + 1; }));
+  const custoVariou = alterados.filter((l) => l.mud.includes("custo")).map((l) => ({ l, pct: l.ex.custo ? (l.upd.custo - l.ex.custo) / l.ex.custo * 100 : null }));
+  const grandes = custoVariou.filter((x) => x.pct !== null && Math.abs(x.pct) > 30);
+  openModal({ titulo: "Conferir importação de produtos", largura: "lg",
+    corpo: `<p style="margin:0 0 10px"><strong>${alterados.length}</strong> produto(s) com alteração · <strong>${novos.length}</strong> novo(s) · ${iguais} sem mudança (ignorados).</p>
+      ${Object.keys(porCampo).length ? `<p class="muted" style="font-size:12.5px;margin:0 0 10px">Campos alterados: ${Object.entries(porCampo).map(([k, v]) => `${esc(k)} (${v})`).join(" · ")}</p>` : ""}
+      ${grandes.length ? `<div class="info-box" style="border-color:var(--amber);margin-bottom:10px"><div><div class="k">Custos com variação acima de 30% — confira</div>${grandes.slice(0, 12).map(({ l, pct }) => `${esc(l.codigo)}: ${fmt(l.ex.custo)} → ${fmt(l.upd.custo)} (${pct > 0 ? "+" : ""}${pct.toFixed(0)}%)`).join("<br>")}${grandes.length > 12 ? `<br>… e mais ${grandes.length - 12}` : ""}</div></div>` : ""}
+      <div class="table-wrap" style="max-height:340px;overflow:auto"><table><thead><tr><th>Código</th><th>Nome</th><th>O que muda</th></tr></thead><tbody>
+        ${[...alterados, ...novos].slice(0, 300).map((l) => `<tr><td class="mono">${esc(l.codigo)}</td><td>${esc(l.upd.nome)}</td><td style="font-size:12.5px">${l.ex ? l.mud.map((m) => m === "custo" ? `custo ${fmt(l.ex.custo)} → ${fmt(l.upd.custo)}` : esc(m)).join(", ") : "<strong>novo produto</strong>"}</td></tr>`).join("")}
+      </tbody></table></div>
+      <p class="muted" style="font-size:12px;margin:10px 0 0">Células vazias na planilha não apagam dados existentes. Custo alterado sem "Custo em" recebe a data de hoje.</p>`,
+    rodape: `<button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="imp-ok">Importar ${alterados.length + novos.length} produto(s)</button>` });
+  document.querySelector("#imp-ok").addEventListener("click", async (e) => { e.target.disabled = true; e.target.textContent = "Importando…"; try { for (const l of [...alterados, ...novos]) await store.setItem("produtos", l.upd); closeModal(); toast(`Importação concluída: ${alterados.length} atualizado(s), ${novos.length} adicionado(s).`); } catch (err) { toast("Falha ao gravar: " + (err.message || err), "erro", 8000); e.target.disabled = false; e.target.textContent = "Tentar de novo"; } });
 }
-
 
 // ---------- importação da planilha técnica (Base_Preco_RLUX: SKU, PRECO = custo, colunas técnicas) ----------
 const MAPA_TEC = { POTENCIA_W: "potenciaW", COR_K: "corK", BASE: "base", IP: "ip", TENSAO_V: "tensaoV", POLOS: "polos", AMPERAGEM: "correnteA", CORRENTE_A: "correnteA", CURVA: "curva", kA: "kA", CERTIFICACAO: "certificacao", TAMANHO_M: "dimensao", TENSAO_BOBINA_V: "bobinaV", CLASSE_UTILIZACAO: "classe", CONTATO_AUXILIAR: "auxiliar", PINOS: "pinos", MONTAGEM: "montagem", POSICAO_H: "posicaoH", Ah: "ah", GARANTIA: "garantia", TIPO_BARRAMENTO: "tipo", NORMA: "norma" };
