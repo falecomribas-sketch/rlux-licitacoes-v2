@@ -6,7 +6,7 @@
 import { auth } from "./firebase.js";
 import { store, newId } from "./store.js";
 import {
-  signInWithEmailAndPassword, signOut, onAuthStateChanged,, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 export let currentUser = null; // perfil da coleção usuarios
 
