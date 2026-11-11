@@ -156,8 +156,12 @@ async function casar(el) {
     const partes = await Promise.all(lotes.map(async (lote) => { const r = await casarItens(lote, { regras: getRegras(), modelo, prompt: getPrompts().casar }); feitos += lote.length; if (prog) prog.textContent = `${feitos}/${itens.length} itens…`; return r; }));
     const todos = partes.flatMap((r) => r.itens || []); const metas = partes.map((r) => r.meta || {});
     const meta = { modelo: metas[0]?.modelo || "", tokensEntrada: metas.reduce((a, m) => a + (m.tokensEntrada || 0), 0), tokensSaida: metas.reduce((a, m) => a + (m.tokensSaida || 0), 0), segundos: Math.max(...metas.map((m) => m.segundos || 0)), chamadas: lotes.length };
-    const semResposta = itens.filter((it) => !todos.some((c) => String(c.item) === String(it.item)));
-    ultima.correspondencia = itens.map((it) => { const c = todos.find((x) => String(x.item) === String(it.item)); return c ? { ...c, item: String(c.item) } : { item: String(it.item), produtoId: "", confianca: "nenhuma", justificativa: "A IA não devolveu resposta para este item — use Refazer ou escolha manualmente.", observacao: "" }; });
+    // Casa a resposta com o item: número igual → número normalizado ("037"/"Item 37") → posição no lote (mesma quantidade)
+    const achar = (it, idx, lote) => todos.find((x) => String(x.item) === String(it.item)) || todos.find((x) => numItem(x.item) && numItem(x.item) === numItem(it.item)) || (lote && lote.resp.length === lote.itens.length ? lote.resp[idx] : null);
+    const porLote = []; lotes.forEach((lt, li) => lt.forEach((it, idx) => porLote.push({ it, idx, lote: { itens: lt, resp: partes[li]?.itens || [] } })));
+    console.log("correspondência: itens enviados", itens.map((i) => i.item), "devolvidos", todos.map((c) => c.item));
+    ultima.correspondencia = porLote.map(({ it, idx, lote }) => { const c = achar(it, idx, lote); return c ? { ...c, item: String(it.item) } : { item: String(it.item), produtoId: "", confianca: "nenhuma", justificativa: "A IA não devolveu resposta para este item — use Refazer ou escolha manualmente.", observacao: "" }; });
+    const semResposta = ultima.correspondencia.filter((c) => /não devolveu resposta/.test(c.justificativa || ""));
     ultima.metaCorr = meta; registrarUso(ultima, "correspondencia", meta); ultima.candidatosEnviados = itens.reduce((s, i) => s + i.candidatos.length, 0);
     await salvarAnalise(); toast(semResposta.length ? `Correspondência concluída, mas ${semResposta.length} item(ns) ficaram sem resposta da IA.` : "Correspondência concluída.", semResposta.length ? "aviso" : "ok", 6000);
   } catch (e) { toast(e.message, "erro", 8000); }

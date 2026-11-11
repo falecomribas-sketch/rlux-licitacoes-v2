@@ -100,7 +100,7 @@ const TOOL_CASAR = {
   input_schema: {
     type: "object", required: ["itens"],
     properties: { itens: { type: "array", items: { type: "object", required: ["item", "produtoId", "confianca", "justificativa"],
-      properties: { item: { type: "string", description: "número do item como recebido" }, produtoId: { type: "string", description: "id do candidato escolhido, ou vazio" }, confianca: { type: "string", enum: ["alta", "media", "baixa", "nenhuma"] }, justificativa: { type: "string" }, observacao: { type: "string", description: "conversão de embalagem ou ressalva" }, alternativas: { type: "array", items: { type: "string" }, description: "até 2 ids de outros candidatos plausíveis" } } } } },
+      properties: { item: { type: "string", description: "Exatamente o texto após ITEM no cabeçalho recebido (ex.: \"37\"), sem prefixos" }, produtoId: { type: "string", description: "id do candidato escolhido, ou vazio" }, confianca: { type: "string", enum: ["alta", "media", "baixa", "nenhuma"] }, justificativa: { type: "string" }, observacao: { type: "string", description: "conversão de embalagem ou ressalva" }, alternativas: { type: "array", items: { type: "string" }, description: "até 2 ids de outros candidatos plausíveis" } } } } },
   },
 };
 module.exports.systemPromptCasar = systemPromptCasar;
