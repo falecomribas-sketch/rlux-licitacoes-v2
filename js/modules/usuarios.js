@@ -73,7 +73,7 @@ function abrirForm(u = null) {
       linha(campo("Nome", inputTxt("nome", u?.nome || "", "required")), campo("E-mail", `<input type="email" name="email" value="${esc(u?.email || "")}" required ${novo ? "" : "readonly"}>`))
       + linha(campo("Perfil", select("perfil", PERFIS, u?.perfil || "Operador")),
               novo ? campo("Senha inicial", `<input type="password" name="senha" minlength="6" required placeholder="mínimo 6 caracteres" autocomplete="new-password">`) : `<div class="field"><span>Acesso</span><label class="switch" style="margin-top:8px"><input type="checkbox" name="ativo" ${u?.ativo !== false ? "checked" : ""}> Usuário ativo</label></div>`)
-      + (novo ? `<p class="help">A conta de acesso é criada agora com esta senha; a pessoa pode trocá-la depois pelo link "Esqueci minha senha" (em breve na tela de login) ou você envia uma redefinição por aqui.</p>` : ""),
+      + (novo ? `<p class="help">A conta de acesso é criada agora com esta senha; a pessoa pode trocá-la depois pelo link "Esqueci minha senha" na tela de login ou você envia uma redefinição por aqui.</p>` : ""),
     onAberto(form, m) {
       m.querySelector("[data-reset]")?.addEventListener("click", async () => {
         try { await sendPasswordResetEmail(getAuth(app), u.email); toast(`E-mail de redefinição enviado para ${u.email}.`); }

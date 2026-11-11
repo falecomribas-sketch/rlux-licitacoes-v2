@@ -1,5 +1,5 @@
 // Ponto de entrada: login -> store -> navegação -> módulos.
-import { onAuth, login, logout } from "./core/auth.js";
+import { onAuth, login, logout, esqueciSenha } from "./core/auth.js";
 import { store } from "./core/store.js";
 import { registerModule, buildNav, startRouter } from "./core/router.js";
 import { icon, toast } from "./core/ui.js";
@@ -69,6 +69,11 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
+$("#login-esqueci").addEventListener("click", async (e) => {
+  e.preventDefault(); erro.hidden = true;
+  try { await esqueciSenha(form.email.value); erro.style.color = "var(--green)"; erro.textContent = "Se este e-mail tiver conta, enviamos um link para criar uma nova senha. Confira também a caixa de spam."; erro.hidden = false; }
+  catch (err) { erro.style.color = ""; erro.textContent = err.message; erro.hidden = false; }
+});
 $("#logout-btn").addEventListener("click", () => logout());
 $("#menu-btn").addEventListener("click", () => document.body.classList.toggle("nav-open"));
 $("#sidebar-scrim").addEventListener("click", () => document.body.classList.remove("nav-open"));

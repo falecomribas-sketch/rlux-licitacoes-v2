@@ -6,8 +6,7 @@
 import { auth } from "./firebase.js";
 import { store, newId } from "./store.js";
 import {
-  signInWithEmailAndPassword, signOut, onAuthStateChanged,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  signInWithEmailAndPassword, signOut, onAuthStateChanged,, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 export let currentUser = null; // perfil da coleção usuarios
 
@@ -67,3 +66,9 @@ export function onAuth(fn) {
 
 export const isAdmin = () => currentUser?.perfil === "Admin";
 export const podeEditar = () => currentUser && currentUser.perfil !== "Visualizador";
+
+export async function esqueciSenha(email) {
+  const e = String(email || "").trim(); if (!e) throw new Error("Digite seu e-mail no campo acima e clique de novo.");
+  try { await sendPasswordResetEmail(auth, e); }
+  catch (err) { if (err.code === "auth/invalid-email") throw new Error("E-mail inválido."); if (err.code === "auth/too-many-requests") throw new Error("Muitas tentativas; aguarde alguns minutos."); throw new Error("Não foi possível enviar o e-mail agora."); }
+}
