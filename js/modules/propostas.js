@@ -4,7 +4,7 @@ import { store, newId } from "../core/store.js";
 import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js";
 import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js";
 import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte } from "../core/utils.js";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js";
 import { podeEditar } from "../core/auth.js";
 import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js";
 import { ssel } from "../core/ssel.js";
@@ -247,7 +247,7 @@ function lancarResultado(p) {
         ${itens.map((it, i) => `<tr data-i="${i}"><td><strong>${esc(it.num ?? i + 1)}</strong></td><td>${esc(it.nome)}<div class="muted" style="font-size:11px">${esc(it.codigo || "")}</div></td><td class="num">${fmtNum(it.qtd)}</td><td class="num">${fmt(it.custo)}</td><td class="num">${fmt(piso(it.custo))}</td><td class="num">${fmt(it.preco)}</td><td><input type="number" class="input input-sm" name="final_${i}" value="${it.preco ?? ""}" step="0.01" min="0" style="width:120px"></td><td class="num mg" style="font-weight:600"></td><td style="text-align:center"><input type="checkbox" name="perdido_${i}"></td></tr>`).join("")}
       </tbody></table></div>
       <div class="totais" style="margin-top:10px"><div class="total-geral"><span class="muted">Total readequado (itens vencidos)</span><strong id="t-final">—</strong></div></div>
-      ${linha(campo("Data da disputa", `<input type="date" name="dataDisputa" value="${new Date().toISOString().slice(0, 10)}">`), campo("Observação", `<input type="text" name="obsDisputa" placeholder="ex.: perdemos o item 3 por R$ 0,02">`))}`,
+      ${linha(campo("Data da disputa", `<input type="date" name="dataDisputa" value="${hojeIso()}">`), campo("Observação", `<input type="text" name="obsDisputa" placeholder="ex.: perdemos o item 3 por R$ 0,02">`))}`,
     onAberto(form) {
       const calc = () => { let tot = 0; form.querySelectorAll("tr[data-i]").forEach((tr) => { const i = +tr.dataset.i, it = itens[i]; const perdido = form.elements[`perdido_${i}`].checked; const v = +form.elements[`final_${i}`].value || 0; const mg = tr.querySelector(".mg"); tr.style.opacity = perdido ? ".45" : "1";
         if (perdido || !v) { mg.textContent = perdido ? "perdido" : "—"; mg.style.color = "var(--muted)"; return; }
@@ -263,7 +263,7 @@ function lancarResultado(p) {
       const abaixo = vencidos.filter((it) => it.preco < piso(it.custo));
       if (abaixo.length && !await confirmar(`${abaixo.length} item(ns) arrematado(s) abaixo do piso. Aplicar mesmo assim?`, { ok: "Aplicar" })) return;
       const status = vencidos.length ? "Vencida" : "Perdida";
-      await store.setItem("propostas", { ...p, itens: vencidos.length ? vencidos : itens, status, resultadoDisputa: { data: v.dataDisputa || new Date().toISOString().slice(0, 10), obs: v.obsDisputa || "", itens: hist, perdidos: perdidos.map((it) => ({ num: it.num, codigo: it.codigo, nome: it.nome, qtd: it.qtd, preco: it.preco })) }, readequadaEm: vencidos.length ? new Date().toISOString() : "" });
+      await store.setItem("propostas", { ...p, itens: vencidos.length ? vencidos : itens, status, resultadoDisputa: { data: v.dataDisputa || hojeIso(), obs: v.obsDisputa || "", itens: hist, perdidos: perdidos.map((it) => ({ num: it.num, codigo: it.codigo, nome: it.nome, qtd: it.qtd, preco: it.preco })) }, readequadaEm: vencidos.length ? new Date().toISOString() : "" });
       closeModal(); toast(vencidos.length ? `Proposta readequada: ${vencidos.length} item(ns) vencido(s), ${perdidos.length} perdido(s). Status: Vencida.` : "Todos os itens perdidos. Status: Perdida.", "ok", 6000);
       if (vencidos.length && await confirmar("Gerar o PDF da proposta readequada agora?", { ok: "Gerar PDF" })) opcoesPdf(store.find("propostas", p.id));
     },

@@ -3,7 +3,7 @@
 import { store } from "../core/store.js";
 import { toast, icon, closeModal, confirmar } from "../core/ui.js";
 import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js";
-import { esc, fmt, fmtNum } from "../core/utils.js";
+import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js";
 import { isAdmin } from "../core/auth.js";
 import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js";
 
@@ -163,12 +163,12 @@ const lerPreco = (el) => { const f = el.querySelector("#f-preco"); const n = (k)
 const ETAPAS = { analise: "Análise do edital", correspondencia: "Correspondência", declaracoes: "Declarações" };
 function painelCusto(el) {
   const box = el.querySelector("#custo-ia"); if (!box) return;
-  const usos = usosIA(); const hoje = new Date().toISOString().slice(0, 10), mes = hoje.slice(0, 7);
+  const usos = usosIA(); const hoje = hojeIso(), mes = hoje.slice(0, 7);
   const soma = (lst) => lst.reduce((a, u) => a + custoUso(u), 0);
-  const dia = usos.filter((u) => (u.em || "").slice(0, 10) === hoje), doMes = usos.filter((u) => (u.em || "").slice(0, 7) === mes);
+  const dia = usos.filter((u) => dataLocal(u.em) === hoje), doMes = usos.filter((u) => dataLocal(u.em).slice(0, 7) === mes);
   const porEtapa = Object.keys(ETAPAS).map((k) => { const l = doMes.filter((u) => u.etapa === k); return { k, n: l.length, custo: soma(l), entrada: l.reduce((a, u) => a + (u.entrada || 0), 0), saida: l.reduce((a, u) => a + (u.saida || 0), 0) }; });
   const analisesMes = new Set(doMes.map((u) => u.analiseId)).size;
-  const diasUteis = Math.max(1, new Set(doMes.map((u) => (u.em || "").slice(0, 10))).size);
+  const diasUteis = Math.max(1, new Set(doMes.map((u) => dataLocal(u.em))).size);
   const projecao = soma(doMes) / diasUteis * 22;
   box.innerHTML = `<div class="kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-bottom:1px solid var(--border)">
       <div style="padding:12px 16px"><div class="muted" style="font-size:11px">Hoje</div><div style="font-size:18px;font-weight:700">${fmt(soma(dia))}</div><div class="muted" style="font-size:11px">${dia.length} chamada(s)</div></div>

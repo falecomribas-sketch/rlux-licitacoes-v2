@@ -13,6 +13,8 @@ export const fmtD = (d) => {
 };
 
 // Data local "YYYY-MM-DD" (sem deslocar o dia pelo fuso)
+// Data local (aaaa-mm-dd) de um timestamp ISO/UTC — evita "virar o dia" depois das 21h no Brasil
+export const dataLocal = (iso) => { if (!iso) return ""; const d = new Date(iso); if (isNaN(d)) return String(iso).slice(0, 10); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 export const hojeIso = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

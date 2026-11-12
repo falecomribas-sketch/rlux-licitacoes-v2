@@ -4,7 +4,7 @@ import { store, newId } from "../core/store.js";
 import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js";
 import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js";
 import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js";
-import { esc, fmt, fmtD, fmtNum, toTitleCase } from "../core/utils.js";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js";
 import { podeEditar } from "../core/auth.js";
 import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js";
 import { ssel } from "../core/ssel.js";
@@ -81,7 +81,7 @@ function abrirForm(r = null) {
       ${linha(campo("Tipo de recomposição", select("fundamento", FUNDAMENTOS, r?.fundamento || "revisao")), campo("Índice de referência", select("indice", INDICES, r?.indice || "")))}
       ${linha(campo("Justificativa detalhada", textarea("justificativa", r?.justificativa || "", 'required style="min-height:90px" placeholder="Fatos e impactos econômicos que fundamentam o pedido…"')))}
       <div class="form-section" style="color:var(--purple)">Processo e controle</div>
-      ${linha(campo("Data da solicitação", inputData("dataSolic", r?.dataSolic || new Date().toISOString().slice(0, 10))), campo("Data da resposta", inputData("dataResp", r?.dataResp || "")), campo("Nº processo SEI / interno", inputTxt("processo", r?.processo || "")))}
+      ${linha(campo("Data da solicitação", inputData("dataSolic", r?.dataSolic || hojeIso())), campo("Data da resposta", inputData("dataResp", r?.dataResp || "")), campo("Nº processo SEI / interno", inputTxt("processo", r?.processo || "")))}
       ${linha(campo("Status", select("status", STATUS_REQ, r?.status || "Solicitado")), campo("Responsável pelo pedido", inputTxt("responsavel", r?.responsavel || "")))}
       ${r?.aplicado ? `<div class="info-box" style="grid-template-columns:1fr;background:var(--green-bg);border-color:#9fdcbc"><strong style="color:var(--green)">Reequilíbrio aplicado na ATA</strong> em ${r.aplicadoEm ? new Date(r.aplicadoEm).toLocaleString("pt-BR") : "—"}. Os preços da proposta vinculada foram atualizados.</div>` : ""}
       <div class="form-section" style="color:var(--teal)">Documentação comprobatória</div>
