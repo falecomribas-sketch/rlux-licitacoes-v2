@@ -137,13 +137,26 @@ async function salvarAnalise(alvo = ultima) {
   const { arquivosNomes, ...dados } = alvo; // tudo é serializável (sem File)
   try { await store.setItem("analises", { ...dados, arquivosNomes: arquivosNomes || [], atualizadoEm: new Date().toISOString() }); } catch (e) { console.error(e); toast("Não consegui gravar a análise (ela continua na tela).", "erro"); }
 }
+let histBusca = "", histSit = "";
+const SIT_HIST = [["", "Todas"], ["proposta", "Com proposta"], ["analisado", "Só analisadas"], ["semcorr", "Sem correspondência"], ["minhas", "Minhas"]];
 function historico(el) {
   const box = el.querySelector("#historico"); if (!box) return;
-  const lst = store.get("analises").slice().sort((a, b) => (b.criadoEm || "").localeCompare(a.criadoEm || "")).slice(0, 40);
-  box.innerHTML = `<div class="card-head"><h2>Análises recentes</h2><span class="muted" style="font-size:12px">${lst.length} de ${store.get("analises").length}</span></div>` + (lst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Licitação</th><th>Órgão</th><th class="num">Itens</th><th>Correspondência</th><th>Situação</th><th></th></tr></thead><tbody>
-    ${lst.map((a) => { const L = a.resumo || {}; const n = (a.itens || []).length, c = (a.correspondencia || []).filter((x) => x.produtoId).length;
+  const todas = store.get("analises").slice().sort((a, b) => (b.criadoEm || "").localeCompare(a.criadoEm || ""));
+  const q = normTxt(histBusca); const eu = (currentUser?.email || "").toLowerCase();
+  const lst = todas.filter((a) => { const L = a.resumo || {}; const n = (a.itens || []).length;
+    if (histSit === "proposta" && !a.criada) return false; if (histSit === "analisado" && a.criada) return false; if (histSit === "semcorr" && (a.correspondencia || n === 0)) return false; if (histSit === "minhas" && (a.usuario || "").toLowerCase() !== eu) return false;
+    if (!q) return true; const alvo = normTxt([L.orgao, L.numero, L.modalidade, L.municipio, L.estado, L.uasg, a.usuario, fmtD(dataLocal(a.criadoEm)), L.dataSessao ? fmtD(L.dataSessao) : "", ...(a.itens || []).map((i) => i.descricao)].join(" ")); return q.split(/\s+/).every((t) => alvo.includes(t)); });
+  const mostrarLst = lst.slice(0, 60);
+  box.innerHTML = `<div class="card-head"><h2>Análises recentes</h2><span class="muted" style="font-size:12px">${mostrarLst.length} de ${todas.length}</span></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--border)">
+      <label class="search" style="min-width:260px"><span class="search-ic">${icon("search")}</span><input type="search" id="hist-busca" class="input" placeholder="Buscar por órgão, número, cidade, item, usuário…" value="${esc(histBusca)}"></label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${SIT_HIST.map(([k, t]) => `<button class="chip ${histSit === k ? "active" : ""}" data-hist-sit="${k}">${t}</button>`).join("")}</div>
+    </div>` + (mostrarLst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Licitação</th><th>Órgão</th><th class="num">Itens</th><th>Correspondência</th><th>Situação</th><th></th></tr></thead><tbody>
+    ${mostrarLst.map((a) => { const L = a.resumo || {}; const n = (a.itens || []).length, c = (a.correspondencia || []).filter((x) => x.produtoId).length;
       return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtD(dataLocal(a.criadoEm))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong>${L.dataSessao ? `<div class="muted" style="font-size:11px">sessão ${fmtD(L.dataSessao)}</div>` : ""}</td><td>${esc((L.orgao || "—").slice(0, 50))}<div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${a.criada ? tag(`Proposta #${a.criada.num}`, "tag-teal") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button> <button class="btn btn-ghost btn-sm btn-icon" data-excluir="${esc(a.id)}" title="Excluir análise">${icon("trash")}</button></td></tr>`; }).join("")}
-  </tbody></table></div></div>` : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">As análises feitas a partir de agora ficam guardadas aqui.</p></div>`);
+  </tbody></table></div></div>` : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">${todas.length ? "Nenhuma análise corresponde à busca." : "As análises feitas a partir de agora ficam guardadas aqui."}</p></div>`);
+  const inp = box.querySelector("#hist-busca"); if (inp) { inp.addEventListener("input", () => { histBusca = inp.value; const pos = inp.selectionStart; historico(el); const n = box.querySelector("#hist-busca"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }
+  box.querySelectorAll("[data-hist-sit]").forEach((b) => b.addEventListener("click", () => { histSit = b.dataset.histSit; historico(el); }));
 }
 const linhasCorr = () => (ultima?.itens || []).map((it) => { const c = (ultima.correspondencia || []).find((x) => String(x.item) === String(it.item)); const p = c?.produtoId ? store.find("produtos", c.produtoId) : null; return { it, c, p }; });
 async function casar(el) {
