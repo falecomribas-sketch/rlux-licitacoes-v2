@@ -70,9 +70,13 @@ export const store = {
   },
 
   // Grava um item (cria ou substitui). O item precisa ter .id
+  // Quem está gravando (definido pela autenticação) — vai em _atualizadoEm/_atualizadoPor de cada registro salvo
+  usuarioAtual: "",
   async setItem(name, item) {
     if (!item?.id) throw new Error("item sem id");
-    await setDoc(doc(db, name, item.id), item);
+    const carimbo = { ...item, _atualizadoEm: new Date().toISOString(), _atualizadoPor: store.usuarioAtual || "" };
+    await setDoc(doc(db, name, item.id), carimbo);
+    Object.assign(item, { _atualizadoEm: carimbo._atualizadoEm, _atualizadoPor: carimbo._atualizadoPor });
     return item;
   },
 

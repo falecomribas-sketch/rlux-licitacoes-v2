@@ -30,7 +30,7 @@ export async function login(email, senha) {
 
 export async function logout() {
   store.stop();
-  currentUser = null;
+  currentUser = null; store.usuarioAtual = "";
   await signOut(auth);
 }
 
@@ -51,7 +51,7 @@ async function carregarPerfil(fbUser) {
     await logout();
     throw new Error("Este usuário está desativado. Fale com o administrador.");
   }
-  currentUser = perfil;
+  currentUser = perfil; store.usuarioAtual = perfil?.email || "";
   return perfil;
 }
 
