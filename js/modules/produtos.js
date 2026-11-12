@@ -241,7 +241,16 @@ async function importarExcel(file) {
 const MAPA_TEC = { POTENCIA_W: "potenciaW", COR_K: "corK", BASE: "base", IP: "ip", TENSAO_V: "tensaoV", POLOS: "polos", AMPERAGEM: "correnteA", CORRENTE_A: "correnteA", CURVA: "curva", kA: "kA", CERTIFICACAO: "certificacao", TAMANHO_M: "dimensao", TENSAO_BOBINA_V: "bobinaV", CLASSE_UTILIZACAO: "classe", CONTATO_AUXILIAR: "auxiliar", PINOS: "pinos", MONTAGEM: "montagem", POSICAO_H: "posicaoH", Ah: "ah", GARANTIA: "garantia", TIPO_BARRAMENTO: "tipo", NORMA: "norma" };
 const normCod = (x) => String(x ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 const humanizar = (c) => String(c || "").replace(/_/g, " ").toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase()).replace(/\bLed\b/g, "LED").replace(/\bT8\b|\bT5\b/gi, (m) => m.toUpperCase()).replace(/\bDps\b/, "DPS").replace(/\bIdr\b/, "IDR").replace(/\bMr16\b/, "MR16");
-const isoDeData = (v) => { if (!v) return ""; if (v instanceof Date) return v.toISOString().slice(0, 10); const s = String(v); if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10); const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/); return m ? `${m[3]}-${m[2]}-${m[1]}` : ""; };
+// Aceita Date, "aaaa-mm-dd", "dd/mm/aaaa" e número de série do Excel (ex.: 46296)
+const isoDeData = (v) => {
+  if (v === null || v === undefined || v === "") return "";
+  if (v instanceof Date) return isNaN(v) ? "" : new Date(v.getTime() - v.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  if (typeof v === "number" && v > 20000 && v < 80000) { const d = new Date(Math.round((v - 25569) * 86400000)); return d.toISOString().slice(0, 10); }
+  const s = String(v).trim(); if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if (m) { const a = m[3].length === 2 ? "20" + m[3] : m[3]; return `${a}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`; }
+  if (/^\d{5}$/.test(s)) return isoDeData(+s);
+  return "";
+};
 
 async function importarTecnica(file) {
   let rows;
