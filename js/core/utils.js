@@ -11,6 +11,8 @@ export const fmtD = (d) => {
   const [y, m, dd] = String(d).slice(0, 10).split("-");
   return dd && m && y ? `${dd}/${m}/${y}` : "—";
 };
+// Data curta dd/mm/aa (para tabelas)
+export const fmtDc = (d) => { const t = fmtD(d); return t === "—" ? t : t.slice(0, 6) + t.slice(8); };
 
 // Data local "YYYY-MM-DD" (sem deslocar o dia pelo fuso)
 // Data local (aaaa-mm-dd) de um timestamp ISO/UTC — evita "virar o dia" depois das 21h no Brasil

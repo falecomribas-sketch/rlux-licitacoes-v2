@@ -4,7 +4,7 @@ import { store, newId } from "../core/store.js";
 import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js";
 import { formModal, lerForm, campo, inputTxt, inputNum, inputData, textarea, select, linha, exportarExcel, lerExcel } from "../core/forms.js";
 import { iniciarPreco, piso, custoVencido, diasCusto, FAMILIAS_TEC, deduzirFamilia, frequenciaVendas, getCfg } from "../core/preco.js";
-import { hojeIso, dataLocal } from "../core/utils.js";
+import { hojeIso, dataLocal, fmtDc } from "../core/utils.js";
 import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js";
 import { esc, h, raw, fmt, fmtD, fmtNum } from "../core/utils.js";
 import { podeEditar } from "../core/auth.js";
@@ -72,7 +72,7 @@ export default {
         { key: "cat", label: "Categoria", sort: (p) => getCat(p.catId).nome || "", render: (p) => { const c = getCat(p.catId); return c.nome ? `<span class="color-dot" style="background:${esc(c.cor || "#3b82f6")}"></span>${esc(c.nome)}` : '<span class="muted">—</span>'; } },
         { key: "custo", label: "Custo", num: true, sort: (p) => p.custo || 0, render: (p) => { const d = diasCusto(p); return `<strong>${fmt(p.custo)}</strong><div style="font-size:11px;${custoVencido(p) ? "color:var(--red)" : "color:var(--muted)"}">${d === null ? "sem data" : d === 0 ? "hoje" : `há ${d} dias`}</div>`; } },
         { key: "piso", label: "Piso", num: true, sort: (p) => piso(p.custo), render: (p) => `<span style="color:var(--navy-2)">${fmt(piso(p.custo))}</span>` },
-        { key: "atualizado", label: "Atualizado", width: "96px", sort: (p) => p._atualizadoEm || "", render: (p) => p._atualizadoEm ? `<div style="font-size:12px">${fmtD(dataLocal(p._atualizadoEm)).replace(/\/(\d{2})(\d{2})$/, "/$2")}</div><div class="muted" style="font-size:10.5px" title="${esc(p._atualizadoPor || "")}">${esc((p._atualizadoPor || "").split("@")[0] || "")}</div>` : `<span class="muted">—</span>` },
+        { key: "atualizado", label: "Atualizado", width: "96px", sort: (p) => p._atualizadoEm || "", render: (p) => p._atualizadoEm ? `<div style="font-size:12px">${fmtDc(dataLocal(p._atualizadoEm))}</div><div class="muted" style="font-size:10.5px" title="${esc(p._atualizadoPor || "")}">${esc((p._atualizadoPor || "").split("@")[0] || "")}</div>` : `<span class="muted">—</span>` },
         { key: "fam", label: "Família / técnica", sort: (p) => p.familia || "", render: (p) => p.familia ? `${tag(FAMILIAS_TEC[p.familia]?.nome.split(" (")[0] || p.familia, "tag-teal")}${p.descricaoTecnica ? "" : `<div class="muted" style="font-size:11px">sem descrição técnica</div>`}` : `<span class="muted">—</span>` },
         { key: "props", label: "Propostas", num: true, sort: (p) => p._freq ?? propostasDoProduto(p.id).length,
           render: (p) => { const n = propostasDoProduto(p.id).length; return n ? `<button class="link-btn" data-act="props" data-id="${esc(p.id)}">${n}</button>` : '<span class="muted">0</span>'; } },
