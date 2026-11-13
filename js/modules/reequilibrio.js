@@ -1,17 +1,17 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261113-162740";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-162740";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-162740";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-162740";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261113-162740";
-import { podeEditar } from "../core/auth.js?v=20261113-162740";
-import { itensEmRisco } from "../core/risco.js?v=20261113-162740";
-import { getCfg } from "../core/preco.js?v=20261113-162740";
-import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261113-162740";
-import { ssel } from "../core/ssel.js?v=20261113-162740";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-162740";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261113-162740";
+import { store, newId } from "../core/store.js?v=20261113-162935";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-162935";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-162935";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-162935";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261113-162935";
+import { podeEditar } from "../core/auth.js?v=20261113-162935";
+import { itensEmRisco } from "../core/risco.js?v=20261113-162935";
+import { getCfg } from "../core/preco.js?v=20261113-162935";
+import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261113-162935";
+import { ssel } from "../core/ssel.js?v=20261113-162935";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-162935";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261113-162935";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -56,13 +56,17 @@ export default {
         { key: "acoes", label: "", sort: false, width: "120px", render: (r) => acoes(`<button class="icon-btn sm" data-act="pdf" data-id="${esc(r.id)}" title="PDF">${icon("print")}</button>`, ...(podeEditar() ? [btnEditar(r.id), btnExcluir(r.id, r.aplicado ? "Já aplicado na ATA" : "")] : [])) },
       ],
     });
+    let riscoOrd = "impacto", riscoDir = "desc";
     const painelRisco = () => {
       const box = el.querySelector("#risco"); if (!box) return; const cfg = getCfg(); const lst = itensEmRisco();
+      const chave = { ata: (x) => (x.o.nome || "") + " " + (x.ata.numero || ""), item: (x) => x.item.nome || "", saldo: (x) => x.item.saldo || 0, preco: (x) => x.item.preco || 0, variacao: (x) => x.variacao ?? -1e9, lucro: (x) => x.lucroAtual, impacto: (x) => x.impacto, situacao: (x) => ({ critico: 0, alerta: 1, verificar: 2, em_andamento: 3 })[x.nivel] ?? 9, vencimento: (x) => x.ata.vencimento || "9999" }[riscoOrd] || ((x) => x.impacto);
+      lst.sort((a, b) => { const x = chave(a), y = chave(b); const c = typeof x === "number" ? x - y : String(x).localeCompare(String(y)); return riscoDir === "asc" ? c : -c; });
+      const th = (k, t, cls = "") => `<th class="${cls}"><a href="#" data-risco-ord="${k}" style="text-decoration:none;${riscoOrd === k ? "font-weight:700;color:var(--navy-2)" : "font-weight:600;color:inherit"}">${t}${riscoOrd === k ? (riscoDir === "asc" ? " ↑" : " ↓") : ""}</a></th>`;
       const NIVEL = { critico: ["Abaixo do piso", "tag-red"], alerta: ["Em risco", "tag-amber"], verificar: ["Verificar custo", "tag-gray"], em_andamento: ["Pedido em andamento", "tag-blue"] };
       const porAta = new Map(); lst.forEach((x) => { const k = x.ata.id; if (!porAta.has(k)) porAta.set(k, []); porAta.get(k).push(x); });
       const impacto = lst.reduce((s, x) => s + x.impacto, 0);
       box.innerHTML = `<div class="card-head"><h2>Itens em risco de reequilíbrio</h2><span class="muted" style="font-size:12px">custo da proposta × custo atual · alerta se lucro &lt; ${cfg.lucroMinReq ?? cfg.lucroMin}% ou custo +${cfg.altaCustoReq ?? 10}% · impacto no saldo: <strong>${fmt(impacto)}</strong></span></div>`
-        + (lst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>ATA / órgão</th><th>Item</th><th class="num">Saldo</th><th class="num">Preço contratado</th><th>Custo proposta → atual</th><th class="num">Lucro hoje</th><th class="num">Impacto</th><th>Situação</th><th></th></tr></thead><tbody>
+        + (lst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr>${th("ata", "ATA / órgão")}${th("item", "Item")}${th("saldo", "Saldo", "num")}${th("preco", "Preço contratado", "num")}${th("variacao", "Custo proposta → atual")}${th("lucro", "Lucro hoje", "num")}${th("impacto", "Impacto", "num")}${th("situacao", "Situação")}<th></th></tr></thead><tbody>
           ${lst.slice(0, 40).map((x) => `<tr><td><strong>${esc(x.ata.numero || "—")}</strong><div class="muted" style="font-size:11px">${esc(toTitleCase(x.o.nome || ""))}${x.ata.vencimento ? ` · até ${fmtD(x.ata.vencimento)}` : ""}</div></td>
             <td><strong>${esc(x.item.num ?? "")}</strong> ${esc((x.item.nome || "").slice(0, 60))}<div class="muted" style="font-size:11px">${esc(x.prod.codigo || "")}</div></td>
             <td class="num">${fmtNum(x.item.saldo)}</td><td class="num">${fmt(x.item.preco)}<div class="muted" style="font-size:11px">piso hoje ${fmt(x.pisoAtual)}</div></td>
@@ -75,6 +79,7 @@ export default {
         : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">Nenhum item em risco: em todas as ATAs vigentes com saldo, o custo atual ainda sustenta o lucro mínimo. O monitor recalcula a cada importação de custos.</p></div>`);
     };
     painelRisco();
+    el.addEventListener("click", (e) => { const a = e.target.closest("[data-risco-ord]"); if (!a) return; e.preventDefault(); const k = a.dataset.riscoOrd; if (riscoOrd === k) riscoDir = riscoDir === "asc" ? "desc" : "asc"; else { riscoOrd = k; riscoDir = (k === "impacto" || k === "variacao" || k === "saldo") ? "desc" : "asc"; } painelRisco(); });
     onAction(el, {
       st: (id) => { stFiltro = id; el.querySelectorAll(".chip").forEach((c) => c.classList.toggle("active", c.dataset.id === id)); tabela.refresh(); },
       solicitar: (ataId) => { const lst = itensEmRisco().filter((x) => x.ata.id === ataId && !x.pedidoId); if (!lst.length) return;
