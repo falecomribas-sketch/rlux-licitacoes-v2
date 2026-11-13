@@ -1,17 +1,17 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261113-181655";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-181655";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261113-181655";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261113-181655";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261113-181655";
-import { podeEditar } from "../core/auth.js?v=20261113-181655";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261113-181655";
-import { ssel } from "../core/ssel.js?v=20261113-181655";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261113-181655";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261113-181655";
-import { iniciarPreco, piso, getCfg } from "../core/preco.js?v=20261113-181655";
-import { dataLocal } from "../core/utils.js?v=20261113-181655";
+import { store, newId } from "../core/store.js?v=20261113-182835";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-182835";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261113-182835";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261113-182835";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261113-182835";
+import { podeEditar } from "../core/auth.js?v=20261113-182835";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261113-182835";
+import { ssel } from "../core/ssel.js?v=20261113-182835";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261113-182835";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261113-182835";
+import { iniciarPreco, piso, getCfg } from "../core/preco.js?v=20261113-182835";
+import { dataLocal } from "../core/utils.js?v=20261113-182835";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -213,7 +213,7 @@ function abrirForm(p = null) {
       function calcTotais() {
         let venda = 0, custo = 0, custoReal = 0, defasados = 0;
         cont.querySelectorAll(".item").forEach((n) => { const q = +n.querySelector("[name=qtd]").value || 0, c = +n.querySelector("[name=custo]").value || 0; venda += q * (+n.querySelector("[name=preco]").value || 0); custo += q * c; const pr = custoAtualDe(n); const cr = pr ? pr.custo : c; custoReal += q * cr; if (pr && c > 0 && difCusto(c, pr.custo)) defasados++; });
-        form.querySelector("#t-total").textContent = fmt(venda); form.querySelector("#t-custo").textContent = fmt(custo) + (difCusto(custo, custoReal) ? ` <span class="muted" style="font-weight:400;font-size:12px">· real ${fmt(custoReal)}</span>` : "");
+        form.querySelector("#t-total").textContent = fmt(venda); form.querySelector("#t-custo").innerHTML = fmt(custo) + (difCusto(custo, custoReal) ? ` <span class="muted" style="font-weight:400;font-size:12px">· real ${fmt(custoReal)}</span>` : "");
         const m = form.querySelector("#t-margem"); if (custo > 0) { const pct = (venda / custo - 1) * 100; let t = pctTxt(pct); if (difCusto(custo, custoReal) && custoReal > 0) { const r = (venda / custoReal - 1) * 100; t += ` <span style="font-weight:400;font-size:12px">· real ${pctTxt(r)}</span>`; } m.innerHTML = t; m.style.color = (custoReal > 0 ? venda / custoReal - 1 : pct) >= 0 ? "var(--green)" : "var(--red)"; } else { m.textContent = "—"; m.style.color = ""; }
         // aviso no topo
         const av = form.querySelector("#aviso-custos"); const dias = p ? diasDesde(p.criadoEm) : null;
