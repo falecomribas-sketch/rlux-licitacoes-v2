@@ -2,11 +2,11 @@
 // renovação D-60/D-30, agradecimento) e os textos dos e-mails.
 // Portado do legado. Estado em Firestore: config/reguaEnvios (último carimbo por
 // tipo) e config/reguaHist (histórico acumulado). Sem localStorage.
-import { store } from "./store.js?v=20261113-204612";
-import { fmt, fmtD, hojeIso, diasAte } from "./utils.js?v=20261113-204612";
-import { getLicit, getOrgao, getProp, getAta, isVencido, propTotal, propEmpenhado, propSaldo, propSaldoDetalhado, adesaoSaldo, ataFoiRenovada } from "./domain.js?v=20261113-204612";
-import { EMPRESA } from "./pdf.js?v=20261113-204612";
-import { toast } from "./ui.js?v=20261113-204612";
+import { store } from "./store.js?v=20261113-205127";
+import { fmt, fmtD, hojeIso, diasAte } from "./utils.js?v=20261113-205127";
+import { getLicit, getOrgao, getProp, getAta, isVencido, propTotal, propEmpenhado, propSaldo, propSaldoDetalhado, adesaoSaldo, ataFoiRenovada } from "./domain.js?v=20261113-205127";
+import { EMPRESA } from "./pdf.js?v=20261113-205127";
+import { toast } from "./ui.js?v=20261113-205127";
 
 // ---------- estado ----------
 let envios = {}, hist = {}; let carregado = false;
@@ -208,7 +208,7 @@ const MAILTO_LIMITE = 1800;
 // Abre o cliente de e-mail. Corpo longo demais para o mailto -> vai para a área de transferência.
 export function abrirClienteEmail(email, ccExtra = []) {
   const dest = String(email.para || "").split(/[;,]/).map((s) => s.trim()).filter(Boolean);
-  const cc = [...new Set([...ccExtra, EMPRESA.email])].filter((m) => m && !dest.includes(m));
+  const cc = [...new Set(ccExtra)].filter((m) => m && !dest.includes(m)); // sem cópia automática para contato@
   const base = `mailto:${dest.map(encodeURIComponent).join(",")}?subject=${encodeURIComponent(email.assunto)}${cc.length ? `&cc=${cc.map(encodeURIComponent).join(",")}` : ""}`;
   const completo = `${base}&body=${encodeURIComponent(email.corpo)}`;
   if (completo.length <= MAILTO_LIMITE) { window.open(completo, "_blank"); return true; }

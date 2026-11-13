@@ -1,20 +1,20 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261113-204612";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-204612";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-204612";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261113-204612";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261113-204612";
-import { podeEditar } from "../core/auth.js?v=20261113-204612";
-import { itensEmRisco } from "../core/risco.js?v=20261113-204612";
-import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261113-204612";
-import { EMPRESA } from "../core/pdf.js?v=20261113-204612";
-import { dataLocal } from "../core/utils.js?v=20261113-204612";
-import { getCfg } from "../core/preco.js?v=20261113-204612";
-import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261113-204612";
-import { ssel } from "../core/ssel.js?v=20261113-204612";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-204612";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261113-204612";
+import { store, newId } from "../core/store.js?v=20261113-205127";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-205127";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-205127";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261113-205127";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261113-205127";
+import { podeEditar } from "../core/auth.js?v=20261113-205127";
+import { itensEmRisco } from "../core/risco.js?v=20261113-205127";
+import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261113-205127";
+import { EMPRESA } from "../core/pdf.js?v=20261113-205127";
+import { dataLocal } from "../core/utils.js?v=20261113-205127";
+import { getCfg } from "../core/preco.js?v=20261113-205127";
+import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261113-205127";
+import { ssel } from "../core/ssel.js?v=20261113-205127";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-205127";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261113-205127";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -253,7 +253,7 @@ Seguem em anexo: comunicados de reajuste emitidos pelas importadoras/fabricantes
 const ultimoAviso = (propostaId) => enviosDe(propostaId).filter((e) => e.tipo === "reequilibrio_aviso").slice(-1)[0] || null;
 function textoAviso(x) {
   const l = x.l || {}; const tipo = l.tipo || "Pregão Eletrônico";
-  return `Prezado(a) Senhor(a),
+  return `Prezado (a),
 
 Em referência ao ${tipo} nº ${l.numero || "____"} – Ata de Registro de Preços nº ${x.ata.numero || "____"}, informamos que, em virtude de reajustes significativos nos preços de aquisição praticados pelos fabricantes/importadores após a apresentação de nossa proposta, precisaremos solicitar o reequilíbrio econômico-financeiro de itens registrados na referida Ata.
 
@@ -274,7 +274,7 @@ function avisarOrgao(x) {
     corpo: `<div class="info-box" style="margin-bottom:12px"><div><div class="k">Órgão</div>${esc(toTitleCase(o.nome || "—"))}</div><div><div class="k">Pregão</div>${esc(l.tipo || "Pregão Eletrônico")} nº ${esc(l.numero || "—")}</div><div><div class="k">ATA</div>${esc(x.ata.numero || "—")}${x.ata.vencimento ? ` · vigente até ${fmtD(x.ata.vencimento)}` : ""}</div><div><div class="k">Itens em risco</div>${itensRisco.length} · impacto ${fmt(itensRisco.reduce((s, y) => s + y.impacto, 0))} <span class="muted">(não citados neste e-mail)</span></div></div>
       <div class="field" style="margin-bottom:10px"><span style="display:flex;justify-content:space-between"><span>Para — contatos cadastrados do órgão</span><a href="#orgaos" style="font-weight:400;font-size:12px">+ cadastrar contato em Órgãos</a></span>
         ${contatos.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${contatos.map((c, i) => `<label style="display:flex;align-items:center;gap:8px;border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;background:var(--surface-2)"><input type="checkbox" data-dest="${i}" ${contatos.length === 1 || pre(c) || !contatos.some(pre) ? "checked" : ""} style="margin:0"> <strong>${esc(c.nome || c.email)}</strong> <span class="muted">${esc([c.cargo, c.email].filter(Boolean).join(" · "))}</span></label>`).join("")}</div>` : `<div class="info-box" style="border-color:var(--amber)"><div>Este órgão não tem contato com e-mail cadastrado. Cadastre em <a href="#orgaos">Órgãos</a> ou digite o e-mail abaixo.</div></div>`}
-        <input type="text" class="input" id="av-extra" placeholder="Outros e-mails (separe por ;)" style="margin-top:8px"><div class="muted" style="font-size:12px;margin-top:4px">Cc: ${esc(EMPRESA.emailLicitacoes)} · fonte ao copiar: Aptos Narrow 11</div></div>
+        <input type="text" class="input" id="av-extra" placeholder="Outros e-mails (separe por ;)" style="margin-top:8px"><div class="muted" style="font-size:12px;margin-top:4px">Fonte ao copiar: Aptos Narrow 11</div></div>
       <label class="field" style="margin-bottom:10px"><span>Assunto</span><input type="text" class="input" id="av-assunto" value="${esc(assunto)}"></label>
       <label class="field"><span>Mensagem <span class="muted" style="font-weight:400">(editável)</span></span><textarea class="input" id="av-corpo" rows="13" style="font-size:13px;line-height:1.5">${esc(textoAviso(x))}</textarea></label>`,
     rodape: `<span class="muted" style="font-size:12px;margin-right:auto">Ao copiar ou abrir, fica registrado no histórico da ATA.</span><button class="btn btn-ghost" data-close>Fechar</button><button class="btn btn-ghost" data-av="copiar">${icon("file")} Copiar e registrar</button><button class="btn btn-primary" data-av="enviar">${icon("mail")} Abrir no e-mail e registrar</button>` });
@@ -284,5 +284,5 @@ function avisarOrgao(x) {
     const email = { para: para.join(";"), assunto: m.querySelector("#av-assunto").value.trim(), corpo: m.querySelector("#av-corpo").value };
     closeModal();
     if (b.dataset.av === "copiar") { await copiarTextoFormatado(`Para: ${email.para}\nAssunto: ${email.assunto}\n\n${email.corpo}`); await registrarEnvio(x.p.id, "reequilibrio_aviso"); toast("Aviso copiado e registrado."); }
-    else { const inteiro = abrirClienteEmail(email, [EMPRESA.emailLicitacoes]); await registrarEnvio(x.p.id, "reequilibrio_aviso"); toast(inteiro ? "E-mail aberto e aviso registrado." : "Texto longo: corpo copiado — cole com Ctrl+V no e-mail que abriu.", inteiro ? "ok" : "info", 6000); } });
+    else { const inteiro = abrirClienteEmail(email); await registrarEnvio(x.p.id, "reequilibrio_aviso"); toast(inteiro ? "E-mail aberto e aviso registrado." : "Texto longo: corpo copiado — cole com Ctrl+V no e-mail que abriu.", inteiro ? "ok" : "info", 6000); } });
 }
