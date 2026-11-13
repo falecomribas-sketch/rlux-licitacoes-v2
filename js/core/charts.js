@@ -1,5 +1,5 @@
 // Helpers de gráficos (Chart.js) compartilhados por Dashboard e Relatórios.
-import { fmt } from "./utils.js?v=20261113-203913";
+import { fmt } from "./utils.js?v=20261113-204612";
 
 export const CORES = ["#2457d6", "#1b8a5a", "#d9641c", "#6d3fc9", "#c8362b", "#0f7f8c", "#b58200", "#5b6b8c"];
 export const COR_STATUS = {

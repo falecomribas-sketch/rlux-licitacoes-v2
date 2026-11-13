@@ -1,20 +1,20 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261113-203913";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-203913";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-203913";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261113-203913";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261113-203913";
-import { podeEditar } from "../core/auth.js?v=20261113-203913";
-import { itensEmRisco } from "../core/risco.js?v=20261113-203913";
-import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261113-203913";
-import { EMPRESA } from "../core/pdf.js?v=20261113-203913";
-import { dataLocal } from "../core/utils.js?v=20261113-203913";
-import { getCfg } from "../core/preco.js?v=20261113-203913";
-import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261113-203913";
-import { ssel } from "../core/ssel.js?v=20261113-203913";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-203913";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261113-203913";
+import { store, newId } from "../core/store.js?v=20261113-204612";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-204612";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-204612";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261113-204612";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261113-204612";
+import { podeEditar } from "../core/auth.js?v=20261113-204612";
+import { itensEmRisco } from "../core/risco.js?v=20261113-204612";
+import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261113-204612";
+import { EMPRESA } from "../core/pdf.js?v=20261113-204612";
+import { dataLocal } from "../core/utils.js?v=20261113-204612";
+import { getCfg } from "../core/preco.js?v=20261113-204612";
+import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261113-204612";
+import { ssel } from "../core/ssel.js?v=20261113-204612";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-204612";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261113-204612";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -83,7 +83,7 @@ export default {
             <td class="num" style="font-weight:600;color:${x.lucroAtual < 0 ? "var(--red)" : x.gatilhoLucro ? "var(--amber-txt)" : "var(--green)"}">${x.lucroAtual.toFixed(1).replace(".", ",")}%</td>
             <td class="num"><strong>${fmt(x.impacto)}</strong></td>
             <td>${tag(...NIVEL[x.nivel])}</td>
-            <td style="white-space:nowrap">${x.pedidoId ? `<button class="btn btn-ghost btn-sm" data-act="editar" data-id="${esc(x.pedidoId)}">Abrir pedido</button>` : x.nivel === "origem" ? `<span class="muted" style="font-size:11.5px" title="Sem alta de custo desde a proposta: não há fato superveniente para fundamentar o pedido">sem base para pedido</span>` : podeEditar() ? `${(() => { const av = ultimoAviso(x.p.id); return av ? `<div class="muted" style="font-size:11px;margin-bottom:4px">Órgão avisado em ${fmtD(dataLocal(av.data))}</div>` : ""; })()}<button class="btn btn-ghost btn-sm" data-act="avisar" data-id="${esc(x.ata.id)}" title="E-mail ao órgão pedindo contato e procedimento">${icon("mail")} ${ultimoAviso(x.p.id) ? "Reenviar aviso" : "Avisar órgão"}</button> <button class="btn btn-primary btn-sm" data-act="solicitar" data-id="${esc(x.ata.id)}">Solicitar</button>` : ""}</td></tr>`).join("")}
+            <td style="white-space:nowrap">${x.pedidoId ? `<button class="btn btn-ghost btn-sm" data-act="editar" data-id="${esc(x.pedidoId)}">Abrir pedido</button>` : podeEditar() ? `${x.nivel === "origem" ? `<div style="font-size:11px;color:var(--amber-txt);margin-bottom:4px" title="Sem alta de custo desde a proposta: não há fato superveniente — o órgão tende a negar">sem alta de custo — pedido frágil</div>` : ""}${(() => { const av = ultimoAviso(x.p.id); return av ? `<div class="muted" style="font-size:11px;margin-bottom:4px">Órgão avisado em ${fmtD(dataLocal(av.data))}</div>` : ""; })()}<button class="btn btn-ghost btn-sm" data-act="avisar" data-id="${esc(x.ata.id)}" title="E-mail ao órgão pedindo contato e procedimento">${icon("mail")} ${ultimoAviso(x.p.id) ? "Reenviar aviso" : "Avisar órgão"}</button> <button class="btn btn-primary btn-sm" data-act="solicitar" data-id="${esc(x.ata.id)}">Solicitar</button>` : ""}</td></tr>`).join("")}
           </tbody></table></div>${lst.length > mostrar.length ? `<div style="display:flex;gap:8px;align-items:center;padding:10px 16px"><span class="muted" style="font-size:12px">Mostrando ${mostrar.length} de ${lst.length}.</span><button class="btn btn-ghost btn-sm" data-risco-mais="40">Mostrar mais 40</button><button class="btn btn-ghost btn-sm" data-risco-mais="all">Mostrar todos</button></div>` : ""}</div>`
         : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">Nenhum item em risco: em todas as ATAs vigentes com saldo, o custo atual ainda sustenta o lucro mínimo. O monitor recalcula a cada importação de custos.</p></div>`);
     };
