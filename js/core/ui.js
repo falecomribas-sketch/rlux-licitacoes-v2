@@ -1,5 +1,5 @@
 // Componentes de interface compartilhados: toast, modal, confirmação, ícones.
-import { $, esc, raw, h } from "./utils.js?v=20261113-164426";
+import { $, esc, raw, h } from "./utils.js?v=20261113-181655";
 
 // ---------- toasts ----------
 export function toast(msg, tipo = "ok", ms = 3200) {
@@ -38,27 +38,29 @@ export function openModal({ titulo, corpo, rodape = "", largura = "md", onClose 
 }
 
 export function closeModal() {
-  const wrap = $(".modal-backdrop");
+  const wrap = $(".modal-backdrop:not(.confirm-backdrop)");
   if (!wrap) return;
   wrap._onClose?.();
   wrap.remove();
   document.body.classList.remove("modal-open");
 }
 
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !document.querySelector(".confirm-backdrop")) closeModal(); });
 
 // confirmar("Excluir proposta?") -> Promise<boolean>
 export function confirmar(msg, { ok = "Confirmar", perigo = false, cancelar = "Cancelar" } = {}) {
+  // Caixa própria, empilhada sobre o modal aberto (se houver): não fecha o formulário por baixo.
   return new Promise((resolve) => {
-    const m = openModal({
-      titulo: "Confirmação",
-      largura: "sm",
-      corpo: `<p class="confirm-text">${esc(msg)}</p>`,
-      rodape: `<button class="btn btn-ghost" data-close>${esc(cancelar)}</button>
-               <button class="btn ${perigo ? "btn-danger" : "btn-primary"}" data-ok>${esc(ok)}</button>`,
-      onClose: () => resolve(false),
-    });
-    m.querySelector("[data-ok]").addEventListener("click", () => { m._onClose = null; closeModal(); resolve(true); });
+    const wrap = document.createElement("div");
+    wrap.className = "modal-backdrop confirm-backdrop";
+    wrap.innerHTML = `<div class="modal modal-sm" role="alertdialog" aria-modal="true"><header class="modal-head"><h2>Confirmação</h2></header><div class="modal-body"><p class="confirm-text">${esc(msg)}</p></div><footer class="modal-foot"><button class="btn btn-ghost" data-cancel>${esc(cancelar)}</button><button class="btn ${perigo ? "btn-danger" : "btn-primary"}" data-ok>${esc(ok)}</button></footer></div>`;
+    const fechar = (v) => { wrap.remove(); document.removeEventListener("keydown", esc_); if (!document.querySelector(".modal-backdrop")) document.body.classList.remove("modal-open"); resolve(v); };
+    const esc_ = (e) => { if (e.key === "Escape") { e.stopImmediatePropagation(); fechar(false); } };
+    wrap.addEventListener("click", (e) => { if (e.target === wrap || e.target.closest("[data-cancel]")) fechar(false); else if (e.target.closest("[data-ok]")) fechar(true); });
+    document.addEventListener("keydown", esc_, true);
+    document.body.appendChild(wrap); document.body.classList.add("modal-open");
+    requestAnimationFrame(() => wrap.classList.add("in"));
+    wrap.querySelector("[data-ok]").focus();
   });
 }
 

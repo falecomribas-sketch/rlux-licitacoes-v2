@@ -4,17 +4,17 @@
 // Renovação (mesmo modelo do legado): cria uma proposta-espelho (cópia da
 // proposta com novos preços/qtds, marcada com espelhoDeAtaId) e uma nova ATA
 // apontando para ela, com ataOrigemId e geracao+1. A ATA anterior fica intacta.
-import { store, newId } from "../core/store.js?v=20261113-164426";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-164426";
-import { formModal, lerForm, campo, inputTxt, inputData, inputNum, select, linha, exportarExcel } from "../core/forms.js?v=20261113-164426";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-164426";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261113-164426";
-import { podeEditar } from "../core/auth.js?v=20261113-164426";
-import { getLicit, getOrgao, getProp, propTotal, propEmpenhado, isEspelho, ataGeracao, ataValores } from "../core/domain.js?v=20261113-164426";
-import { ssel } from "../core/ssel.js?v=20261113-164426";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261113-164426";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-164426";
-import { gerarPdfAta } from "../pdf/ata.js?v=20261113-164426";
+import { store, newId } from "../core/store.js?v=20261113-181655";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-181655";
+import { formModal, lerForm, campo, inputTxt, inputData, inputNum, select, linha, exportarExcel } from "../core/forms.js?v=20261113-181655";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-181655";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261113-181655";
+import { podeEditar } from "../core/auth.js?v=20261113-181655";
+import { getLicit, getOrgao, getProp, propTotal, propEmpenhado, isEspelho, ataGeracao, ataValores } from "../core/domain.js?v=20261113-181655";
+import { ssel } from "../core/ssel.js?v=20261113-181655";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261113-181655";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-181655";
+import { gerarPdfAta } from "../pdf/ata.js?v=20261113-181655";
 
 let unsub = null, stFiltro = "";
 

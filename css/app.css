@@ -425,3 +425,5 @@ a.btn { text-decoration: none; }
 .star-btn svg { stroke: var(--muted); fill: none; }
 .star-btn.on svg { stroke: #d97706; fill: #fbbf24; }
 .star-btn:hover svg { stroke: #d97706; }
+
+.confirm-backdrop { z-index: 120; background: rgba(15,29,77,.35); }

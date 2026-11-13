@@ -1,16 +1,17 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261113-164426";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-164426";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261113-164426";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261113-164426";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261113-164426";
-import { podeEditar } from "../core/auth.js?v=20261113-164426";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261113-164426";
-import { ssel } from "../core/ssel.js?v=20261113-164426";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261113-164426";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261113-164426";
-import { iniciarPreco, piso } from "../core/preco.js?v=20261113-164426";
+import { store, newId } from "../core/store.js?v=20261113-181655";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-181655";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261113-181655";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261113-181655";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261113-181655";
+import { podeEditar } from "../core/auth.js?v=20261113-181655";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261113-181655";
+import { ssel } from "../core/ssel.js?v=20261113-181655";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261113-181655";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261113-181655";
+import { iniciarPreco, piso, getCfg } from "../core/preco.js?v=20261113-181655";
+import { dataLocal } from "../core/utils.js?v=20261113-181655";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -75,7 +76,7 @@ export default {
           return `<strong style="color:${m >= 15 ? "var(--green)" : m >= 0 ? "var(--amber-txt)" : "var(--red)"}">${m.toFixed(1)}%</strong>`; } },
         { key: "venc", label: "Venc. ATA", sort: (p) => ataDaProposta(p.id)?.vencimento || "", render: (p) => { const a = ataDaProposta(p.id); if (!a?.vencimento) return '<span class="muted">—</span>'; const d = diasAte(a.vencimento);
           return tag(`${fmtD(a.vencimento)} (${d}d)`, d < 0 ? "tag-red" : d <= 30 ? "tag-orange" : d <= 60 ? "tag-amber" : "tag-green"); } },
-        { key: "status", label: "Status", render: (p) => tag(p.status || "Em Andamento", STATUS_CLASS[p.status || "Em Andamento"] || "tag-gray") },
+        { key: "status", label: "Status", render: (p) => tag(p.status || "Em Andamento", STATUS_CLASS[p.status || "Em Andamento"] || "tag-gray") + (propostaDefasada(p) ? ` <span class="tag tag-amber" title="${itensDefasados(p).length} item(ns) com custo diferente do cadastro atual">custos defasados</span>` : "") },
         { key: "acoes", label: "", sort: false, width: "120px", render: (p) => acoes(
           `<button class="icon-btn sm" data-act="pdf" data-id="${esc(p.id)}" title="Gerar PDF">${icon("print")}</button>`,
           ...(podeEditar() && !isEspelho(p) && ["Em Andamento", "Ag. Solic. Docs"].includes(p.status || "Em Andamento") ? [`<button class="icon-btn sm" data-act="resultado" data-id="${esc(p.id)}" title="Lançar resultado da disputa" style="color:var(--amber-txt)">${icon("trending")}</button>`] : []),
@@ -105,6 +106,14 @@ export default {
   destroy() { unsub?.(); stFiltro = ""; },
 };
 
+// ---------- custo defasado (proposta aberta há dias, custo do produto mudou) ----------
+const STATUS_ATUALIZAVEL = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs"];
+const DIAS_AVISO = 5;
+const difCusto = (a, b) => Math.abs((+a || 0) - (+b || 0)) > 0.005;
+export function itensDefasados(p) { return (p?.itens || []).filter((it) => { const pr = it.produtoId ? store.find("produtos", it.produtoId) : null; return pr && pr.custo > 0 && difCusto(it.custo, pr.custo); }); }
+export const propostaDefasada = (p) => STATUS_ATUALIZAVEL.includes(p?.status || "Em Andamento") && itensDefasados(p).length > 0;
+const diasDesde = (iso) => iso ? Math.floor((new Date(hojeIso() + "T00:00:00") - new Date(dataLocal(iso) + "T00:00:00")) / 864e5) : null;
+
 // ---------- formulário ----------
 let seq = 0;
 function itemHtml(d = {}) {
@@ -129,13 +138,13 @@ function itemHtml(d = {}) {
     </div>
     <div class="form-row" style="grid-template-columns:repeat(5,1fr)">
       ${campo("Qtd", `<input type="number" name="qtd" value="${esc(d.qtd ?? 1)}" min="0.01" step="0.01">`)}
-      ${campo("Custo", `<input type="number" name="custo" value="${esc(d.custo ?? 0)}" step="0.01" min="0">`)}
+      ${campo("Custo", `<input type="number" name="custo" value="${esc(d.custo ?? 0)}" step="0.01" min="0"><div class="custo-nota muted" style="font-size:11px;line-height:1.35;margin-top:3px" hidden></div>`)}
       ${campo("Preço de venda", `<input type="number" name="preco" value="${esc(d.preco ?? 0)}" step="0.01" min="0">`)}
       ${campo("Margem", `<input type="text" class="ro-margem" readonly><div class="prog"><div class="prog-fill mg-bar"></div></div>`)}
       ${campo("Total", `<input type="text" class="ro-total" readonly>`)}
     </div>
     <input type="hidden" name="produtoId" value="${esc(d.produtoId || "")}">
-    <input type="hidden" name="extra" value="${esc(JSON.stringify({ descricaoEdital: d.descricaoEdital || "", unidadeEdital: d.unidadeEdital || "", precoReferencia: d.precoReferencia ?? null, produtoNome: d.produtoNome || "", precoInicial: d.precoInicial ?? null }))}">
+    <input type="hidden" name="extra" value="${esc(JSON.stringify({ descricaoEdital: d.descricaoEdital || "", unidadeEdital: d.unidadeEdital || "", precoReferencia: d.precoReferencia ?? null, produtoNome: d.produtoNome || "", precoInicial: d.precoInicial ?? null, custoData: d.custoData || "", historicoCusto: d.historicoCusto || [] }))}">
   </div>`;
 }
 
@@ -150,6 +159,7 @@ function abrirForm(p = null) {
     corpo:
       linha(`<div class="field"><span>Órgão</span><div id="org-ssel"></div></div>`, `<div class="field"><span>Pregão / licitação</span><div id="lic-ssel"></div></div>`, campo("Status", select("status", STATUS, p?.status || "Em Andamento")))
       + `<div id="lic-info" class="info-box" hidden></div>
+         <div id="aviso-custos" class="info-box" style="border-color:var(--amber);grid-template-columns:1fr auto;align-items:center" hidden></div>
          <div class="form-section"><span>Itens</span><button type="button" class="btn btn-ghost btn-sm" data-add>${icon("plus")} Item</button></div>
          <div id="itens"></div>
          <div class="totais"><div><span class="muted">Custo total</span><strong id="t-custo">R$ 0,00</strong></div><div><span class="muted">Margem geral</span><strong id="t-margem">—</strong></div><div class="total-geral"><span class="muted">Total</span><strong id="t-total">R$ 0,00</strong></div></div>`,
@@ -167,7 +177,8 @@ function abrirForm(p = null) {
         const ps = ssel(node.querySelector(".prod-ssel"), { placeholder: "Código ou nome do produto…", itens: prodOpts(), value: d.produtoId || "", onSelect: (id) => {
           const prod = store.find("produtos", id); node.querySelector("[name=produtoId]").value = id || ""; node.querySelector(".item-warn").hidden = !!id;
           if (prod) { if (!d.descricaoEdital) node.querySelector("[name=nome]").value = prod.nome; node.querySelector("[name=codigo]").value = prod.codigo; node.querySelector("[name=marca]").value = prod.marca || "";
-            node.querySelector("[name=custo]").value = prod.custo || 0; node.querySelector("[name=preco]").value = ((prod.custo || 0) * 1.3).toFixed(2); calcItem(node); } } });
+            node.querySelector("[name=custo]").value = prod.custo || 0; node.querySelector("[name=preco]").value = (d.precoReferencia > 0 ? d.precoReferencia : Math.max((prod.custo || 0) * 1.3, piso(prod.custo || 0))).toFixed(2); calcItem(node); } } });
+        node.querySelector(".custo-nota").addEventListener("click", (e) => { const b = e.target.closest("[data-usar-custo]"); if (!b) return; usarCustoAtual(node); });
         node.querySelectorAll("[name=qtd],[name=custo],[name=preco]").forEach((i) => i.addEventListener("input", () => calcItem(node)));
         node.querySelector("[data-rm]").addEventListener("click", () => { node.remove(); calcTotais(); });
         node.querySelector("[data-dup]").addEventListener("click", () => addItem({ ...lerItem(node), num: "" }, node.nextElementSibling));
@@ -175,20 +186,47 @@ function abrirForm(p = null) {
         node.querySelector("[data-desc-edital]")?.addEventListener("click", () => { node.querySelector("[name=nome]").value = d.descricaoEdital || ""; });
         calcItem(node);
       }
+      const podeAtualizar = () => STATUS_ATUALIZAVEL.includes(form.querySelector("[name=status]").value);
+      const custoAtualDe = (node) => { const id = node.querySelector("[name=produtoId]").value; const pr = id ? store.find("produtos", id) : null; return pr && pr.custo > 0 ? pr : null; };
+      const pctTxt = (x) => x.toFixed(1).replace(".", ",") + "%";
+      function usarCustoAtual(node) {
+        const pr = custoAtualDe(node); if (!pr) return; const inp = node.querySelector("[name=custo]"); const antes = +inp.value || 0; if (!difCusto(antes, pr.custo)) return;
+        const ex = node.querySelector("[name=extra]"); let extra = {}; try { extra = JSON.parse(ex.value || "{}"); } catch {}
+        extra.historicoCusto = [...(extra.historicoCusto || []), { custo: antes, ate: new Date().toISOString(), por: "atualização manual" }]; extra.custoData = pr.custoData || hojeIso(); ex.value = JSON.stringify(extra);
+        inp.value = pr.custo; calcItem(node);
+      }
       function calcItem(node) {
         const q = +node.querySelector("[name=qtd]").value || 0, c = +node.querySelector("[name=custo]").value || 0, v = +node.querySelector("[name=preco]").value || 0;
         node.querySelector(".ro-total").value = fmt(q * v);
-        const mg = node.querySelector(".ro-margem"), bar = node.querySelector(".mg-bar");
-        if (c > 0) { const pct = (v / c - 1) * 100; mg.value = pct.toFixed(1) + "%"; mg.style.color = pct >= 0 ? "var(--green)" : "var(--red)"; bar.style.width = Math.min(Math.abs(pct), 100) + "%"; bar.style.background = pct >= 0 ? "var(--green)" : "var(--red)"; }
-        else { mg.value = "—"; mg.style.color = ""; bar.style.width = "0"; }
+        const mg = node.querySelector(".ro-margem"), bar = node.querySelector(".mg-bar"), nota = node.querySelector(".custo-nota");
+        const pr = custoAtualDe(node); const defasado = pr && c > 0 && difCusto(c, pr.custo); const cfg = getCfg();
+        if (c > 0) {
+          const pct = (v / c - 1) * 100; let txt = pctTxt(pct); let cor = pct >= 0 ? "var(--green)" : "var(--red)";
+          if (defasado) { const real = (v / pr.custo - 1) * 100; txt += ` · real ${pctTxt(real)}`; cor = v < piso(pr.custo) ? "var(--red)" : real < (cfg.lucroMin || 7) ? "var(--amber-txt)" : cor; }
+          mg.value = txt; mg.style.color = cor; bar.style.width = Math.min(Math.abs(pct), 100) + "%"; bar.style.background = cor;
+        } else { mg.value = "—"; mg.style.color = ""; bar.style.width = "0"; }
+        if (defasado) { const varp = (pr.custo - c) / c * 100; nota.hidden = false; nota.style.color = v < piso(pr.custo) ? "var(--red)" : "var(--amber-txt)";
+          nota.innerHTML = `custo da proposta ${fmt(c)}${p?.criadoEm ? ` (${fmtD(dataLocal(p.criadoEm))})` : ""} · atual <strong>${fmt(pr.custo)}</strong>${pr.custoData ? ` (${fmtD(pr.custoData)}` : " ("}${varp > 0 ? ", +" : ", "}${pctTxt(varp)}) · piso hoje ${fmt(piso(pr.custo))}${podeAtualizar() ? ` <button type="button" class="btn btn-ghost btn-sm" data-usar-custo style="padding:0 8px;height:20px;font-size:11px;margin-left:4px">Usar custo atual</button>` : ""}`; }
+        else { nota.hidden = true; nota.innerHTML = ""; }
         calcTotais();
       }
       function calcTotais() {
-        let venda = 0, custo = 0;
-        cont.querySelectorAll(".item").forEach((n) => { const q = +n.querySelector("[name=qtd]").value || 0; venda += q * (+n.querySelector("[name=preco]").value || 0); custo += q * (+n.querySelector("[name=custo]").value || 0); });
-        form.querySelector("#t-total").textContent = fmt(venda); form.querySelector("#t-custo").textContent = fmt(custo);
-        const m = form.querySelector("#t-margem"); if (custo > 0) { const pct = (venda / custo - 1) * 100; m.textContent = pct.toFixed(1) + "%"; m.style.color = pct >= 0 ? "var(--green)" : "var(--red)"; } else { m.textContent = "—"; m.style.color = ""; }
+        let venda = 0, custo = 0, custoReal = 0, defasados = 0;
+        cont.querySelectorAll(".item").forEach((n) => { const q = +n.querySelector("[name=qtd]").value || 0, c = +n.querySelector("[name=custo]").value || 0; venda += q * (+n.querySelector("[name=preco]").value || 0); custo += q * c; const pr = custoAtualDe(n); const cr = pr ? pr.custo : c; custoReal += q * cr; if (pr && c > 0 && difCusto(c, pr.custo)) defasados++; });
+        form.querySelector("#t-total").textContent = fmt(venda); form.querySelector("#t-custo").textContent = fmt(custo) + (difCusto(custo, custoReal) ? ` <span class="muted" style="font-weight:400;font-size:12px">· real ${fmt(custoReal)}</span>` : "");
+        const m = form.querySelector("#t-margem"); if (custo > 0) { const pct = (venda / custo - 1) * 100; let t = pctTxt(pct); if (difCusto(custo, custoReal) && custoReal > 0) { const r = (venda / custoReal - 1) * 100; t += ` <span style="font-weight:400;font-size:12px">· real ${pctTxt(r)}</span>`; } m.innerHTML = t; m.style.color = (custoReal > 0 ? venda / custoReal - 1 : pct) >= 0 ? "var(--green)" : "var(--red)"; } else { m.textContent = "—"; m.style.color = ""; }
+        // aviso no topo
+        const av = form.querySelector("#aviso-custos"); const dias = p ? diasDesde(p.criadoEm) : null;
+        if (p && (defasados > 0 || (dias !== null && dias > DIAS_AVISO))) { av.hidden = false;
+          av.innerHTML = `<div><div class="k">Revise os custos antes de enviar</div>Proposta criada em ${p.criadoEm ? fmtD(dataLocal(p.criadoEm)) : "—"}${dias !== null ? ` (há ${dias} dia${dias === 1 ? "" : "s"})` : ""}${defasados ? ` · <strong>${defasados} item(ns) com custo diferente do cadastro atual</strong>` : " · custos conferem com o cadastro"}.</div>${defasados && podeAtualizar() ? `<button type="button" class="btn btn-primary btn-sm" data-atualizar-todos>Atualizar custos de todos os itens</button>` : ""}`; }
+        else { av.hidden = true; av.innerHTML = ""; }
       }
+      form.querySelector("#aviso-custos").addEventListener("click", async (e) => { if (!e.target.closest("[data-atualizar-todos]")) return;
+        const nodes = [...cont.querySelectorAll(".item")].filter((n) => { const pr = custoAtualDe(n); const c = +n.querySelector("[name=custo]").value || 0; return pr && c > 0 && difCusto(c, pr.custo); });
+        const abaixo = nodes.filter((n) => { const pr = custoAtualDe(n); return (+n.querySelector("[name=preco]").value || 0) < piso(pr.custo); }).length;
+        if (!await confirmar(`Atualizar o custo de ${nodes.length} item(ns) para o valor atual do cadastro?${abaixo ? ` Atenção: ${abaixo} ficará(ão) com preço de venda abaixo do piso de hoje.` : ""} Os custos anteriores ficam no histórico do item; o preço de venda não muda.`, { ok: "Atualizar custos" })) return;
+        nodes.forEach(usarCustoAtual); toast(`${nodes.length} custo(s) atualizado(s).`); });
+      form.querySelector("[name=status]").addEventListener("change", () => cont.querySelectorAll(".item").forEach(calcItem));
       form.querySelector("[data-add]").addEventListener("click", () => addItem({}));
       (p?.itens?.length ? p.itens : [{}]).forEach((d) => addItem(d));
       m.querySelector("[data-pdf]")?.addEventListener("click", () => opcoesPdf(p));
@@ -209,7 +247,7 @@ function lerItem(n) {
   const g = (name) => n.querySelector(`[name=${name}]`).value;
   const qtd = +g("qtd") || 0, preco = +g("preco") || 0;
   let extra = {}; try { extra = JSON.parse(g("extra") || "{}"); } catch { extra = {}; }
-  const limpo = Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== "" && v !== null && v !== undefined));
+  const limpo = Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== "" && v !== null && v !== undefined && !(Array.isArray(v) && !v.length)));
   return { ...limpo, num: parseInt(g("num")) || "", produtoId: g("produtoId") || "", nome: g("nome").trim(), codigo: g("codigo").trim(), marca: g("marca").trim(), qtd, custo: +g("custo") || 0, preco, total: qtd * preco };
 }
 

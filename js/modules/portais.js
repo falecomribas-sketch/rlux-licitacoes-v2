@@ -1,12 +1,12 @@
 // Portais de licitação. Campos: id, sigla, nome, url, obs
-import { store, newId } from "../core/store.js?v=20261113-164426";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-164426";
-import { formModal, lerForm, campo, inputTxt, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-164426";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-164426";
-import { esc, h, raw } from "../core/utils.js?v=20261113-164426";
-import { podeEditar } from "../core/auth.js?v=20261113-164426";
-import { getOrgao } from "../core/domain.js?v=20261113-164426";
-import { popover } from "../core/popover.js?v=20261113-164426";
+import { store, newId } from "../core/store.js?v=20261113-181655";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-181655";
+import { formModal, lerForm, campo, inputTxt, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-181655";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-181655";
+import { esc, h, raw } from "../core/utils.js?v=20261113-181655";
+import { podeEditar } from "../core/auth.js?v=20261113-181655";
+import { getOrgao } from "../core/domain.js?v=20261113-181655";
+import { popover } from "../core/popover.js?v=20261113-181655";
 
 let unsub = null;
 
