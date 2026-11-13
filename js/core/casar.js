@@ -1,6 +1,6 @@
 // Pré-filtro de candidatos por família (feito em código, antes da IA) e cálculo do custo/piso por item.
-import { store } from "./store.js?v=20261113-130604";
-import { deduzirFamilia, FAMILIAS_TEC, piso } from "./preco.js?v=20261113-130604";
+import { store } from "./store.js?v=20261113-135731";
+import { deduzirFamilia, FAMILIAS_TEC, piso } from "./preco.js?v=20261113-135731";
 
 const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const PALAVRAS = ["pilha", "bateria", "lampada", "led", "bulbo", "tubular", "painel", "plafon", "refletor", "luminaria", "disjuntor", "idr", "dps", "contator", "fotocelula", "rele", "acoplador", "plug", "tomada", "barramento", "pente", "fita", "emergencia", "publica", "arandela", "mr16", "gu10", "e27", "g13", "t8", "t5", "9v", "aa", "aaa", "palito", "alcalina", "selada"];

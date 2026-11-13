@@ -1,5 +1,5 @@
 // Popover ancorado a um botão (ex.: "licitações vinculadas").
-import { icon, vazio } from "./ui.js?v=20261113-130604";
+import { icon, vazio } from "./ui.js?v=20261113-135731";
 
 export function popover(anchor, { titulo, corpo, acoes = "" }) {
   fecharPopover();

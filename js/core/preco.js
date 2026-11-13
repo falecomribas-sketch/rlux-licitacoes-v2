@@ -1,7 +1,7 @@
 // Precificação e famílias técnicas dos produtos.
 // Configuração em Firestore: config/precificacao { simples, fretePct, freteMin, lucroMin, descontoRef, custoValidadeDias }
-import { store } from "./store.js?v=20261113-130604";
-import { hojeIso } from "./utils.js?v=20261113-130604";
+import { store } from "./store.js?v=20261113-135731";
+import { hojeIso } from "./utils.js?v=20261113-135731";
 
 export const CFG_PADRAO = { simples: 11.35, fretePct: 6, freteMin: 50, lucroMin: 7, descontoRef: 0, custoValidadeDias: 90 };
 let cfg = { ...CFG_PADRAO }; let iniciado = false; const ouvintes = new Set();
