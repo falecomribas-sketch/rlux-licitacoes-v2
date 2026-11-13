@@ -3,10 +3,10 @@
 // Na versão atual o login tentava o Firebase Auth e, se falhasse, procurava
 // o usuário na coleção `usuarios` — mas como as regras do Firestore exigem
 // autenticação, na prática só o Auth funciona. Aqui mantemos só o Auth.
-import { auth } from "./firebase.js?v=20261113-011406";
-import { store, newId } from "./store.js?v=20261113-011406";
+import { auth } from "./firebase.js?v=20261113-111928";
+import { store, newId } from "./store.js?v=20261113-111928";
 import {
-  signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 export let currentUser = null; // perfil da coleção usuarios
 
@@ -20,8 +20,9 @@ const MENSAGENS = {
   "auth/user-disabled": "Este usuário está desativado.",
 };
 
-export async function login(email, senha) {
+export async function login(email, senha, lembrar = true) {
   try {
+    try { await setPersistence(auth, lembrar ? browserLocalPersistence : browserSessionPersistence); } catch {}
     await signInWithEmailAndPassword(auth, email.trim(), senha);
   } catch (e) {
     throw new Error(MENSAGENS[e.code] || "Não foi possível entrar. Tente de novo.");

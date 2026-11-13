@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20261113-011406">
+<link rel="stylesheet" href="css/app.css?v=20261113-111928">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -23,27 +23,72 @@
 
 <!-- Tela de login -->
 <section id="login" class="login" hidden>
-  <div class="login-glow" aria-hidden="true"></div>
-  <form class="login-card" id="login-form" novalidate>
-    <div class="login-brand">
-      <img src="assets/logo.svg" alt="" width="40" height="40">
-      <div>
-        <div class="login-title">Rlux Licitações</div>
-        <div class="login-sub">Gestão de licitações, ATAs e empenhos</div>
+  <div class="login-diag login-diag-red" aria-hidden="true"></div>
+  <div class="login-diag login-diag-light" aria-hidden="true"></div>
+
+  <section class="login-esq">
+    <img class="login-logo" src="assets/logo-rlux.png" alt="RLUX Iluminação">
+    <div class="login-intro">
+      <div class="login-traco"></div>
+      <h1>Rlux Licitações</h1>
+      <p class="login-lead">Gestão do ciclo licitatório, do edital ao empenho.</p>
+      <p class="login-desc">Análise de editais com inteligência artificial, correspondência de itens, propostas, disputa, atas e cobrança — com o piso de venda sempre à vista.</p>
+      <div class="login-tiles">
+        <div class="login-tile"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span>Análise de editais</span></div>
+        <div class="login-tile"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-8"/><path d="M14 8h6v6"/></svg><span>Propostas e disputa</span></div>
+        <div class="login-tile"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 3h6l1 3h3v15H5V6h3z"/><path d="M9 12l2 2 4-4"/></svg><span>Atas e adesões</span></div>
+        <div class="login-tile"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Empenhos e cobrança</span></div>
       </div>
     </div>
-    <label class="field">
-      <span>E-mail</span>
-      <input type="email" name="email" autocomplete="username" required autofocus>
-    </label>
-    <label class="field">
-      <span>Senha</span>
-      <input type="password" name="senha" autocomplete="current-password" required>
-    </label>
-    <p class="login-error" id="login-error" role="alert" hidden></p>
-    <button class="btn btn-primary btn-lg" type="submit" id="login-btn">Entrar</button>
-    <p style="text-align:center;margin:12px 0 0;font-size:13px"><a href="#" id="login-esqueci">Esqueci minha senha</a></p>
-  </form>
+    <svg class="login-predio" role="img" aria-label="Fachada de prédio público com bandeira do Brasil" viewBox="0 0 560 190" preserveAspectRatio="xMinYMax meet">
+      <rect x="0" y="150" width="560" height="40" fill="#D9DEE8"/>
+      <rect x="20" y="60" width="380" height="92" fill="#FFFFFF" stroke="#C9D0DC"/>
+      <rect x="10" y="48" width="400" height="14" fill="#E6EAF1" stroke="#C9D0DC"/>
+      <g fill="#E6EAF1" stroke="#C9D0DC"><rect x="40" y="74" width="16" height="78"/><rect x="92" y="74" width="16" height="78"/><rect x="144" y="74" width="16" height="78"/><rect x="196" y="74" width="16" height="78"/><rect x="248" y="74" width="16" height="78"/><rect x="300" y="74" width="16" height="78"/><rect x="352" y="74" width="16" height="78"/></g>
+      <g fill="#BFD3EC"><rect x="62" y="84" width="24" height="40"/><rect x="114" y="84" width="24" height="40"/><rect x="166" y="84" width="24" height="40"/><rect x="218" y="84" width="24" height="40"/><rect x="270" y="84" width="24" height="40"/><rect x="322" y="84" width="24" height="40"/></g>
+      <rect x="470" y="20" width="4" height="132" fill="#6B7280"/>
+      <rect x="474" y="24" width="64" height="42" fill="#009C3B"/>
+      <polygon points="506,29 532,45 506,61 480,45" fill="#FFDF00"/>
+      <circle cx="506" cy="45" r="9" fill="#002776"/>
+    </svg>
+  </section>
+
+  <section class="login-dir">
+    <form class="login-card" id="login-form" novalidate>
+      <div class="login-brand">
+        <img src="assets/logo-rlux.png" alt="RLUX Iluminação">
+        <h2>Rlux Licitações</h2>
+      </div>
+      <label class="field login-field">
+        <span>E-mail</span>
+        <span class="login-input">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+          <input type="email" name="email" autocomplete="username" placeholder="nome@rlux.com.br" required autofocus>
+        </span>
+      </label>
+      <label class="field login-field">
+        <span>Senha</span>
+        <span class="login-input">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+          <input type="password" name="senha" autocomplete="current-password" placeholder="Senha" required>
+          <button type="button" class="login-olho" id="login-olho" aria-label="Mostrar senha" aria-pressed="false">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </span>
+      </label>
+      <div class="login-linha">
+        <label class="login-lembrar"><input type="checkbox" name="lembrar" id="login-lembrar" checked> Manter conectado</label>
+        <a href="#" id="login-esqueci">Esqueci minha senha</a>
+      </div>
+      <p class="login-error" id="login-error" role="alert" hidden></p>
+      <button class="btn login-entrar" type="submit" id="login-btn">Entrar <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </form>
+    <div class="login-rodape">
+      <span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V7l8-4z"/><path d="M9 12l2 2 4-4"/></svg>Acesso seguro</span>
+      <span class="login-sep" aria-hidden="true"></span>
+      <span><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Uso restrito à equipe RLUX</span>
+    </div>
+  </section>
 </section>
 
 <!-- Aplicação -->
@@ -87,6 +132,6 @@
   // Se o app não responder em 12s (CDN/Firebase bloqueado ou sem internet), avisa.
   window.__splashTimer = setTimeout(() => { const f = document.getElementById("splash-fail"); if (f) f.hidden = false; }, 12000);
 </script>
-<script type="module" src="js/app.js?v=20261113-011406"></script>
+<script type="module" src="js/app.js?v=20261113-111928"></script>
 </body>
 </html>

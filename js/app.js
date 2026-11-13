@@ -1,30 +1,30 @@
 // Ponto de entrada: login -> store -> navegação -> módulos.
-import { onAuth, login, logout, esqueciSenha } from "./core/auth.js?v=20261113-011406";
-import { store } from "./core/store.js?v=20261113-011406";
-import { registerModule, buildNav, startRouter } from "./core/router.js?v=20261113-011406";
-import { icon, toast } from "./core/ui.js?v=20261113-011406";
-import { $ } from "./core/utils.js?v=20261113-011406";
-import { iniciarVerificacaoDeVersao } from "./core/version.js?v=20261113-011406";
+import { onAuth, login, logout, esqueciSenha } from "./core/auth.js?v=20261113-111928";
+import { store } from "./core/store.js?v=20261113-111928";
+import { registerModule, buildNav, startRouter } from "./core/router.js?v=20261113-111928";
+import { icon, toast } from "./core/ui.js?v=20261113-111928";
+import { $ } from "./core/utils.js?v=20261113-111928";
+import { iniciarVerificacaoDeVersao } from "./core/version.js?v=20261113-111928";
 
-import dashboard from "./modules/dashboard.js?v=20261113-011406";
-import categorias from "./modules/categorias.js?v=20261113-011406";
-import produtos from "./modules/produtos.js?v=20261113-011406";
-import portais from "./modules/portais.js?v=20261113-011406";
-import orgaos from "./modules/orgaos.js?v=20261113-011406";
-import usuarios from "./modules/usuarios.js?v=20261113-011406";
-import licitacoes from "./modules/licitacoes.js?v=20261113-011406";
-import edital from "./modules/edital.js?v=20261113-011406";
-import propostas from "./modules/propostas.js?v=20261113-011406";
-import atas from "./modules/atas.js?v=20261113-011406";
-import adesoes from "./modules/adesoes.js?v=20261113-011406";
-import empenhos from "./modules/empenhos.js?v=20261113-011406";
-import exequibilidade from "./modules/exequibilidade.js?v=20261113-011406";
-import reequilibrio from "./modules/reequilibrio.js?v=20261113-011406";
-import cobrancas from "./modules/cobrancas.js?v=20261113-011406";
-import crm from "./modules/crm.js?v=20261113-011406";
-import reguas from "./modules/reguas.js?v=20261113-011406";
-import relatorios from "./modules/relatorios.js?v=20261113-011406";
-import parametros from "./modules/parametros.js?v=20261113-011406";
+import dashboard from "./modules/dashboard.js?v=20261113-111928";
+import categorias from "./modules/categorias.js?v=20261113-111928";
+import produtos from "./modules/produtos.js?v=20261113-111928";
+import portais from "./modules/portais.js?v=20261113-111928";
+import orgaos from "./modules/orgaos.js?v=20261113-111928";
+import usuarios from "./modules/usuarios.js?v=20261113-111928";
+import licitacoes from "./modules/licitacoes.js?v=20261113-111928";
+import edital from "./modules/edital.js?v=20261113-111928";
+import propostas from "./modules/propostas.js?v=20261113-111928";
+import atas from "./modules/atas.js?v=20261113-111928";
+import adesoes from "./modules/adesoes.js?v=20261113-111928";
+import empenhos from "./modules/empenhos.js?v=20261113-111928";
+import exequibilidade from "./modules/exequibilidade.js?v=20261113-111928";
+import reequilibrio from "./modules/reequilibrio.js?v=20261113-111928";
+import cobrancas from "./modules/cobrancas.js?v=20261113-111928";
+import crm from "./modules/crm.js?v=20261113-111928";
+import reguas from "./modules/reguas.js?v=20261113-111928";
+import relatorios from "./modules/relatorios.js?v=20261113-111928";
+import parametros from "./modules/parametros.js?v=20261113-111928";
 
 // Ordem define a ordem do menu
 registerModule(dashboard);
@@ -61,7 +61,7 @@ form.addEventListener("submit", async (e) => {
   erro.hidden = true;
   btn.disabled = true; btn.textContent = "Entrando…";
   try {
-    await login(form.email.value, form.senha.value);
+    await login(form.email.value, form.senha.value, !!form.lembrar?.checked);
     // onAuth cuida do resto
   } catch (err) {
     erro.textContent = err.message; erro.hidden = false;
@@ -69,6 +69,7 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
+$("#login-olho")?.addEventListener("click", (e) => { const b = e.currentTarget, i = form.senha; const mostrar = i.type === "password"; i.type = mostrar ? "text" : "password"; b.setAttribute("aria-pressed", String(mostrar)); b.setAttribute("aria-label", mostrar ? "Ocultar senha" : "Mostrar senha"); i.focus(); });
 $("#login-esqueci").addEventListener("click", async (e) => {
   e.preventDefault(); erro.hidden = true;
   try { await esqueciSenha(form.email.value); erro.style.color = "var(--green)"; erro.textContent = "Se este e-mail tiver conta, enviamos um link para criar uma nova senha. Confira também a caixa de spam."; erro.hidden = false; }

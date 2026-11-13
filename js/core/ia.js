@@ -1,9 +1,9 @@
 // Ponte com as funções de servidor (IA). O navegador nunca vê a chave da API:
 // envia os PDFs para o Storage e pede ao servidor que analise.
-import { app, storage } from "./firebase.js?v=20261113-011406";
+import { app, storage } from "./firebase.js?v=20261113-111928";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 import { ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-import { newId } from "./store.js?v=20261113-011406";
+import { newId } from "./store.js?v=20261113-111928";
 
 const functions = getFunctions(app, "southamerica-east1");
 export const LIMITE_PDF = 30 * 1024 * 1024;
