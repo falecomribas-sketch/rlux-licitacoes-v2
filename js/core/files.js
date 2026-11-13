@@ -3,10 +3,10 @@
 // Compatibilidade com o legado: um campo de anexo pode conter
 //   - uma URL https do Storage (formato novo e do legado após sincronizar), ou
 //   - um JSON {name,type,data:"data:..."} (anexo antigo guardado em base64).
-import { storage } from "./firebase.js?v=20261113-115023";
+import { storage } from "./firebase.js?v=20261113-115749";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-import { icon } from "./ui.js?v=20261113-115023";
-import { esc } from "./utils.js?v=20261113-115023";
+import { icon } from "./ui.js?v=20261113-115749";
+import { esc } from "./utils.js?v=20261113-115749";
 
 export const LIMITE_ANEXO = 15 * 1024 * 1024; // 15 MB
 

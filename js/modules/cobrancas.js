@@ -1,17 +1,17 @@
 // Cobrança financeira (notas fiscais a receber). Campos (iguais ao legado):
 // id, empenhoId | avulsa + avEmpenho/avOrgao/avOrgaoId/avPregao/avUasg, nf, emissao, valor,
 // vencimento, status, pagamento, obs, ultimaCobranca, qtdCobrancas, _atualizado
-import { store, newId } from "../core/store.js?v=20261113-115023";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-115023";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, textarea, select, linha, exportarExcel } from "../core/forms.js?v=20261113-115023";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-115023";
-import { esc, fmt, fmtD, hojeIso, toTitleCase } from "../core/utils.js?v=20261113-115023";
-import { podeEditar } from "../core/auth.js?v=20261113-115023";
-import { getLicit, getOrgao, getProp, getAta } from "../core/domain.js?v=20261113-115023";
-import { ssel } from "../core/ssel.js?v=20261113-115023";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261113-115023";
-import { abrirClienteEmail } from "../core/regua.js?v=20261113-115023";
-import { EMPRESA } from "../core/pdf.js?v=20261113-115023";
+import { store, newId } from "../core/store.js?v=20261113-115749";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-115749";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, textarea, select, linha, exportarExcel } from "../core/forms.js?v=20261113-115749";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-115749";
+import { esc, fmt, fmtD, hojeIso, toTitleCase } from "../core/utils.js?v=20261113-115749";
+import { podeEditar } from "../core/auth.js?v=20261113-115749";
+import { getLicit, getOrgao, getProp, getAta } from "../core/domain.js?v=20261113-115749";
+import { ssel } from "../core/ssel.js?v=20261113-115749";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261113-115749";
+import { abrirClienteEmail } from "../core/regua.js?v=20261113-115749";
+import { EMPRESA } from "../core/pdf.js?v=20261113-115749";
 
 export const STATUS_COB = ["Aguardando NF", "NF Emitida", "Material Enviado", "Aguardando Pagamento", "Pago", "Inadimplente"];
 const ST_CLS = { "Aguardando NF": "tag-gray", "NF Emitida": "tag-teal", "Material Enviado": "tag-purple", "Aguardando Pagamento": "tag-amber", Pago: "tag-green", Inadimplente: "tag-red" };
