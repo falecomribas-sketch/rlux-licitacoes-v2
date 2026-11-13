@@ -1,11 +1,11 @@
 // Parâmetros: precificação (piso) e regras da IA (padrões por família e equivalências de termo).
 // Firestore: config/precificacao e config/regrasIA. Só Admin edita; todos podem ver.
-import { store } from "../core/store.js?v=20261113-143639";
-import { toast, icon, closeModal, confirmar } from "../core/ui.js?v=20261113-143639";
-import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js?v=20261113-143639";
-import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js?v=20261113-143639";
-import { isAdmin } from "../core/auth.js?v=20261113-143639";
-import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js?v=20261113-143639";
+import { store } from "../core/store.js?v=20261113-153534";
+import { toast, icon, closeModal, confirmar } from "../core/ui.js?v=20261113-153534";
+import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js?v=20261113-153534";
+import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js?v=20261113-153534";
+import { isAdmin } from "../core/auth.js?v=20261113-153534";
+import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js?v=20261113-153534";
 
 // Regras portadas do prompt "GPT 2" — ponto de partida editável
 export const REGRAS_PADRAO = {
@@ -85,6 +85,8 @@ export default {
                 <label class="field"><span>Frete mínimo (R$)</span><input type="number" step="0.01" name="freteMin" value="${c.freteMin}" ${ro}></label>
                 <label class="field"><span>Desconto sobre a referência do órgão (%)</span><input type="number" step="0.01" name="descontoRef" value="${c.descontoRef}" ${ro}></label>
                 <label class="field"><span>Validade do custo (dias)</span><input type="number" name="custoValidadeDias" value="${c.custoValidadeDias}" ${ro}></label>
+                <label class="field"><span>Reequilíbrio: alertar se lucro atual &lt; (%)</span><input type="number" step="0.1" name="lucroMinReq" value="${c.lucroMinReq ?? c.lucroMin}" ${ro}></label>
+                <label class="field"><span>Reequilíbrio: alertar se custo subiu &gt; (%)</span><input type="number" step="0.1" name="altaCustoReq" value="${c.altaCustoReq ?? 10}" ${ro}></label>
               </div>
               <div class="info-box" id="simul"></div>
               ${isAdmin() ? `<div style="text-align:right;margin-top:10px"><button class="btn btn-primary" type="submit">Salvar</button></div>` : `<p class="muted" style="font-size:12px">Somente administradores alteram os parâmetros.</p>`}
@@ -94,6 +96,7 @@ export default {
             <p>A proposta entra com o <strong>preço de referência do órgão</strong> (menos o desconto configurado, se houver). O piso é o limite para o robô de lance.</p>
             <p>Quando ${c.fretePct}% do pedido fica abaixo de ${fmt(c.freteMin)} (pedidos abaixo de <strong>${fmt(pedidoMinimoSemAjuste(c))}</strong>), a diferença é rateada entre os itens e o sistema avisa.</p>
             <p>Produto com custo há mais de ${c.custoValidadeDias} dias aparece marcado como <strong>custo vencido</strong> na proposta e na análise do edital.</p>
+            <p><strong>Monitor de reequilíbrio</strong> (tela Reequilíbrio): para ATAs vigentes com saldo, compara o custo gravado na proposta com o custo atual do produto e alerta quando o lucro de hoje fica abaixo de ${c.lucroMinReq ?? c.lucroMin}% ou o custo subiu mais de ${c.altaCustoReq ?? 10}%.</p>
           </div></div>
         </div>
         <div class="section-title">Regras da IA (correspondência item do edital → produto RLUX)</div>
@@ -158,7 +161,7 @@ export default {
   },
   destroy() { unsubC?.(); unsubC = null; ouvintesR.clear(); },
 };
-const lerPreco = (el) => { const f = el.querySelector("#f-preco"); const n = (k) => parseFloat(f.elements[k].value) || 0; return { simples: n("simples"), lucroMin: n("lucroMin"), fretePct: n("fretePct"), freteMin: n("freteMin"), descontoRef: n("descontoRef"), custoValidadeDias: Math.round(n("custoValidadeDias")) || 90 }; };
+const lerPreco = (el) => { const f = el.querySelector("#f-preco"); const n = (k) => parseFloat(f.elements[k].value) || 0; return { simples: n("simples"), lucroMin: n("lucroMin"), fretePct: n("fretePct"), freteMin: n("freteMin"), descontoRef: n("descontoRef"), custoValidadeDias: Math.round(n("custoValidadeDias")) || 90, lucroMinReq: n("lucroMinReq"), altaCustoReq: n("altaCustoReq") }; };
 
 const ETAPAS = { analise: "Análise do edital", correspondencia: "Correspondência", declaracoes: "Declarações" };
 function painelCusto(el) {

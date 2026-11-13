@@ -1,9 +1,9 @@
 // PDF da ATA de Registro de Preços — portado de gerarPDFAtaCompleto.
-import { novoDoc, cabecalho, rodape, tabelaPadrao, AZUL } from "../core/pdf.js?v=20261113-143639";
-import { store } from "../core/store.js?v=20261113-143639";
-import { fmt, fmtD } from "../core/utils.js?v=20261113-143639";
-import { getLicit, getOrgao, getPortal, propTotal } from "../core/domain.js?v=20261113-143639";
-import { toast } from "../core/ui.js?v=20261113-143639";
+import { novoDoc, cabecalho, rodape, tabelaPadrao, AZUL } from "../core/pdf.js?v=20261113-153534";
+import { store } from "../core/store.js?v=20261113-153534";
+import { fmt, fmtD } from "../core/utils.js?v=20261113-153534";
+import { getLicit, getOrgao, getPortal, propTotal } from "../core/domain.js?v=20261113-153534";
+import { toast } from "../core/ui.js?v=20261113-153534";
 
 export async function gerarPdfAta(ata, p) {
   const doc = await novoDoc("landscape");

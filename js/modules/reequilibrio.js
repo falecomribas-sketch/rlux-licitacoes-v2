@@ -1,15 +1,17 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261113-143639";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-143639";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-143639";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-143639";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261113-143639";
-import { podeEditar } from "../core/auth.js?v=20261113-143639";
-import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261113-143639";
-import { ssel } from "../core/ssel.js?v=20261113-143639";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-143639";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261113-143639";
+import { store, newId } from "../core/store.js?v=20261113-153534";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-153534";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-153534";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-153534";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261113-153534";
+import { podeEditar } from "../core/auth.js?v=20261113-153534";
+import { itensEmRisco } from "../core/risco.js?v=20261113-153534";
+import { getCfg } from "../core/preco.js?v=20261113-153534";
+import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261113-153534";
+import { ssel } from "../core/ssel.js?v=20261113-153534";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-153534";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261113-153534";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -28,6 +30,7 @@ export default {
       <div class="grid grid-4" id="kpis" style="margin-bottom:16px"></div>
       <div class="page-head"><h2>Reequilíbrio econômico-financeiro</h2><div class="actions"><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel</button>
         ${podeEditar() ? `<button class="btn btn-primary" data-act="novo">${icon("plus")} Nova solicitação</button>` : ""}</div></div>
+      <div class="card" id="risco" style="margin-bottom:16px"></div>
       <div class="card"><div class="chip-filters"><span class="muted">Status:</span><button class="chip ${!stFiltro ? "active" : ""}" data-act="st" data-id="">Todos</button>
         ${STATUS_REQ.map((s) => `<button class="chip ${stFiltro === s ? "active" : ""}" data-act="st" data-id="${s}">${s}</button>`).join("")}</div>
         <div class="card-body flush" id="tbl"></div></div>`;
@@ -53,13 +56,37 @@ export default {
         { key: "acoes", label: "", sort: false, width: "120px", render: (r) => acoes(`<button class="icon-btn sm" data-act="pdf" data-id="${esc(r.id)}" title="PDF">${icon("print")}</button>`, ...(podeEditar() ? [btnEditar(r.id), btnExcluir(r.id, r.aplicado ? "Já aplicado na ATA" : "")] : [])) },
       ],
     });
+    const painelRisco = () => {
+      const box = el.querySelector("#risco"); if (!box) return; const cfg = getCfg(); const lst = itensEmRisco();
+      const NIVEL = { critico: ["Abaixo do piso", "tag-red"], alerta: ["Em risco", "tag-amber"], verificar: ["Verificar custo", "tag-gray"], em_andamento: ["Pedido em andamento", "tag-blue"] };
+      const porAta = new Map(); lst.forEach((x) => { const k = x.ata.id; if (!porAta.has(k)) porAta.set(k, []); porAta.get(k).push(x); });
+      const impacto = lst.reduce((s, x) => s + x.impacto, 0);
+      box.innerHTML = `<div class="card-head"><h2>Itens em risco de reequilíbrio</h2><span class="muted" style="font-size:12px">custo da proposta × custo atual · alerta se lucro &lt; ${cfg.lucroMinReq ?? cfg.lucroMin}% ou custo +${cfg.altaCustoReq ?? 10}% · impacto no saldo: <strong>${fmt(impacto)}</strong></span></div>`
+        + (lst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>ATA / órgão</th><th>Item</th><th class="num">Saldo</th><th class="num">Preço contratado</th><th>Custo proposta → atual</th><th class="num">Lucro hoje</th><th class="num">Impacto</th><th>Situação</th><th></th></tr></thead><tbody>
+          ${lst.slice(0, 40).map((x) => `<tr><td><strong>${esc(x.ata.numero || "—")}</strong><div class="muted" style="font-size:11px">${esc(toTitleCase(x.o.nome || ""))}${x.ata.vencimento ? ` · até ${fmtD(x.ata.vencimento)}` : ""}</div></td>
+            <td><strong>${esc(x.item.num ?? "")}</strong> ${esc((x.item.nome || "").slice(0, 60))}<div class="muted" style="font-size:11px">${esc(x.prod.codigo || "")}</div></td>
+            <td class="num">${fmtNum(x.item.saldo)}</td><td class="num">${fmt(x.item.preco)}<div class="muted" style="font-size:11px">piso hoje ${fmt(x.pisoAtual)}</div></td>
+            <td>${fmt(x.custoProp)} → <strong style="color:${x.variacao > 0 ? "var(--red)" : "var(--green)"}">${fmt(x.custoAtual)}</strong>${x.variacao !== null ? ` <span style="font-size:12px;color:${x.variacao > 0 ? "var(--red)" : "var(--green)"}">(${x.variacao > 0 ? "+" : ""}${x.variacao.toFixed(1).replace(".", ",")}%)</span>` : ""}<div class="muted" style="font-size:11px">${x.custoData ? `custo de ${fmtD(x.custoData)}` : "custo sem data"}${x.semData ? " · vencido" : ""}</div></td>
+            <td class="num" style="font-weight:600;color:${x.lucroAtual < 0 ? "var(--red)" : x.gatilhoLucro ? "var(--amber-txt)" : "var(--green)"}">${x.lucroAtual.toFixed(1).replace(".", ",")}%</td>
+            <td class="num"><strong>${fmt(x.impacto)}</strong></td>
+            <td>${tag(...NIVEL[x.nivel])}</td>
+            <td>${x.pedidoId ? `<button class="btn btn-ghost btn-sm" data-act="editar" data-id="${esc(x.pedidoId)}">Abrir pedido</button>` : podeEditar() ? `<button class="btn btn-primary btn-sm" data-act="solicitar" data-id="${esc(x.ata.id)}">Solicitar</button>` : ""}</td></tr>`).join("")}
+          </tbody></table></div>${lst.length > 40 ? `<p class="muted" style="font-size:12px;padding:8px 16px;margin:0">Mostrando 40 de ${lst.length}.</p>` : ""}</div>`
+        : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">Nenhum item em risco: em todas as ATAs vigentes com saldo, o custo atual ainda sustenta o lucro mínimo. O monitor recalcula a cada importação de custos.</p></div>`);
+    };
+    painelRisco();
     onAction(el, {
       st: (id) => { stFiltro = id; el.querySelectorAll(".chip").forEach((c) => c.classList.toggle("active", c.dataset.id === id)); tabela.refresh(); },
+      solicitar: (ataId) => { const lst = itensEmRisco().filter((x) => x.ata.id === ataId && !x.pedidoId); if (!lst.length) return;
+        const cfg = getCfg(); const hoje = fmtD(hojeIso());
+        const linhas = lst.map((x) => `- Item ${x.item.num ?? ""} (${(x.item.nome || "").slice(0, 70)}): custo na proposta ${fmt(x.custoProp)}${x.p.criadoEm ? ` (${fmtD(x.p.criadoEm.slice(0, 10))})` : ""} → custo atual ${fmt(x.custoAtual)}${x.custoData ? ` (${fmtD(x.custoData)})` : ""}, variação de ${x.variacao !== null ? (x.variacao > 0 ? "+" : "") + x.variacao.toFixed(2) + "%" : "n/d"}; ao preço registrado de ${fmt(x.item.preco)} a margem atual é de ${x.lucroAtual.toFixed(1)}%.`).join("\n");
+        const just = `Solicitamos o reequilíbrio econômico-financeiro da ATA ${lst[0].ata.numero || ""} (${lst[0].l?.numero || ""}), com fundamento no art. 124, II, "d", da Lei nº 14.133/2021, em razão da elevação do custo de aquisição dos itens abaixo, ocorrida após a apresentação da proposta e fora do controle da fornecedora, que tornou a execução ao preço registrado inviável sem prejuízo (lucro mínimo praticado: ${cfg.lucroMinReq ?? cfg.lucroMin}%).\n\nItens e variações apuradas em ${hoje}:\n${linhas}\n\nSeguem em anexo as notas fiscais/tabelas de fornecedores que comprovam os novos custos. Requer-se a recomposição dos preços unitários na proporção da variação de custo apurada, mantendo-se a margem originalmente proposta.`;
+        abrirForm({ ataId, itens: lst.map((x) => ({ num: x.item.num, nome: x.item.nome, custoAntigo: x.custoProp, custoAtual: x.custoAtual })), justificativa: just, fundamento: "revisao" }); },
       novo: () => abrirForm(), editar: (id) => abrirForm(store.find("reequilibrio", id)), pdf: (id) => gerarPdfReequilibrio(store.find("reequilibrio", id)),
       excluir: async (id) => { if (!await confirmar("Excluir esta solicitação?", { ok: "Excluir", perigo: true })) return; await store.remove("reequilibrio", id); toast("Excluída."); },
       excel: () => exportarExcel(store.get("reequilibrio").map((r) => { const i = reqInfo(r); return { "Nº Solicitação": r.numero, ATA: i.ata?.numero || "", Órgão: i.o.nome || "", UASG: i.o.uasg || "", "Dt. Solicitação": fmtD(r.dataSolic), "Dt. Resposta": r.dataResp ? fmtD(r.dataResp) : "", Status: r.status, "% Reajuste": (r.percReajuste || 0).toFixed(2), "Diferença (R$)": r.valorDif || 0, "Total Original": r.totalOrig || 0, "Total Reajustado": r.totalNovo || 0, "Tipo": r.fundamento || "", Índice: r.indice || "", Aplicado: r.aplicado ? "Sim" : "Não", Justificativa: r.justificativa || "" }; }), "Reequilíbrio", "reequilibrio"),
     });
-    kpis(); unsub = store.on("*", () => { kpis(); tabela.refresh(); });
+    kpis(); unsub = store.on("*", () => { kpis(); tabela.refresh(); painelRisco(); });
   },
   destroy() { unsub?.(); stFiltro = ""; },
 };
@@ -68,8 +95,8 @@ function abrirForm(r = null) {
   let ataSel;
   const aprovado = (st) => st === "Aprovado" || st === "Aprovado Parcial";
   formModal({
-    titulo: r ? `Editar solicitação ${r.numero}` : "Nova solicitação de reequilíbrio", largura: "xl",
-    extra: (r ? `<button type="button" class="btn btn-ghost" data-pdf>${icon("print")} PDF</button>` : "") + (r && aprovado(r.status) && !r.aplicado ? `<button type="button" class="btn btn-success" data-aplicar>${icon("check")} Aplicar na ATA</button>` : ""),
+    titulo: r?.id ? `Editar solicitação ${r.numero}` : "Nova solicitação de reequilíbrio", largura: "xl",
+    extra: (r?.id ? `<button type="button" class="btn btn-ghost" data-pdf>${icon("print")} PDF</button>` : "") + (r && aprovado(r.status) && !r.aplicado ? `<button type="button" class="btn btn-success" data-aplicar>${icon("check")} Aplicar na ATA</button>` : ""),
     corpo: `
       <div class="form-section">Identificação do pedido</div>
       ${linha(`<div class="field"><span>ATA de origem</span><div id="ata-ssel"></div></div>`, campo("Nº da solicitação", inputTxt("numero", r?.numero || "", 'required placeholder="REQ-001/2026"')))}
