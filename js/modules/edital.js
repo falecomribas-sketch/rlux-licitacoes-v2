@@ -1,23 +1,23 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261113-004029";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261113-004029";
-import { EMPRESA } from "../core/pdf.js?v=20261113-004029";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261113-004029";
-import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261113-004029";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261113-004029";
-import { store } from "../core/store.js?v=20261113-004029";
-import { ssel } from "../core/ssel.js?v=20261113-004029";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261113-004029";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261113-004029";
-import { newId } from "../core/store.js?v=20261113-004029";
-import { navigate } from "../core/router.js?v=20261113-004029";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261113-004029";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261113-004029";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261113-004029";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261113-004029";
-import { copiarTexto } from "../core/regua.js?v=20261113-004029";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261113-011406";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261113-011406";
+import { EMPRESA } from "../core/pdf.js?v=20261113-011406";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261113-011406";
+import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261113-011406";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261113-011406";
+import { store } from "../core/store.js?v=20261113-011406";
+import { ssel } from "../core/ssel.js?v=20261113-011406";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261113-011406";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261113-011406";
+import { newId } from "../core/store.js?v=20261113-011406";
+import { navigate } from "../core/router.js?v=20261113-011406";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261113-011406";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261113-011406";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261113-011406";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261113-011406";
+import { copiarTexto } from "../core/regua.js?v=20261113-011406";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -26,7 +26,7 @@ const NAO_LOC = /não localizado/i;
 export default {
   id: "edital", titulo: "Analisar edital (IA)", grupo: "Licitações", icone: "bulb",
   render(el) {
-    histBusca = ""; histSit = ""; histOrd = "analise";
+    histBusca = ""; histSit = ""; histOrd = "analise"; histDir = "desc";
     iniciarPreco(); iniciarRegras(); iniciarPrompts();
     el.innerHTML = `
       <div class="page-head"><h2>Analisar edital (IA)</h2><div class="actions" id="acoes"></div></div>
@@ -138,7 +138,7 @@ async function salvarAnalise(alvo = ultima) {
   const { arquivosNomes, ...dados } = alvo; // tudo é serializável (sem File)
   try { await store.setItem("analises", { ...dados, arquivosNomes: arquivosNomes || [], atualizadoEm: new Date().toISOString() }); } catch (e) { console.error(e); toast("Não consegui gravar a análise (ela continua na tela).", "erro"); }
 }
-let histBusca = "", histSit = "", histOrd = "analise"; // analise | disputa
+let histBusca = "", histSit = "", histOrd = "analise", histDir = "desc"; // ordenação: analise | disputa | orgao | itens | corr | situacao
 const SIT_HIST = [["", "Todas"], ["proposta", "Com proposta"], ["analisado", "Só analisadas"], ["semcorr", "Sem correspondência"], ["minhas", "Minhas"]];
 function historico(el) {
   const box = el.querySelector("#historico"); if (!box) return;
@@ -147,8 +147,10 @@ function historico(el) {
   const lst = todas.filter((a) => { const L = a.resumo || {}; const n = (a.itens || []).length;
     if (histSit === "proposta" && !a.criada) return false; if (histSit === "analisado" && a.criada) return false; if (histSit === "semcorr" && (a.correspondencia || n === 0)) return false; if (histSit === "minhas" && (a.usuario || "").toLowerCase() !== eu) return false;
     if (!q) return true; const alvo = normTxt([L.orgao, L.numero, L.modalidade, L.municipio, L.estado, L.uasg, a.usuario, fmtD(dataLocal(a.criadoEm)), L.dataSessao ? fmtD(L.dataSessao) : "", ...(a.itens || []).map((i) => i.descricao)].join(" ")); return q.split(/\s+/).every((t) => alvo.includes(t)); });
-  if (histOrd === "disputa") { const hoje = hojeIso(); lst.sort((a, b) => { const da = a.resumo?.dataSessao || "9999", db = b.resumo?.dataSessao || "9999"; const fa = da < hoje, fb = db < hoje; if (fa !== fb) return fa ? 1 : -1; return fa ? db.localeCompare(da) : da.localeCompare(db); }); }
+  const chave = { analise: (a) => a.criadoEm || "", disputa: (a) => (a.resumo?.dataSessao || "9999-99-99") + " " + (a.resumo?.horaSessao || ""), orgao: (a) => normTxt(a.resumo?.orgao), itens: (a) => (a.itens || []).length, corr: (a) => (a.correspondencia || []).filter((x) => x.produtoId).length / Math.max(1, (a.itens || []).length), situacao: (a) => a.criada ? 2 : (a.itens || []).length ? 1 : 0 }[histOrd] || ((a) => a.criadoEm || "");
+  lst.sort((a, b) => { const x = chave(a), y = chave(b); const c = typeof x === "number" ? x - y : String(x).localeCompare(String(y)); return histDir === "asc" ? c : -c; });
   const mostrarLst = lst.slice(0, 60);
+  const th = (k, t, cls = "") => `<th class="${cls}"><a href="#" data-hist-ord="${k}" style="text-decoration:none;${histOrd === k ? "font-weight:700;color:var(--navy-2)" : "font-weight:600;color:inherit"}">${t}${histOrd === k ? (histDir === "asc" ? " ↑" : " ↓") : ""}</a></th>`;
   const disputa = (L) => { if (!L.dataSessao) return `<span class="muted">—</span>`; const hoje = hojeIso(); const dias = Math.round((new Date(L.dataSessao + "T00:00:00") - new Date(hoje + "T00:00:00")) / 864e5);
     const cor = dias < 0 ? "color:var(--muted)" : dias === 0 ? "color:var(--red);font-weight:700" : dias <= 3 ? "color:var(--amber-txt);font-weight:600" : ""; const rot = dias < 0 ? "realizada" : dias === 0 ? "hoje" : dias === 1 ? "amanhã" : `em ${dias} dias`;
     return `<div style="${cor}">${fmtDc(L.dataSessao)}${L.horaSessao ? ` <span style="font-weight:400">${esc(String(L.horaSessao).slice(0, 5))}</span>` : ""}</div><div class="muted" style="font-size:11px">${rot}</div>`; };
@@ -156,13 +158,13 @@ function historico(el) {
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--border)">
       <label class="search" style="min-width:260px"><span class="search-ic">${icon("search")}</span><input type="search" id="hist-busca" class="input" placeholder="Buscar por órgão, número, cidade, item, usuário…" value="${esc(histBusca)}"></label>
       <div style="display:flex;gap:6px;flex-wrap:wrap">${SIT_HIST.map(([k, t]) => `<button class="chip ${histSit === k ? "active" : ""}" data-hist-sit="${k}">${t}</button>`).join("")}</div>
-    </div>` + (mostrarLst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr><th><a href="#" data-hist-ord="analise" style="${histOrd === "analise" ? "font-weight:700" : "font-weight:500;color:var(--muted)"}">Análise ${histOrd === "analise" ? "↓" : ""}</a></th><th>Licitação</th><th><a href="#" data-hist-ord="disputa" style="${histOrd === "disputa" ? "font-weight:700" : "font-weight:500;color:var(--muted)"}">Disputa ${histOrd === "disputa" ? "↑" : ""}</a></th><th>Órgão</th><th class="num">Itens</th><th>Correspondência</th><th>Situação</th><th></th></tr></thead><tbody>
+    </div>` + (mostrarLst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr>${th("analise", "Análise")}<th>Licitação</th>${th("disputa", "Disputa")}${th("orgao", "Órgão")}${th("itens", "Itens", "num")}${th("corr", "Correspondência")}${th("situacao", "Situação")}<th></th></tr></thead><tbody>
     ${mostrarLst.map((a) => { const L = a.resumo || {}; const n = (a.itens || []).length, c = (a.correspondencia || []).filter((x) => x.produtoId).length;
       return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtDc(dataLocal(a.criadoEm))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong></td><td style="white-space:nowrap">${disputa(L)}</td><td>${esc((L.orgao || "—").slice(0, 50))}<div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${a.criada ? tag(`Proposta #${a.criada.num}`, "tag-teal") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button> <button class="btn btn-ghost btn-sm btn-icon" data-excluir="${esc(a.id)}" title="Excluir análise">${icon("trash")}</button></td></tr>`; }).join("")}
   </tbody></table></div></div>` : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">${todas.length ? "Nenhuma análise corresponde à busca." : "As análises feitas a partir de agora ficam guardadas aqui."}</p></div>`);
   const inp = box.querySelector("#hist-busca"); if (inp) { inp.addEventListener("input", () => { histBusca = inp.value; const pos = inp.selectionStart; historico(el); const n = box.querySelector("#hist-busca"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }
   box.querySelectorAll("[data-hist-sit]").forEach((b) => b.addEventListener("click", () => { histSit = b.dataset.histSit; historico(el); }));
-  box.querySelectorAll("[data-hist-ord]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); histOrd = b.dataset.histOrd; historico(el); }));
+  box.querySelectorAll("[data-hist-ord]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); const k = b.dataset.histOrd; if (histOrd === k) histDir = histDir === "asc" ? "desc" : "asc"; else { histOrd = k; histDir = k === "analise" ? "desc" : "asc"; } historico(el); }));
 }
 const linhasCorr = () => (ultima?.itens || []).map((it) => { const c = (ultima.correspondencia || []).find((x) => String(x.item) === String(it.item)); const p = c?.produtoId ? store.find("produtos", c.produtoId) : null; return { it, c, p }; });
 async function casar(el) {
