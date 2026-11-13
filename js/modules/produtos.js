@@ -1,16 +1,16 @@
 // Produtos. Campos: id, nome, codigo, marca, custo, catId, prodFichaData (imagem base64 comprimida)
 // Etapa B (opcionais): familia, descricaoTecnica, tecnico{...}, custoData, custoOrigem, unidade
-import { store, newId } from "../core/store.js";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, textarea, select, linha, exportarExcel, lerExcel } from "../core/forms.js";
-import { iniciarPreco, piso, custoVencido, diasCusto, FAMILIAS_TEC, deduzirFamilia, frequenciaVendas, getCfg } from "../core/preco.js";
-import { hojeIso, dataLocal, fmtDc } from "../core/utils.js";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js";
-import { esc, h, raw, fmt, fmtD, fmtNum } from "../core/utils.js";
-import { podeEditar } from "../core/auth.js";
-import { getCat, getLicit, getOrgao, ataDaProposta, STATUS_CLASS } from "../core/domain.js";
-import { popover, fecharPopover } from "../core/popover.js";
-import { novoDoc, cabecalho, rodape, tabelaPadrao, AZUL, VERDE, ROXO } from "../core/pdf.js";
+import { store, newId } from "../core/store.js?v=20261113-004029";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-004029";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, textarea, select, linha, exportarExcel, lerExcel } from "../core/forms.js?v=20261113-004029";
+import { iniciarPreco, piso, custoVencido, diasCusto, FAMILIAS_TEC, deduzirFamilia, frequenciaVendas, getCfg } from "../core/preco.js?v=20261113-004029";
+import { hojeIso, dataLocal, fmtDc } from "../core/utils.js?v=20261113-004029";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261113-004029";
+import { esc, h, raw, fmt, fmtD, fmtNum } from "../core/utils.js?v=20261113-004029";
+import { podeEditar } from "../core/auth.js?v=20261113-004029";
+import { getCat, getLicit, getOrgao, ataDaProposta, STATUS_CLASS } from "../core/domain.js?v=20261113-004029";
+import { popover, fecharPopover } from "../core/popover.js?v=20261113-004029";
+import { novoDoc, cabecalho, rodape, tabelaPadrao, AZUL, VERDE, ROXO } from "../core/pdf.js?v=20261113-004029";
 
 let unsub = null;
 let catFiltro = "", sitFiltro = "";
@@ -22,6 +22,7 @@ export default {
   id: "produtos", titulo: "Produtos", grupo: "Cadastros", icone: "box",
 
   render(el) {
+    catFiltro = ""; sitFiltro = ""; // cada visita começa limpa
     el.innerHTML = `
       <div class="grid grid-4" id="kpis" style="margin-bottom:16px"></div>
       <div class="page-head"><h2>Produtos</h2>

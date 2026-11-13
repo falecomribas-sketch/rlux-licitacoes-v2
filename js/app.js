@@ -1,30 +1,30 @@
 // Ponto de entrada: login -> store -> navegação -> módulos.
-import { onAuth, login, logout, esqueciSenha } from "./core/auth.js";
-import { store } from "./core/store.js";
-import { registerModule, buildNav, startRouter } from "./core/router.js";
-import { icon, toast } from "./core/ui.js";
-import { $ } from "./core/utils.js";
-import { iniciarVerificacaoDeVersao } from "./core/version.js";
+import { onAuth, login, logout, esqueciSenha } from "./core/auth.js?v=20261113-004029";
+import { store } from "./core/store.js?v=20261113-004029";
+import { registerModule, buildNav, startRouter } from "./core/router.js?v=20261113-004029";
+import { icon, toast } from "./core/ui.js?v=20261113-004029";
+import { $ } from "./core/utils.js?v=20261113-004029";
+import { iniciarVerificacaoDeVersao } from "./core/version.js?v=20261113-004029";
 
-import dashboard from "./modules/dashboard.js";
-import categorias from "./modules/categorias.js";
-import produtos from "./modules/produtos.js";
-import portais from "./modules/portais.js";
-import orgaos from "./modules/orgaos.js";
-import usuarios from "./modules/usuarios.js";
-import licitacoes from "./modules/licitacoes.js";
-import edital from "./modules/edital.js";
-import propostas from "./modules/propostas.js";
-import atas from "./modules/atas.js";
-import adesoes from "./modules/adesoes.js";
-import empenhos from "./modules/empenhos.js";
-import exequibilidade from "./modules/exequibilidade.js";
-import reequilibrio from "./modules/reequilibrio.js";
-import cobrancas from "./modules/cobrancas.js";
-import crm from "./modules/crm.js";
-import reguas from "./modules/reguas.js";
-import relatorios from "./modules/relatorios.js";
-import parametros from "./modules/parametros.js";
+import dashboard from "./modules/dashboard.js?v=20261113-004029";
+import categorias from "./modules/categorias.js?v=20261113-004029";
+import produtos from "./modules/produtos.js?v=20261113-004029";
+import portais from "./modules/portais.js?v=20261113-004029";
+import orgaos from "./modules/orgaos.js?v=20261113-004029";
+import usuarios from "./modules/usuarios.js?v=20261113-004029";
+import licitacoes from "./modules/licitacoes.js?v=20261113-004029";
+import edital from "./modules/edital.js?v=20261113-004029";
+import propostas from "./modules/propostas.js?v=20261113-004029";
+import atas from "./modules/atas.js?v=20261113-004029";
+import adesoes from "./modules/adesoes.js?v=20261113-004029";
+import empenhos from "./modules/empenhos.js?v=20261113-004029";
+import exequibilidade from "./modules/exequibilidade.js?v=20261113-004029";
+import reequilibrio from "./modules/reequilibrio.js?v=20261113-004029";
+import cobrancas from "./modules/cobrancas.js?v=20261113-004029";
+import crm from "./modules/crm.js?v=20261113-004029";
+import reguas from "./modules/reguas.js?v=20261113-004029";
+import relatorios from "./modules/relatorios.js?v=20261113-004029";
+import parametros from "./modules/parametros.js?v=20261113-004029";
 
 // Ordem define a ordem do menu
 registerModule(dashboard);
@@ -103,3 +103,6 @@ const setOnline = (on) => { dot.classList.toggle("off", !on); dot.title = on ? "
 window.addEventListener("online", () => { setOnline(true); toast("Conexão restabelecida", "ok"); });
 window.addEventListener("offline", () => { setOnline(false); toast("Sem internet. Você pode continuar; as alterações serão enviadas ao reconectar.", "info", 5000); });
 setOnline(navigator.onLine);
+
+// Acesso para diagnóstico/testes (console): window.__rlux.store
+window.__rlux = { store };

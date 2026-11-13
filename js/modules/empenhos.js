@@ -1,17 +1,17 @@
 // Empenhos. Campos: id, propostaId | adesaoId, numero, data, valorRecebido (valor do empenho),
 // itensRecebidos[] (qtd por item, na ordem dos itens da proposta/adesão), arqData
-import { store, newId } from "../core/store.js";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js";
-import { formModal, lerForm, campo, inputTxt, inputData, linha, exportarExcel } from "../core/forms.js";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js";
-import { esc, fmt, fmtD, fmtNum, toTitleCase } from "../core/utils.js";
-import { podeEditar } from "../core/auth.js";
-import { getLicit, getOrgao, getProp, getPortal, getAta, propTotal } from "../core/domain.js";
-import { ssel } from "../core/ssel.js";
-import { opcoesOrgaos } from "./licitacoes.js";
-import { opcoesPropostas } from "./atas.js";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js";
-import { gerarPdfEmpenho } from "../pdf/empenho.js";
+import { store, newId } from "../core/store.js?v=20261113-004029";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-004029";
+import { formModal, lerForm, campo, inputTxt, inputData, linha, exportarExcel } from "../core/forms.js?v=20261113-004029";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-004029";
+import { esc, fmt, fmtD, fmtNum, toTitleCase } from "../core/utils.js?v=20261113-004029";
+import { podeEditar } from "../core/auth.js?v=20261113-004029";
+import { getLicit, getOrgao, getProp, getPortal, getAta, propTotal } from "../core/domain.js?v=20261113-004029";
+import { ssel } from "../core/ssel.js?v=20261113-004029";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261113-004029";
+import { opcoesPropostas } from "./atas.js?v=20261113-004029";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-004029";
+import { gerarPdfEmpenho } from "../pdf/empenho.js?v=20261113-004029";
 
 let unsub = null, periodo = "mes";
 

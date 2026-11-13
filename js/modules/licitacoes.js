@@ -1,14 +1,14 @@
 // Licitações. Campos: id, numero, tipo, data, portalId, orgaoId, obs,
 // editalData, editalNome, trData, trNome (anexos: URL do Storage ou JSON legado)
-import { store, newId } from "../core/store.js";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js";
-import { esc, h, raw, fmtD, toTitleCase } from "../core/utils.js";
-import { podeEditar } from "../core/auth.js";
-import { getOrgao, getPortal } from "../core/domain.js";
-import { ssel } from "../core/ssel.js";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js";
+import { store, newId } from "../core/store.js?v=20261113-004029";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-004029";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-004029";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-004029";
+import { esc, h, raw, fmtD, toTitleCase } from "../core/utils.js?v=20261113-004029";
+import { podeEditar } from "../core/auth.js?v=20261113-004029";
+import { getOrgao, getPortal } from "../core/domain.js?v=20261113-004029";
+import { ssel } from "../core/ssel.js?v=20261113-004029";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-004029";
 
 export const TIPOS = ["Pregão Eletrônico", "Dispensa Eletrônica", "Tomada de Preços", "Concorrência"];
 let unsub = null;
@@ -24,6 +24,7 @@ export default {
   id: "licitacoes", titulo: "Licitações", grupo: "Licitações", icone: "clipboard",
 
   render(el) {
+    portalFiltro = "";
     const propsDe = (id) => store.get("propostas").filter((p) => p.licitacaoId === id);
 
     el.innerHTML = `
