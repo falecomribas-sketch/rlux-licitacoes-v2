@@ -1,12 +1,12 @@
 // Régua de Envio — visão auditável da régua de relacionamento: cada ATA/adesão com saldo,
 // quantos e-mails já foram, o último e o próximo. Toda a lógica está em core/regua.js.
-import { store } from "../core/store.js?v=20261113-114024";
-import { dataTable, acoes, onAction } from "../core/table.js?v=20261113-114024";
-import { exportarExcel } from "../core/forms.js?v=20261113-114024";
-import { toast, icon, tag, openModal, closeModal } from "../core/ui.js?v=20261113-114024";
-import { esc, fmt, fmtD, hojeIso, toTitleCase } from "../core/utils.js?v=20261113-114024";
-import { podeEditar } from "../core/auth.js?v=20261113-114024";
-import { iniciarRegua, onRegua, linhasRegua, situacaoRegua, montarEmail, enviarPelaRegua, copiarPelaRegua, TIPO_ROTULO, INTERVALO } from "../core/regua.js?v=20261113-114024";
+import { store } from "../core/store.js?v=20261113-114511";
+import { dataTable, acoes, onAction } from "../core/table.js?v=20261113-114511";
+import { exportarExcel } from "../core/forms.js?v=20261113-114511";
+import { toast, icon, tag, openModal, closeModal } from "../core/ui.js?v=20261113-114511";
+import { esc, fmt, fmtD, hojeIso, toTitleCase } from "../core/utils.js?v=20261113-114511";
+import { podeEditar } from "../core/auth.js?v=20261113-114511";
+import { iniciarRegua, onRegua, linhasRegua, situacaoRegua, montarEmail, enviarPelaRegua, copiarPelaRegua, TIPO_ROTULO, INTERVALO } from "../core/regua.js?v=20261113-114511";
 
 let unsub = null, unsubR = null, filtro = "todas";
 const FILTROS = [["todas", "Todas"], ["atrasadas", "Atrasadas"], ["hoje", "Para hoje"], ["semana", "Próximos 7 dias"], ["encerradas", "Encerradas"]];
