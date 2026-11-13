@@ -1,17 +1,17 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261113-153534";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-153534";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-153534";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-153534";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261113-153534";
-import { podeEditar } from "../core/auth.js?v=20261113-153534";
-import { itensEmRisco } from "../core/risco.js?v=20261113-153534";
-import { getCfg } from "../core/preco.js?v=20261113-153534";
-import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261113-153534";
-import { ssel } from "../core/ssel.js?v=20261113-153534";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-153534";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261113-153534";
+import { store, newId } from "../core/store.js?v=20261113-162740";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-162740";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-162740";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-162740";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261113-162740";
+import { podeEditar } from "../core/auth.js?v=20261113-162740";
+import { itensEmRisco } from "../core/risco.js?v=20261113-162740";
+import { getCfg } from "../core/preco.js?v=20261113-162740";
+import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261113-162740";
+import { ssel } from "../core/ssel.js?v=20261113-162740";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-162740";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261113-162740";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -79,8 +79,7 @@ export default {
       st: (id) => { stFiltro = id; el.querySelectorAll(".chip").forEach((c) => c.classList.toggle("active", c.dataset.id === id)); tabela.refresh(); },
       solicitar: (ataId) => { const lst = itensEmRisco().filter((x) => x.ata.id === ataId && !x.pedidoId); if (!lst.length) return;
         const cfg = getCfg(); const hoje = fmtD(hojeIso());
-        const linhas = lst.map((x) => `- Item ${x.item.num ?? ""} (${(x.item.nome || "").slice(0, 70)}): custo na proposta ${fmt(x.custoProp)}${x.p.criadoEm ? ` (${fmtD(x.p.criadoEm.slice(0, 10))})` : ""} → custo atual ${fmt(x.custoAtual)}${x.custoData ? ` (${fmtD(x.custoData)})` : ""}, variação de ${x.variacao !== null ? (x.variacao > 0 ? "+" : "") + x.variacao.toFixed(2) + "%" : "n/d"}; ao preço registrado de ${fmt(x.item.preco)} a margem atual é de ${x.lucroAtual.toFixed(1)}%.`).join("\n");
-        const just = `Solicitamos o reequilíbrio econômico-financeiro da ATA ${lst[0].ata.numero || ""} (${lst[0].l?.numero || ""}), com fundamento no art. 124, II, "d", da Lei nº 14.133/2021, em razão da elevação do custo de aquisição dos itens abaixo, ocorrida após a apresentação da proposta e fora do controle da fornecedora, que tornou a execução ao preço registrado inviável sem prejuízo (lucro mínimo praticado: ${cfg.lucroMinReq ?? cfg.lucroMin}%).\n\nItens e variações apuradas em ${hoje}:\n${linhas}\n\nSeguem em anexo as notas fiscais/tabelas de fornecedores que comprovam os novos custos. Requer-se a recomposição dos preços unitários na proporção da variação de custo apurada, mantendo-se a margem originalmente proposta.`;
+        const just = textoJustificativa(lst, cfg);
         abrirForm({ ataId, itens: lst.map((x) => ({ num: x.item.num, nome: x.item.nome, custoAntigo: x.custoProp, custoAtual: x.custoAtual })), justificativa: just, fundamento: "revisao" }); },
       novo: () => abrirForm(), editar: (id) => abrirForm(store.find("reequilibrio", id)), pdf: (id) => gerarPdfReequilibrio(store.find("reequilibrio", id)),
       excluir: async (id) => { if (!await confirmar("Excluir esta solicitação?", { ok: "Excluir", perigo: true })) return; await store.remove("reequilibrio", id); toast("Excluída."); },
@@ -179,4 +178,52 @@ async function aplicarNaAta(r) {
   await store.setItem("propostas", { ...p, itens });
   await store.setItem("reequilibrio", { ...atual, aplicado: true, aplicadoEm: new Date().toISOString(), historicoPrecos: historico });
   closeModal(); toast(`Preços atualizados: ${n} item(ns) na ATA ${ata.numero}.`);
+}
+
+// Modelo de justificativa (texto da RLUX adotado como padrão). Campos entre colchetes ficam para o usuário completar com as provas.
+function textoJustificativa(lst, cfg) {
+  const x0 = lst[0]; const ata = x0.ata, l = x0.l, p = x0.p; const hoje = fmtD(hojeIso());
+  const dataProp = p?.criadoEm ? fmtD(p.criadoEm.slice(0, 10)) : "[data da proposta]";
+  const pct = (v) => (v > 0 ? "+" : "") + v.toFixed(2).replace(".", ",") + "%";
+  const desc = (cfg.simples + cfg.fretePct) / 100;
+  const itens = lst.map((x) => {
+    const liquido = x.item.preco * (1 - desc), res = liquido - x.custoAtual, novo = x.item.preco * (x.custoAtual / (x.custoProp || x.custoAtual));
+    return { x, liquido, res, novo };
+  });
+  const blocoItens = itens.map(({ x, liquido, res, novo }) => `Item ${x.item.num ?? ""} – ${x.item.nome || ""}${x.prod?.marca ? ` (${x.prod.marca}${x.prod.codigo ? " " + x.prod.codigo : ""})` : ""}:
+- Custo de aquisição na proposta (${dataProp}): ${fmt(x.custoProp)}
+- Custo de aquisição atual, após reajuste dos fornecedores (${x.custoData ? fmtD(x.custoData) : "[data]"}): ${fmt(x.custoAtual)} (${x.variacao !== null ? pct(x.variacao) : "n/d"})
+- Preço registrado: ${fmt(x.item.preco)}
+- Composição por unidade ao preço registrado: ${fmt(x.item.preco)} − Simples Nacional ${String(cfg.simples).replace(".", ",")}% (${fmt(x.item.preco * cfg.simples / 100)}) − frete ${String(cfg.fretePct).replace(".", ",")}% (${fmt(x.item.preco * cfg.fretePct / 100)}) = ${fmt(liquido)} líquidos, contra custo de ${fmt(x.custoAtual)} → resultado de ${fmt(res)} por unidade (${pct(res / x.item.preco * 100)})
+- Saldo a fornecer: ${fmtNum(x.item.saldo)} un. → ${res < 0 ? "prejuízo" : "resultado"} estimado de ${fmt(Math.abs(res) * x.item.saldo)}
+- Preço revisado pleiteado (mesma proporção da variação do custo): ${fmt(novo)}`).join("\n\n");
+  const pedidos = itens.map(({ x, novo }, i) => `${i + 1}. A revisão do preço registrado do Item ${x.item.num ?? ""} de ${fmt(x.item.preco)} para ${fmt(novo)}, na mesma proporção da variação do custo de aquisição, preservando-se a equação econômico-financeira originalmente proposta, com efeitos para os fornecimentos a partir da data deste pedido;`).join("\n");
+  const n = itens.length;
+  return `Solicitamos a revisão dos preços registrados na ATA nº ${ata.numero || "[nº]"}${l?.numero ? ` (${l.tipo || "Pregão Eletrônico"} nº ${l.numero})` : ""}, para restabelecimento do equilíbrio econômico-financeiro da proposta, com fundamento no art. 37, XXI, da Constituição Federal; nos arts. 5º, 82, VI, 89 e 124, II, "d", da Lei nº 14.133/2021; nas cláusulas do Edital e da Ata que tratam da alteração de preços; e no regulamento de registro de preços aplicável ao órgão gerenciador [citar o decreto, se houver].
+
+DOS FATOS
+
+A fornecedora atua como revenda e adquire o(s) item(ns) objeto deste pedido de importadoras e fabricantes, não tendo qualquer ingerência sobre a formação de seu preço de origem. [Se importado: O produto é importado, e seu custo está diretamente atrelado à cotação do dólar, ao frete internacional e ao frete nacional.]
+
+Após a apresentação da proposta (${dataProp}), as importadoras e fabricantes emitiram comunicados oficiais de reajuste de preços [datas dos comunicados: ___], repassados de forma generalizada a toda a rede de revenda, justificados pelos seguintes fatores extraordinários e alheios à vontade da fornecedora:
+
+a) [Variação cambial — manter apenas se os números sustentarem: PTAX em ${dataProp}: R$ ___ ; PTAX em ${hoje}: R$ ___ ; variação de ___%];
+b) [Frete internacional — fonte/índice e variação: ___];
+c) Frete nacional: aumento do custo do transporte rodoviário em razão da elevação do preço dos combustíveis, especialmente do óleo diesel.
+
+Trata-se, portanto, de aumento imposto por toda a cadeia de fornecimento, de caráter geral e não restrito a um fornecedor específico, que a fornecedora não tinha como prever nem evitar no momento da formulação da proposta.
+
+DO${n > 1 ? "S ITENS AFETADOS" : " ITEM AFETADO"} (apuração em ${hoje})
+
+${blocoItens}
+
+Com o reajuste repassado pelos fornecedores, o preço registrado deixou de cobrir os custos totais de fornecimento, de modo que a execução nas condições atuais passou a gerar prejuízo à fornecedora, conforme demonstrado acima. Não se trata de mera flutuação de mercado ou de risco ordinário do negócio, mas de choques externos que atingiram toda a cadeia de distribuição do produto e romperam a equação econômico-financeira estabelecida na proposta.
+
+DOS PEDIDOS
+
+${pedidos}
+${n + 1}. A comunicação aos órgãos participantes e contratantes, para que avaliem a revisão dos contratos e empenhos já emitidos;
+${n + 2}. Subsidiariamente, caso o pedido não seja acolhido, o cancelamento do registro de preços do(s) item(ns) indicado(s), com liberação da fornecedora do compromisso assumido sem aplicação de sanções, por se tratar de fato superveniente e alheio à sua vontade.
+
+Seguem em anexo: comunicados de reajuste emitidos pelas importadoras/fabricantes; notas fiscais de compra anteriores e posteriores ao reajuste; tabelas de preços dos fornecedores; cotações atuais de outros distribuidores; [e cotações do dólar (PTAX/BCB) nas datas de referência].`;
 }

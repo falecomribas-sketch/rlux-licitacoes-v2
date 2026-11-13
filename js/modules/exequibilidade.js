@@ -1,17 +1,17 @@
 // Exequibilidade. Campos: id, propostaId, uasg, pregao, orgaoNome, imposto, frete, obs, criadoEm,
 // itens[{numItem, item, qtde, custo, precoUnit, lucro, margem, statusCalc, impostoVal, freteVal, lucroTotal, receita}]
 // Fórmula: Lucro = Preço − Custo − Preço×Imposto% − Preço×Frete%  |  Margem = Lucro ÷ Preço
-import { store, newId } from "../core/store.js?v=20261113-153534";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-153534";
-import { formModal, lerForm, campo, inputTxt, inputNum, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-153534";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-153534";
-import { esc, fmt, fmtNum, toTitleCase } from "../core/utils.js?v=20261113-153534";
-import { podeEditar } from "../core/auth.js?v=20261113-153534";
-import { getLicit, getOrgao, getProp } from "../core/domain.js?v=20261113-153534";
-import { ssel } from "../core/ssel.js?v=20261113-153534";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261113-153534";
-import { opcoesPropostas } from "./atas.js?v=20261113-153534";
-import { novoDoc, cabecalho, rodape, tituloSecao, assinatura, tabelaPadrao, AZUL, VERDE } from "../core/pdf.js?v=20261113-153534";
+import { store, newId } from "../core/store.js?v=20261113-162740";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-162740";
+import { formModal, lerForm, campo, inputTxt, inputNum, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-162740";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-162740";
+import { esc, fmt, fmtNum, toTitleCase } from "../core/utils.js?v=20261113-162740";
+import { podeEditar } from "../core/auth.js?v=20261113-162740";
+import { getLicit, getOrgao, getProp } from "../core/domain.js?v=20261113-162740";
+import { ssel } from "../core/ssel.js?v=20261113-162740";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261113-162740";
+import { opcoesPropostas } from "./atas.js?v=20261113-162740";
+import { novoDoc, cabecalho, rodape, tituloSecao, assinatura, tabelaPadrao, AZUL, VERDE } from "../core/pdf.js?v=20261113-162740";
 
 export const OBS_PADRAO = "Declaramos, para os devidos fins, que a formação dos preços desta proposta observou a seguinte metodologia: (i) apuração do valor de custo do item; (ii) aplicação de percentual de imposto estimado incidente sobre o custo; (iii) inclusão do valor de frete e demais despesas acessórias; (iv) definição do preço de venda; e (v) apuração do lucro real em moeda corrente (R$) e em percentual sobre a venda. A composição assegura a cobertura de custos diretos e indiretos, demonstrando a exequibilidade da proposta, em conformidade com as condições usuais de mercado e princípios da economicidade.";
 export function calcExeq(custo, imposto, frete, preco, qtde) {
