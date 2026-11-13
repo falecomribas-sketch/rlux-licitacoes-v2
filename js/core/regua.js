@@ -2,11 +2,11 @@
 // renovação D-60/D-30, agradecimento) e os textos dos e-mails.
 // Portado do legado. Estado em Firestore: config/reguaEnvios (último carimbo por
 // tipo) e config/reguaHist (histórico acumulado). Sem localStorage.
-import { store } from "./store.js?v=20261113-135731";
-import { fmt, fmtD, hojeIso, diasAte } from "./utils.js?v=20261113-135731";
-import { getLicit, getOrgao, getProp, getAta, isVencido, propTotal, propEmpenhado, propSaldo, propSaldoDetalhado, adesaoSaldo, ataFoiRenovada } from "./domain.js?v=20261113-135731";
-import { EMPRESA } from "./pdf.js?v=20261113-135731";
-import { toast } from "./ui.js?v=20261113-135731";
+import { store } from "./store.js?v=20261113-143639";
+import { fmt, fmtD, hojeIso, diasAte } from "./utils.js?v=20261113-143639";
+import { getLicit, getOrgao, getProp, getAta, isVencido, propTotal, propEmpenhado, propSaldo, propSaldoDetalhado, adesaoSaldo, ataFoiRenovada } from "./domain.js?v=20261113-143639";
+import { EMPRESA } from "./pdf.js?v=20261113-143639";
+import { toast } from "./ui.js?v=20261113-143639";
 
 // ---------- estado ----------
 let envios = {}, hist = {}; let carregado = false;
@@ -191,6 +191,19 @@ export async function copiarTexto(txt) {
   try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(txt); return true; } } catch {}
   try { const ta = document.createElement("textarea"); ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); return true; } catch { return false; }
 }
+// Copia com formatação (HTML) para colar no Outlook já na fonte padrão da RLUX: Aptos Narrow 11.
+export const FONTE_EMAIL = { familia: "'Aptos Narrow', Aptos, Calibri, Arial, sans-serif", tamanhoPt: 11 };
+export async function copiarTextoFormatado(txt) {
+  const escapar = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const html = `<div style="font-family:${FONTE_EMAIL.familia};font-size:${FONTE_EMAIL.tamanhoPt}pt;line-height:1.35">${String(txt).split("\n").map((l) => `<div style="font-family:${FONTE_EMAIL.familia};font-size:${FONTE_EMAIL.tamanhoPt}pt;min-height:1em;white-space:pre-wrap">${escapar(l) || "&nbsp;"}</div>`).join("")}</div>`;
+  try {
+    if (navigator.clipboard && window.ClipboardItem && window.isSecureContext) {
+      await navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([txt], { type: "text/plain" }) })]);
+      return true;
+    }
+  } catch {}
+  return copiarTexto(txt);
+}
 const MAILTO_LIMITE = 1800;
 // Abre o cliente de e-mail. Corpo longo demais para o mailto -> vai para a área de transferência.
 export function abrirClienteEmail(email, ccExtra = []) {
@@ -199,7 +212,7 @@ export function abrirClienteEmail(email, ccExtra = []) {
   const base = `mailto:${dest.map(encodeURIComponent).join(",")}?subject=${encodeURIComponent(email.assunto)}${cc.length ? `&cc=${cc.map(encodeURIComponent).join(",")}` : ""}`;
   const completo = `${base}&body=${encodeURIComponent(email.corpo)}`;
   if (completo.length <= MAILTO_LIMITE) { window.open(completo, "_blank"); return true; }
-  copiarTexto(email.corpo);
+  copiarTextoFormatado(email.corpo);
   window.open(`${base}&body=${encodeURIComponent('[Conteúdo copiado para a área de transferência — cole aqui com Ctrl+V. Se não colar, use o botão "Copiar" no sistema.]')}`, "_blank");
   return false;
 }
@@ -211,7 +224,7 @@ export async function enviarPelaRegua(refId, origem, tipo, ultimos90) {
 }
 export async function copiarPelaRegua(refId, origem, tipo, ultimos90) {
   const email = montarEmail(refId, origem, ultimos90, tipo); if (!email) return toast("Registro não encontrado.", "erro");
-  await copiarTexto(`Para: ${email.para}\nAssunto: ${email.assunto}\n\n${email.corpo}`);
+  await copiarTextoFormatado(`Para: ${email.para}\nAssunto: ${email.assunto}\n\n${email.corpo}`);
   await registrarEnvio(refId, tipo, origem);
   toast("E-mail copiado e registrado como enviado.");
 }
