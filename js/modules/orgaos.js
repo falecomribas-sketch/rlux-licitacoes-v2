@@ -1,12 +1,12 @@
 // Órgãos públicos. Campos: id, uasg, nome, cnpj, municipio, estado, contatos[{nome,cargo,email,telefone}]
-import { store, newId } from "../core/store.js?v=20261113-205127";
-import { dataTable, acoes, btnEditar, btnExcluir, btnVer, onAction } from "../core/table.js?v=20261113-205127";
-import { formModal, lerForm, campo, inputTxt, select, linha, exportarExcel, UFS, mascaraCnpj } from "../core/forms.js?v=20261113-205127";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261113-205127";
-import { esc, h, raw, toTitleCase, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261113-205127";
-import { podeEditar } from "../core/auth.js?v=20261113-205127";
-import { getPortal } from "../core/domain.js?v=20261113-205127";
-import { popover } from "../core/popover.js?v=20261113-205127";
+import { store, newId } from "../core/store.js?v=20261113-235511";
+import { dataTable, acoes, btnEditar, btnExcluir, btnVer, onAction } from "../core/table.js?v=20261113-235511";
+import { formModal, lerForm, campo, inputTxt, select, linha, exportarExcel, UFS, mascaraCnpj } from "../core/forms.js?v=20261113-235511";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261113-235511";
+import { esc, h, raw, toTitleCase, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261113-235511";
+import { podeEditar } from "../core/auth.js?v=20261113-235511";
+import { getPortal } from "../core/domain.js?v=20261113-235511";
+import { popover } from "../core/popover.js?v=20261113-235511";
 
 const REGIAO = {
   PR: "Sul", SC: "Sul", RS: "Sul", SP: "Sudeste", RJ: "Sudeste", MG: "Sudeste", ES: "Sudeste",
@@ -109,7 +109,12 @@ export default {
 
 function contatoHtml(c = {}) {
   return `<div class="subcard contato">
-    <button type="button" class="icon-btn sm danger remove" data-remove aria-label="Remover contato">${icon("x")}</button>
+    <div class="contato-tools" style="position:absolute;top:6px;right:6px;display:flex;gap:2px;align-items:center">
+      <button type="button" class="btn btn-ghost btn-sm" data-ins-acima title="Inserir contato acima" style="height:24px;padding:0 8px;font-size:11.5px">${icon("plus")} acima</button>
+      <button type="button" class="icon-btn sm" data-sobe title="Mover para cima" aria-label="Mover para cima">↑</button>
+      <button type="button" class="icon-btn sm" data-desce title="Mover para baixo" aria-label="Mover para baixo">↓</button>
+      <button type="button" class="icon-btn sm danger" data-remove aria-label="Remover contato">${icon("x")}</button>
+    </div>
     ${linha(campo("Nome", inputTxt("c_nome", c.nome || "")), campo("Cargo", inputTxt("c_cargo", c.cargo || "")))}
     ${linha(campo("E-mail", `<input type="email" name="c_email" value="${esc(c.email || "")}">`), campo("Telefone", inputTxt("c_tel", c.telefone || "")))}
   </div>`;
@@ -129,8 +134,15 @@ function abrirForm(o = null) {
          <div id="contatos">${(o?.contatos?.length ? o.contatos : [{}]).map(contatoHtml).join("")}</div>`,
     onAberto(form) {
       form.querySelector("[data-cnpj]").addEventListener("input", (e) => mascaraCnpj(e.target));
-      form.querySelector("[data-add-contato]").addEventListener("click", () => form.querySelector("#contatos").insertAdjacentHTML("beforeend", contatoHtml()));
-      form.addEventListener("click", (e) => { const b = e.target.closest("[data-remove]"); if (b) b.closest(".contato").remove(); });
+      const lista = form.querySelector("#contatos");
+      form.querySelector("[data-add-contato]").addEventListener("click", () => { lista.insertAdjacentHTML("beforeend", contatoHtml()); lista.lastElementChild.querySelector("input")?.focus(); });
+      form.addEventListener("click", (e) => {
+        const card = e.target.closest(".contato"); if (!card) return;
+        if (e.target.closest("[data-remove]")) { card.remove(); return; }
+        if (e.target.closest("[data-ins-acima]")) { card.insertAdjacentHTML("beforebegin", contatoHtml()); card.previousElementSibling.querySelector("input")?.focus(); return; }
+        if (e.target.closest("[data-sobe]")) { const ant = card.previousElementSibling; if (ant) lista.insertBefore(card, ant); return; }
+        if (e.target.closest("[data-desce]")) { const prox = card.nextElementSibling; if (prox) lista.insertBefore(prox, card); return; }
+      });
     },
     async onSalvar(form) {
       const v = lerForm(form);
