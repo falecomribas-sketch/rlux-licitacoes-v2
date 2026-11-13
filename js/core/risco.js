@@ -1,9 +1,9 @@
 // Monitor de reequilíbrio: compara o custo gravado na proposta (época da disputa) com o custo atual do cadastro,
 // para ATAs vigentes com saldo. Gatilhos (Parâmetros): lucro atual abaixo do mínimo OU alta do custo acima do limite.
-import { store } from "./store.js?v=20261113-182835";
-import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada } from "./domain.js?v=20261113-182835";
-import { getCfg, piso, custoVencido, diasCusto } from "./preco.js?v=20261113-182835";
-import { hojeIso } from "./utils.js?v=20261113-182835";
+import { store } from "./store.js?v=20261113-203913";
+import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada } from "./domain.js?v=20261113-203913";
+import { getCfg, piso, custoVencido, diasCusto } from "./preco.js?v=20261113-203913";
+import { hojeIso } from "./utils.js?v=20261113-203913";
 
 export function itensEmRisco() {
   const cfg = getCfg(); const hoje = hojeIso();
@@ -30,7 +30,7 @@ export function itensEmRisco() {
       if (!gatilhoLucro && !gatilhoAlta) return;
       const pedido = emAndamento.find((r) => r.ataId === ata.id && (r.itens || []).some((x) => String(x.num) === String(it.num) || x.nome === it.nome));
       out.push({ ata, p, l, o, item: it, prod, custoProp, custoAtual, custoData: prod.custoData || "", diasCusto: diasCusto(prod), semData, variacao, lucroAtual: lucroAtual * 100, pisoAtual,
-        impacto: it.saldo * Math.max(0, custoAtual - custoProp), abaixoPiso: it.preco < pisoAtual, gatilhoLucro, gatilhoAlta, pedidoId: pedido?.id || "", nivel: pedido ? "em_andamento" : semData ? "verificar" : (it.preco < pisoAtual ? "critico" : "alerta") });
+        impacto: it.saldo * Math.max(0, custoAtual - custoProp), abaixoPiso: it.preco < pisoAtual, gatilhoLucro, gatilhoAlta, pedidoId: pedido?.id || "", nivel: pedido ? "em_andamento" : (variacao !== null && variacao <= 1) ? "origem" : semData ? "verificar" : (it.preco < pisoAtual ? "critico" : "alerta") }); // "origem": margem já era baixa na proposta, sem alta de custo — não fundamenta reequilíbrio
     });
   });
   return out.sort((a, b) => b.impacto - a.impacto);

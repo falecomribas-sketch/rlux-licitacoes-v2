@@ -1,17 +1,20 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261113-182835";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-182835";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-182835";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261113-182835";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261113-182835";
-import { podeEditar } from "../core/auth.js?v=20261113-182835";
-import { itensEmRisco } from "../core/risco.js?v=20261113-182835";
-import { getCfg } from "../core/preco.js?v=20261113-182835";
-import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261113-182835";
-import { ssel } from "../core/ssel.js?v=20261113-182835";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-182835";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261113-182835";
+import { store, newId } from "../core/store.js?v=20261113-203913";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-203913";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261113-203913";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261113-203913";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261113-203913";
+import { podeEditar } from "../core/auth.js?v=20261113-203913";
+import { itensEmRisco } from "../core/risco.js?v=20261113-203913";
+import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261113-203913";
+import { EMPRESA } from "../core/pdf.js?v=20261113-203913";
+import { dataLocal } from "../core/utils.js?v=20261113-203913";
+import { getCfg } from "../core/preco.js?v=20261113-203913";
+import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261113-203913";
+import { ssel } from "../core/ssel.js?v=20261113-203913";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261113-203913";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261113-203913";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -57,6 +60,7 @@ export default {
       ],
     });
     let riscoOrd = "impacto", riscoDir = "desc", riscoLimite = 40, riscoBusca = "", riscoNivel = "";
+    iniciarRegua();
     const painelRisco = () => {
       const box = el.querySelector("#risco"); if (!box) return; const cfg = getCfg(); const todos = itensEmRisco();
       const q = riscoBusca.trim().toLowerCase();
@@ -64,13 +68,13 @@ export default {
       const chave = { ata: (x) => (x.o.nome || "") + " " + (x.ata.numero || ""), item: (x) => x.item.nome || "", saldo: (x) => x.item.saldo || 0, preco: (x) => x.item.preco || 0, variacao: (x) => x.variacao ?? -1e9, lucro: (x) => x.lucroAtual, impacto: (x) => x.impacto, situacao: (x) => ({ critico: 0, alerta: 1, verificar: 2, em_andamento: 3 })[x.nivel] ?? 9, vencimento: (x) => x.ata.vencimento || "9999" }[riscoOrd] || ((x) => x.impacto);
       lst.sort((a, b) => { const x = chave(a), y = chave(b); const c = typeof x === "number" ? x - y : String(x).localeCompare(String(y)); return riscoDir === "asc" ? c : -c; });
       const th = (k, t, cls = "") => `<th class="${cls}"><a href="#" data-risco-ord="${k}" style="text-decoration:none;${riscoOrd === k ? "font-weight:700;color:var(--navy-2)" : "font-weight:600;color:inherit"}">${t}${riscoOrd === k ? (riscoDir === "asc" ? " ↑" : " ↓") : ""}</a></th>`;
-      const NIVEL = { critico: ["Abaixo do piso", "tag-red"], alerta: ["Em risco", "tag-amber"], verificar: ["Verificar custo", "tag-gray"], em_andamento: ["Pedido em andamento", "tag-blue"] };
+      const NIVEL = { critico: ["Abaixo do piso", "tag-red"], alerta: ["Em risco", "tag-amber"], verificar: ["Verificar custo", "tag-gray"], em_andamento: ["Pedido em andamento", "tag-blue"], origem: ["Margem baixa na origem", "tag-gray"] };
       const porAta = new Map(); lst.forEach((x) => { const k = x.ata.id; if (!porAta.has(k)) porAta.set(k, []); porAta.get(k).push(x); });
       const impacto = lst.reduce((s, x) => s + x.impacto, 0); const mostrar = lst.slice(0, riscoLimite);
       const cont = (n) => todos.filter((x) => x.nivel === n).length;
       box.innerHTML = `<div class="card-head"><h2>Itens em risco de reequilíbrio <span class="muted" style="font-weight:400;font-size:13px">(${lst.length}${lst.length !== todos.length ? ` de ${todos.length}` : ""})</span></h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="muted" style="font-size:12px">alerta se lucro &lt; ${cfg.lucroMinReq ?? cfg.lucroMin}% ou custo +${cfg.altaCustoReq ?? 10}% · impacto: <strong>${fmt(impacto)}</strong></span><button class="btn btn-ghost btn-sm" data-act="risco-excel">${icon("download")} Excel</button></div></div>
         <div class="chip-filters"><label class="search" style="min-width:240px"><span class="search-ic">${icon("search")}</span><input type="search" id="risco-busca" class="input" placeholder="ATA, órgão, item, código…" value="${esc(riscoBusca)}"></label>
-          ${[["", "Todos", todos.length], ["critico", "Abaixo do piso", cont("critico")], ["alerta", "Em risco", cont("alerta")], ["verificar", "Verificar custo", cont("verificar")], ["em_andamento", "Pedido em andamento", cont("em_andamento")]].map(([k, t, n]) => `<button class="chip ${riscoNivel === k ? "active" : ""}" data-risco-nivel="${k}">${t} (${n})</button>`).join("")}</div>`
+          ${[["", "Todos", todos.length], ["critico", "Abaixo do piso", cont("critico")], ["alerta", "Em risco", cont("alerta")], ["verificar", "Verificar custo", cont("verificar")], ["em_andamento", "Pedido em andamento", cont("em_andamento")], ["origem", "Margem baixa na origem", cont("origem")]].map(([k, t, n]) => `<button class="chip ${riscoNivel === k ? "active" : ""}" data-risco-nivel="${k}">${t} (${n})</button>`).join("")}</div>`
         + (lst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr>${th("ata", "ATA / órgão")}${th("item", "Item")}${th("saldo", "Saldo", "num")}${th("preco", "Preço contratado", "num")}${th("variacao", "Custo proposta → atual")}${th("lucro", "Lucro hoje", "num")}${th("impacto", "Impacto", "num")}${th("situacao", "Situação")}<th></th></tr></thead><tbody>
           ${mostrar.map((x) => `<tr><td><strong>${esc(x.ata.numero || "—")}</strong><div class="muted" style="font-size:11px">${esc(toTitleCase(x.o.nome || ""))}${x.ata.vencimento ? ` · até ${fmtD(x.ata.vencimento)}` : ""}</div></td>
             <td><strong>${esc(x.item.num ?? "")}</strong> ${esc((x.item.nome || "").slice(0, 60))}<div class="muted" style="font-size:11px">${esc(x.prod.codigo || "")}</div></td>
@@ -79,7 +83,7 @@ export default {
             <td class="num" style="font-weight:600;color:${x.lucroAtual < 0 ? "var(--red)" : x.gatilhoLucro ? "var(--amber-txt)" : "var(--green)"}">${x.lucroAtual.toFixed(1).replace(".", ",")}%</td>
             <td class="num"><strong>${fmt(x.impacto)}</strong></td>
             <td>${tag(...NIVEL[x.nivel])}</td>
-            <td>${x.pedidoId ? `<button class="btn btn-ghost btn-sm" data-act="editar" data-id="${esc(x.pedidoId)}">Abrir pedido</button>` : podeEditar() ? `<button class="btn btn-primary btn-sm" data-act="solicitar" data-id="${esc(x.ata.id)}">Solicitar</button>` : ""}</td></tr>`).join("")}
+            <td style="white-space:nowrap">${x.pedidoId ? `<button class="btn btn-ghost btn-sm" data-act="editar" data-id="${esc(x.pedidoId)}">Abrir pedido</button>` : x.nivel === "origem" ? `<span class="muted" style="font-size:11.5px" title="Sem alta de custo desde a proposta: não há fato superveniente para fundamentar o pedido">sem base para pedido</span>` : podeEditar() ? `${(() => { const av = ultimoAviso(x.p.id); return av ? `<div class="muted" style="font-size:11px;margin-bottom:4px">Órgão avisado em ${fmtD(dataLocal(av.data))}</div>` : ""; })()}<button class="btn btn-ghost btn-sm" data-act="avisar" data-id="${esc(x.ata.id)}" title="E-mail ao órgão pedindo contato e procedimento">${icon("mail")} ${ultimoAviso(x.p.id) ? "Reenviar aviso" : "Avisar órgão"}</button> <button class="btn btn-primary btn-sm" data-act="solicitar" data-id="${esc(x.ata.id)}">Solicitar</button>` : ""}</td></tr>`).join("")}
           </tbody></table></div>${lst.length > mostrar.length ? `<div style="display:flex;gap:8px;align-items:center;padding:10px 16px"><span class="muted" style="font-size:12px">Mostrando ${mostrar.length} de ${lst.length}.</span><button class="btn btn-ghost btn-sm" data-risco-mais="40">Mostrar mais 40</button><button class="btn btn-ghost btn-sm" data-risco-mais="all">Mostrar todos</button></div>` : ""}</div>`
         : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">Nenhum item em risco: em todas as ATAs vigentes com saldo, o custo atual ainda sustenta o lucro mínimo. O monitor recalcula a cada importação de custos.</p></div>`);
     };
@@ -92,6 +96,7 @@ export default {
     el.addEventListener("input", (e) => { if (e.target.id !== "risco-busca") return; riscoBusca = e.target.value; riscoLimite = 40; const pos = e.target.selectionStart; painelRisco(); const i = el.querySelector("#risco-busca"); if (i) { i.focus(); i.setSelectionRange(pos, pos); } });
     onAction(el, {
       st: (id) => { stFiltro = id; el.querySelectorAll(".chip").forEach((c) => c.classList.toggle("active", c.dataset.id === id)); tabela.refresh(); },
+      avisar: (ataId) => { const x = itensEmRisco().find((y) => y.ata.id === ataId); if (x) avisarOrgao(x); },
       "risco-excel": () => exportarExcel(itensEmRisco().map((x) => ({ ATA: x.ata.numero || "", Órgão: x.o.nome || "", UASG: x.o.uasg || "", Pregão: x.l?.numero || "", Vencimento: x.ata.vencimento || "", Item: x.item.num ?? "", Descrição: x.item.nome || "", Código: x.prod.codigo || "", Saldo: x.item.saldo, "Preço contratado": x.item.preco, "Piso hoje": +x.pisoAtual.toFixed(2), "Custo proposta": x.custoProp, "Custo atual": x.custoAtual, "Data custo": x.custoData || "", "Variação %": x.variacao === null ? "" : +x.variacao.toFixed(2), "Lucro hoje %": +x.lucroAtual.toFixed(2), Impacto: +x.impacto.toFixed(2), Situação: ({ critico: "Abaixo do piso", alerta: "Em risco", verificar: "Verificar custo", em_andamento: "Pedido em andamento" })[x.nivel] })), "Itens em risco", "reequilibrio_itens_em_risco"),
       solicitar: (ataId) => { const lst = itensEmRisco().filter((x) => x.ata.id === ataId && !x.pedidoId); if (!lst.length) return;
         const cfg = getCfg(); const hoje = fmtD(hojeIso());
@@ -101,7 +106,7 @@ export default {
       excluir: async (id) => { if (!await confirmar("Excluir esta solicitação?", { ok: "Excluir", perigo: true })) return; await store.remove("reequilibrio", id); toast("Excluída."); },
       excel: () => exportarExcel(store.get("reequilibrio").map((r) => { const i = reqInfo(r); return { "Nº Solicitação": r.numero, ATA: i.ata?.numero || "", Órgão: i.o.nome || "", UASG: i.o.uasg || "", "Dt. Solicitação": fmtD(r.dataSolic), "Dt. Resposta": r.dataResp ? fmtD(r.dataResp) : "", Status: r.status, "% Reajuste": (r.percReajuste || 0).toFixed(2), "Diferença (R$)": r.valorDif || 0, "Total Original": r.totalOrig || 0, "Total Reajustado": r.totalNovo || 0, "Tipo": r.fundamento || "", Índice: r.indice || "", Aplicado: r.aplicado ? "Sim" : "Não", Justificativa: r.justificativa || "" }; }), "Reequilíbrio", "reequilibrio"),
     });
-    kpis(); unsub = store.on("*", () => { kpis(); tabela.refresh(); painelRisco(); });
+    kpis(); const u1 = store.on("*", () => { kpis(); tabela.refresh(); painelRisco(); }); const u2 = onRegua(() => painelRisco()); unsub = () => { u1(); u2(); };
   },
   destroy() { unsub?.(); stFiltro = ""; },
 };
@@ -242,4 +247,42 @@ ${n + 1}. A comunicação aos órgãos participantes e contratantes, para que av
 ${n + 2}. Subsidiariamente, caso o pedido não seja acolhido, o cancelamento do registro de preços do(s) item(ns) indicado(s), com liberação da fornecedora do compromisso assumido sem aplicação de sanções, por se tratar de fato superveniente e alheio à sua vontade.
 
 Seguem em anexo: comunicados de reajuste emitidos pelas importadoras/fabricantes; notas fiscais de compra anteriores e posteriores ao reajuste; tabelas de preços dos fornecedores; cotações atuais de outros distribuidores; [e cotações do dólar (PTAX/BCB) nas datas de referência].`;
+}
+
+// ---------- aviso prévio ao órgão (antes do dossiê) ----------
+const ultimoAviso = (propostaId) => enviosDe(propostaId).filter((e) => e.tipo === "reequilibrio_aviso").slice(-1)[0] || null;
+function textoAviso(x) {
+  const l = x.l || {}; const tipo = l.tipo || "Pregão Eletrônico";
+  return `Prezado(a) Senhor(a),
+
+Em referência ao ${tipo} nº ${l.numero || "____"} – Ata de Registro de Preços nº ${x.ata.numero || "____"}, informamos que, em virtude de reajustes significativos nos preços de aquisição praticados pelos fabricantes/importadores após a apresentação de nossa proposta, precisaremos solicitar o reequilíbrio econômico-financeiro de itens registrados na referida Ata.
+
+Solicitamos a gentileza de nos informar o contato responsável e o procedimento adotado por esse órgão para a apresentação da documentação (ofício, planilhas e comprovantes), bem como se há formulário ou protocolo específico.
+
+Permanecemos à disposição e reiteramos nosso compromisso com a continuidade do fornecimento.
+
+Atenciosamente,
+${EMPRESA.nome} · CNPJ ${EMPRESA.cnpj}
+${EMPRESA.emailLicitacoes} · ${EMPRESA.tel}`;
+}
+function avisarOrgao(x) {
+  const o = x.o || {}; const l = x.l || {}; const contatos = (o.contatos || []).filter((c) => c.email);
+  const pre = (c) => /pregoeir|licita|compra|contrat/i.test(`${c.cargo || ""} ${c.email || ""} ${c.nome || ""}`);
+  const assunto = `ATA nº ${x.ata.numero || ""} – ${l.tipo || "Pregão Eletrônico"} nº ${l.numero || ""} – Reequilíbrio econômico-financeiro – procedimento para apresentação`;
+  const itensRisco = itensEmRisco().filter((y) => y.ata.id === x.ata.id && y.nivel !== "origem");
+  const m = openModal({ titulo: `Avisar órgão — reequilíbrio · ATA ${x.ata.numero || ""}`, largura: "lg",
+    corpo: `<div class="info-box" style="margin-bottom:12px"><div><div class="k">Órgão</div>${esc(toTitleCase(o.nome || "—"))}</div><div><div class="k">Pregão</div>${esc(l.tipo || "Pregão Eletrônico")} nº ${esc(l.numero || "—")}</div><div><div class="k">ATA</div>${esc(x.ata.numero || "—")}${x.ata.vencimento ? ` · vigente até ${fmtD(x.ata.vencimento)}` : ""}</div><div><div class="k">Itens em risco</div>${itensRisco.length} · impacto ${fmt(itensRisco.reduce((s, y) => s + y.impacto, 0))} <span class="muted">(não citados neste e-mail)</span></div></div>
+      <div class="field" style="margin-bottom:10px"><span style="display:flex;justify-content:space-between"><span>Para — contatos cadastrados do órgão</span><a href="#orgaos" style="font-weight:400;font-size:12px">+ cadastrar contato em Órgãos</a></span>
+        ${contatos.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${contatos.map((c, i) => `<label style="display:flex;align-items:center;gap:8px;border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;background:var(--surface-2)"><input type="checkbox" data-dest="${i}" ${contatos.length === 1 || pre(c) || !contatos.some(pre) ? "checked" : ""} style="margin:0"> <strong>${esc(c.nome || c.email)}</strong> <span class="muted">${esc([c.cargo, c.email].filter(Boolean).join(" · "))}</span></label>`).join("")}</div>` : `<div class="info-box" style="border-color:var(--amber)"><div>Este órgão não tem contato com e-mail cadastrado. Cadastre em <a href="#orgaos">Órgãos</a> ou digite o e-mail abaixo.</div></div>`}
+        <input type="text" class="input" id="av-extra" placeholder="Outros e-mails (separe por ;)" style="margin-top:8px"><div class="muted" style="font-size:12px;margin-top:4px">Cc: ${esc(EMPRESA.emailLicitacoes)} · fonte ao copiar: Aptos Narrow 11</div></div>
+      <label class="field" style="margin-bottom:10px"><span>Assunto</span><input type="text" class="input" id="av-assunto" value="${esc(assunto)}"></label>
+      <label class="field"><span>Mensagem <span class="muted" style="font-weight:400">(editável)</span></span><textarea class="input" id="av-corpo" rows="13" style="font-size:13px;line-height:1.5">${esc(textoAviso(x))}</textarea></label>`,
+    rodape: `<span class="muted" style="font-size:12px;margin-right:auto">Ao copiar ou abrir, fica registrado no histórico da ATA.</span><button class="btn btn-ghost" data-close>Fechar</button><button class="btn btn-ghost" data-av="copiar">${icon("file")} Copiar e registrar</button><button class="btn btn-primary" data-av="enviar">${icon("mail")} Abrir no e-mail e registrar</button>` });
+  m.addEventListener("click", async (e) => { const b = e.target.closest("[data-av]"); if (!b) return;
+    const sel = [...m.querySelectorAll("[data-dest]:checked")].map((c) => contatos[+c.dataset.dest].email); const extra = m.querySelector("#av-extra").value.split(/[;,]/).map((t) => t.trim()).filter(Boolean);
+    const para = [...new Set([...sel, ...extra])]; if (!para.length) return toast("Selecione ou digite ao menos um e-mail.", "erro");
+    const email = { para: para.join(";"), assunto: m.querySelector("#av-assunto").value.trim(), corpo: m.querySelector("#av-corpo").value };
+    closeModal();
+    if (b.dataset.av === "copiar") { await copiarTextoFormatado(`Para: ${email.para}\nAssunto: ${email.assunto}\n\n${email.corpo}`); await registrarEnvio(x.p.id, "reequilibrio_aviso"); toast("Aviso copiado e registrado."); }
+    else { const inteiro = abrirClienteEmail(email, [EMPRESA.emailLicitacoes]); await registrarEnvio(x.p.id, "reequilibrio_aviso"); toast(inteiro ? "E-mail aberto e aviso registrado." : "Texto longo: corpo copiado — cole com Ctrl+V no e-mail que abriu.", inteiro ? "ok" : "info", 6000); } });
 }

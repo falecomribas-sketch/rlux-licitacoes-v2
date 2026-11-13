@@ -2,11 +2,11 @@
 // renovação D-60/D-30, agradecimento) e os textos dos e-mails.
 // Portado do legado. Estado em Firestore: config/reguaEnvios (último carimbo por
 // tipo) e config/reguaHist (histórico acumulado). Sem localStorage.
-import { store } from "./store.js?v=20261113-182835";
-import { fmt, fmtD, hojeIso, diasAte } from "./utils.js?v=20261113-182835";
-import { getLicit, getOrgao, getProp, getAta, isVencido, propTotal, propEmpenhado, propSaldo, propSaldoDetalhado, adesaoSaldo, ataFoiRenovada } from "./domain.js?v=20261113-182835";
-import { EMPRESA } from "./pdf.js?v=20261113-182835";
-import { toast } from "./ui.js?v=20261113-182835";
+import { store } from "./store.js?v=20261113-203913";
+import { fmt, fmtD, hojeIso, diasAte } from "./utils.js?v=20261113-203913";
+import { getLicit, getOrgao, getProp, getAta, isVencido, propTotal, propEmpenhado, propSaldo, propSaldoDetalhado, adesaoSaldo, ataFoiRenovada } from "./domain.js?v=20261113-203913";
+import { EMPRESA } from "./pdf.js?v=20261113-203913";
+import { toast } from "./ui.js?v=20261113-203913";
 
 // ---------- estado ----------
 let envios = {}, hist = {}; let carregado = false;
@@ -42,7 +42,7 @@ const isoDe = (v) => { try { const d = new Date(v); if (isNaN(d)) return null; r
 const addDias = (iso, n) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return isoDe(d); };
 const diff = (a, b) => Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 864e5);
 export const INTERVALO = 30;
-export const TIPO_ROTULO = { acompanhamento: "Acompanhamento", renovacao60: "Renovação D-60", renovacao30: "Renovação D-30", agradecimento: "Agradecimento" };
+export const TIPO_ROTULO = { acompanhamento: "Acompanhamento", renovacao60: "Renovação D-60", renovacao30: "Renovação D-30", agradecimento: "Agradecimento", reequilibrio_aviso: "Aviso de reequilíbrio" };
 
 // ---------- saldos por item (adesões) ----------
 export function calcSaldoItensAdesao(a) {

@@ -1,8 +1,8 @@
 // Pedido de Reequilíbrio Econômico-Financeiro (retrato) — portado de gerarPDFReq.
-import { novoDoc, tabelaPadrao, EMPRESA, AZUL, VERDE, AMBAR, ROXO, CINZA, ESCURO, BRANCO } from "../core/pdf.js?v=20261113-182835";
-import { fmt, fmtD, fmtNum } from "../core/utils.js?v=20261113-182835";
-import { reqInfo } from "../modules/reequilibrio.js?v=20261113-182835";
-import { toast } from "../core/ui.js?v=20261113-182835";
+import { novoDoc, tabelaPadrao, EMPRESA, AZUL, VERDE, AMBAR, ROXO, CINZA, ESCURO, BRANCO } from "../core/pdf.js?v=20261113-203913";
+import { fmt, fmtD, fmtNum } from "../core/utils.js?v=20261113-203913";
+import { reqInfo } from "../modules/reequilibrio.js?v=20261113-203913";
+import { toast } from "../core/ui.js?v=20261113-203913";
 
 const TEXTO_FUND = {
   revisao: 'Art. 124, inciso II, alínea "d" da Lei nº 14.133/2021 — Os contratos poderão ser alterados, com as devidas justificativas, por acordo entre as partes, para restabelecer o equilíbrio econômico-financeiro inicial do contrato em caso de força maior, caso fortuito ou fato do príncipe ou em decorrência de fatos imprevisíveis ou previsíveis de consequências incalculáveis, que inviabilizem a execução do contrato tal como pactuado, respeitada, em qualquer caso, a repartição objetiva de risco estabelecida no contrato.',

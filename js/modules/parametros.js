@@ -1,11 +1,11 @@
 // Parâmetros: precificação (piso) e regras da IA (padrões por família e equivalências de termo).
 // Firestore: config/precificacao e config/regrasIA. Só Admin edita; todos podem ver.
-import { store } from "../core/store.js?v=20261113-182835";
-import { toast, icon, closeModal, confirmar } from "../core/ui.js?v=20261113-182835";
-import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js?v=20261113-182835";
-import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js?v=20261113-182835";
-import { isAdmin } from "../core/auth.js?v=20261113-182835";
-import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js?v=20261113-182835";
+import { store } from "../core/store.js?v=20261113-203913";
+import { toast, icon, closeModal, confirmar } from "../core/ui.js?v=20261113-203913";
+import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js?v=20261113-203913";
+import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js?v=20261113-203913";
+import { isAdmin } from "../core/auth.js?v=20261113-203913";
+import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js?v=20261113-203913";
 
 // Regras portadas do prompt "GPT 2" — ponto de partida editável
 export const REGRAS_PADRAO = {
