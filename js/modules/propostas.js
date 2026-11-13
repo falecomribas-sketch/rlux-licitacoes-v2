@@ -1,16 +1,16 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261113-115749";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-115749";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261113-115749";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261113-115749";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261113-115749";
-import { podeEditar } from "../core/auth.js?v=20261113-115749";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261113-115749";
-import { ssel } from "../core/ssel.js?v=20261113-115749";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261113-115749";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261113-115749";
-import { iniciarPreco, piso } from "../core/preco.js?v=20261113-115749";
+import { store, newId } from "../core/store.js?v=20261113-130604";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261113-130604";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261113-130604";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261113-130604";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261113-130604";
+import { podeEditar } from "../core/auth.js?v=20261113-130604";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261113-130604";
+import { ssel } from "../core/ssel.js?v=20261113-130604";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261113-130604";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261113-130604";
+import { iniciarPreco, piso } from "../core/preco.js?v=20261113-130604";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -248,7 +248,7 @@ function lancarResultado(p) {
         ${itens.map((it, i) => `<tr data-i="${i}"><td><strong>${esc(it.num ?? i + 1)}</strong></td><td>${esc(it.nome)}<div class="muted" style="font-size:11px">${esc(it.codigo || "")}</div></td><td class="num">${fmtNum(it.qtd)}</td><td class="num">${fmt(it.custo)}</td><td class="num">${fmt(piso(it.custo))}</td><td class="num">${fmt(it.preco)}</td><td><input type="number" class="input input-sm" name="final_${i}" value="${it.preco ?? ""}" step="0.01" min="0" style="width:120px"></td><td class="num mg" style="font-weight:600"></td><td style="text-align:center"><input type="checkbox" name="perdido_${i}"></td></tr>`).join("")}
       </tbody></table></div>
       <div class="totais" style="margin-top:10px"><div class="total-geral"><span class="muted">Total readequado (itens vencidos)</span><strong id="t-final">—</strong></div></div>
-      ${linha(campo("Data da disputa", `<input type="date" name="dataDisputa" value="${hojeIso()}">`), campo("Observação", `<input type="text" name="obsDisputa" placeholder="ex.: perdemos o item 3 por R$ 0,02">`))}`,
+      ${linha(campo(`Data da disputa${l.data ? ` <span class="muted" style="font-weight:400">(sessão da licitação: ${fmtD(l.data)})</span>` : ""}`, `<input type="date" name="dataDisputa" value="${l.data && l.data <= hojeIso() ? l.data : hojeIso()}">`), campo("Observação", `<input type="text" name="obsDisputa" placeholder="ex.: perdemos o item 3 por R$ 0,02">`))}`,
     onAberto(form) {
       const calc = () => { let tot = 0; form.querySelectorAll("tr[data-i]").forEach((tr) => { const i = +tr.dataset.i, it = itens[i]; const perdido = form.elements[`perdido_${i}`].checked; const v = +form.elements[`final_${i}`].value || 0; const mg = tr.querySelector(".mg"); tr.style.opacity = perdido ? ".45" : "1";
         if (perdido || !v) { mg.textContent = perdido ? "perdido" : "—"; mg.style.color = "var(--muted)"; return; }
