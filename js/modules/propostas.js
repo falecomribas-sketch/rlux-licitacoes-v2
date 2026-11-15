@@ -1,17 +1,17 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261115-120940";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261115-120940";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261115-120940";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261115-120940";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261115-120940";
-import { podeEditar } from "../core/auth.js?v=20261115-120940";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261115-120940";
-import { ssel } from "../core/ssel.js?v=20261115-120940";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261115-120940";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261115-120940";
-import { iniciarPreco, piso, getCfg } from "../core/preco.js?v=20261115-120940";
-import { dataLocal } from "../core/utils.js?v=20261115-120940";
+import { store, newId } from "../core/store.js?v=20261115-125438";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261115-125438";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261115-125438";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261115-125438";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261115-125438";
+import { podeEditar } from "../core/auth.js?v=20261115-125438";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261115-125438";
+import { ssel } from "../core/ssel.js?v=20261115-125438";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261115-125438";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261115-125438";
+import { iniciarPreco, piso, getCfg } from "../core/preco.js?v=20261115-125438";
+import { dataLocal } from "../core/utils.js?v=20261115-125438";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;

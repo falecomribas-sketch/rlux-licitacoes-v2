@@ -1,23 +1,23 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261115-120940";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261115-120940";
-import { EMPRESA } from "../core/pdf.js?v=20261115-120940";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261115-120940";
-import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261115-120940";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261115-120940";
-import { store } from "../core/store.js?v=20261115-120940";
-import { ssel } from "../core/ssel.js?v=20261115-120940";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261115-120940";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261115-120940";
-import { newId } from "../core/store.js?v=20261115-120940";
-import { navigate } from "../core/router.js?v=20261115-120940";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261115-120940";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261115-120940";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261115-120940";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-120940";
-import { copiarTexto } from "../core/regua.js?v=20261115-120940";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261115-125438";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261115-125438";
+import { EMPRESA } from "../core/pdf.js?v=20261115-125438";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261115-125438";
+import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261115-125438";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261115-125438";
+import { store } from "../core/store.js?v=20261115-125438";
+import { ssel } from "../core/ssel.js?v=20261115-125438";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261115-125438";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261115-125438";
+import { newId } from "../core/store.js?v=20261115-125438";
+import { navigate } from "../core/router.js?v=20261115-125438";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261115-125438";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261115-125438";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261115-125438";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-125438";
+import { copiarTexto } from "../core/regua.js?v=20261115-125438";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -64,6 +64,7 @@ export default {
       if (act === "excel") exportarExcel((ultima.itens || []).map((i) => ({ Item: i.item, Lote: i.lote || "", "Descrição EDITAL": i.descricao, Unidade: i.unidade || "", Quantidade: i.quantidade ?? "", "Preço de Referência": i.precoReferencia ?? "", "ME/EPP": i.exclusivoMeEpp || "", "Marca ref.": i.marcaReferencia || "", Família: i.familia || "", Página: i.pagina ?? "" })), "Itens", "itens_edital");
       if (act === "copiar") copiarTexto(textoResumo(ultima)).then(() => toast("Resumo copiado."));
       if (act === "nova") { ultima = null; arquivos = []; lista(); mostrar(el); }
+      if (act === "voltar") { ultima = null; mostrar(el); historico(el); el.querySelector("#historico")?.scrollIntoView({ behavior: "smooth", block: "start" }); }
       if (act === "casar") casar(el);
       if (act === "nova-licitacao") novaLicitacao(el);
       if (act === "disputa") { const inp = el.querySelector("#disputa-file"); if (inp) { inp.onchange = () => { if (inp.files[0]) preencherDisputa(inp.files[0]); inp.value = ""; }; inp.click(); } }
@@ -107,7 +108,7 @@ function mostrar(el) {
   const box = el.querySelector("#resultado"), acoes = el.querySelector("#acoes"); if (!box) return;
   if (!ultima) { box.innerHTML = ""; acoes.innerHTML = ""; return; }
   const r = ultima, L = r.resumo || {}, s = semaforo(r), m = r.meta || {};
-  acoes.innerHTML = `<button class="btn btn-ghost" data-act="copiar">${icon("file")} Copiar resumo</button><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel dos itens</button><button class="btn btn-ghost" data-act="nova">${icon("plus")} Nova análise</button>${r.correspondencia && podeEditar() && !criadaValida(r) ? `<button class="btn btn-primary" data-act="nova-licitacao">${icon("plus")} ${r.criada ? "Gerar proposta novamente" : "Nova licitação"}</button>` : ""}${criadaValida(r) ? `<a class="btn btn-primary" href="#propostas">${icon("doc")} Ver proposta #${propostaCriada(r).num}</a>` : ""}`;
+  acoes.innerHTML = `<button class="btn btn-ghost" data-act="voltar" title="Fechar esta análise e voltar à lista">← Voltar</button><button class="btn btn-ghost" data-act="copiar">${icon("file")} Copiar resumo</button><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel dos itens</button><button class="btn btn-ghost" data-act="nova">${icon("plus")} Nova análise</button>${r.correspondencia && podeEditar() && !criadaValida(r) ? `<button class="btn btn-primary" data-act="nova-licitacao">${icon("plus")} ${r.criada ? "Gerar proposta novamente" : "Nova licitação"}</button>` : ""}${criadaValida(r) ? `<a class="btn btn-primary" href="#propostas">${icon("doc")} Ver proposta #${propostaCriada(r).num}</a>` : ""}`;
   const semTexto = (r.documentos || []).filter((d) => d.semTexto > 0);
   box.innerHTML = `
     <div class="card" style="margin-bottom:16px"><div class="card-body" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
