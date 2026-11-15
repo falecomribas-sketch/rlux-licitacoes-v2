@@ -1,23 +1,23 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261115-125438";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261115-125438";
-import { EMPRESA } from "../core/pdf.js?v=20261115-125438";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261115-125438";
-import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261115-125438";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261115-125438";
-import { store } from "../core/store.js?v=20261115-125438";
-import { ssel } from "../core/ssel.js?v=20261115-125438";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261115-125438";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261115-125438";
-import { newId } from "../core/store.js?v=20261115-125438";
-import { navigate } from "../core/router.js?v=20261115-125438";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261115-125438";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261115-125438";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261115-125438";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-125438";
-import { copiarTexto } from "../core/regua.js?v=20261115-125438";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261115-130323";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261115-130323";
+import { EMPRESA } from "../core/pdf.js?v=20261115-130323";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261115-130323";
+import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261115-130323";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261115-130323";
+import { store } from "../core/store.js?v=20261115-130323";
+import { ssel } from "../core/ssel.js?v=20261115-130323";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261115-130323";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261115-130323";
+import { newId } from "../core/store.js?v=20261115-130323";
+import { navigate } from "../core/router.js?v=20261115-130323";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261115-130323";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261115-130323";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261115-130323";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-130323";
+import { copiarTexto } from "../core/regua.js?v=20261115-130323";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -148,8 +148,8 @@ function historico(el) {
   const lst = todas.filter((a) => { const L = a.resumo || {}; const n = (a.itens || []).length;
     if (histDe && (!L.dataSessao || L.dataSessao < histDe)) return false; if (histAte && (!L.dataSessao || L.dataSessao > histAte)) return false;
     if (histSit === "proposta" && !criadaValida(a)) return false; if (histSit === "analisado" && criadaValida(a)) return false; if (histSit === "semcorr" && (a.correspondencia || n === 0)) return false; if (histSit === "minhas" && (a.usuario || "").toLowerCase() !== eu) return false;
-    if (!q) return true; const alvo = normTxt([L.orgao, L.numero, L.modalidade, L.municipio, L.estado, L.uasg, a.usuario, fmtD(dataLocal(a.criadoEm)), L.dataSessao ? fmtD(L.dataSessao) : "", ...(a.itens || []).map((i) => i.descricao)].join(" ")); return q.split(/\s+/).every((t) => alvo.includes(t)); });
-  const chave = { analise: (a) => a.criadoEm || "", disputa: (a) => (a.resumo?.dataSessao || "9999-99-99") + " " + (a.resumo?.horaSessao || ""), orgao: (a) => normTxt(a.resumo?.orgao), itens: (a) => (a.itens || []).length, corr: (a) => (a.correspondencia || []).filter((x) => x.produtoId).length / Math.max(1, (a.itens || []).length), situacao: (a) => a.criada ? 2 : (a.itens || []).length ? 1 : 0 }[histOrd] || ((a) => a.criadoEm || "");
+    if (!q) return true; const alvo = normTxt([L.orgao, L.numero, L.modalidade, L.municipio, L.estado, L.uasg, a.usuario, portalDe(L), fmtD(dataLocal(a.criadoEm)), L.dataSessao ? fmtD(L.dataSessao) : "", ...(a.itens || []).map((i) => i.descricao)].join(" ")); return q.split(/\s+/).every((t) => alvo.includes(t)); });
+  const chave = { analise: (a) => a.criadoEm || "", disputa: (a) => (a.resumo?.dataSessao || "9999-99-99") + " " + (a.resumo?.horaSessao || ""), orgao: (a) => normTxt(a.resumo?.orgao), portal: (a) => normTxt(portalDe(a.resumo)) || "zzz", itens: (a) => (a.itens || []).length, corr: (a) => (a.correspondencia || []).filter((x) => x.produtoId).length / Math.max(1, (a.itens || []).length), situacao: (a) => a.criada ? 2 : (a.itens || []).length ? 1 : 0 }[histOrd] || ((a) => a.criadoEm || "");
   lst.sort((a, b) => { const x = chave(a), y = chave(b); const c = typeof x === "number" ? x - y : String(x).localeCompare(String(y)); return histDir === "asc" ? c : -c; });
   const mostrarLst = lst.slice(0, 60);
   const th = (k, t, cls = "") => `<th class="${cls}"><a href="#" data-hist-ord="${k}" style="text-decoration:none;${histOrd === k ? "font-weight:700;color:var(--navy-2)" : "font-weight:600;color:inherit"}">${t}${histOrd === k ? (histDir === "asc" ? " ↑" : " ↓") : ""}</a></th>`;
@@ -161,9 +161,9 @@ function historico(el) {
       <label class="search" style="min-width:260px"><span class="search-ic">${icon("search")}</span><input type="search" id="hist-busca" class="input" placeholder="Buscar por órgão, número, cidade, item, usuário…" value="${esc(histBusca)}"></label>
       <div style="display:flex;gap:6px;flex-wrap:wrap">${SIT_HIST.map(([k, t]) => `<button class="chip ${histSit === k ? "active" : ""}" data-hist-sit="${k}">${t}</button>`).join("")}</div>
       <div style="display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--text-2)"><span>Disputa de</span><input type="date" id="hist-de" class="input input-sm" value="${histDe}" style="width:140px"><span>até</span><input type="date" id="hist-ate" class="input input-sm" value="${histAte}" style="width:140px">${histDe || histAte ? `<button class="btn btn-ghost btn-sm" data-hist-limpar-datas>Limpar</button>` : ""}</div>
-    </div>` + (mostrarLst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr>${th("analise", "Análise")}<th>Licitação</th>${th("disputa", "Disputa")}${th("orgao", "Órgão")}${th("itens", "Itens", "num")}${th("corr", "Correspondência")}${th("situacao", "Situação")}<th></th></tr></thead><tbody>
+    </div>` + (mostrarLst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr>${th("analise", "Análise")}<th>Licitação</th>${th("disputa", "Disputa")}${th("portal", "Portal")}${th("orgao", "Órgão")}${th("itens", "Itens", "num")}${th("corr", "Correspondência")}${th("situacao", "Situação")}<th></th></tr></thead><tbody>
     ${mostrarLst.map((a) => { const L = a.resumo || {}; const n = (a.itens || []).length, c = (a.correspondencia || []).filter((x) => x.produtoId).length;
-      return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtDc(dataLocal(a.criadoEm))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong></td><td style="white-space:nowrap">${disputa(L)}</td><td>${esc((L.orgao || "—").slice(0, 50))}<div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${criadaValida(a) ? tag(`Proposta #${propostaCriada(a).num}`, "tag-teal") : a.criada ? tag("Proposta excluída", "tag-amber") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button> <button class="btn btn-ghost btn-sm btn-icon" data-excluir="${esc(a.id)}" title="Excluir análise">${icon("trash")}</button></td></tr>`; }).join("")}
+      return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtDc(dataLocal(a.criadoEm))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong></td><td style="white-space:nowrap">${disputa(L)}</td><td style="font-size:12.5px">${esc(portalDe(L) || "—")}</td><td>${esc((L.orgao || "—").slice(0, 50))}<div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${criadaValida(a) ? tag(`Proposta #${propostaCriada(a).num}`, "tag-teal") : a.criada ? tag("Proposta excluída", "tag-amber") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button> <button class="btn btn-ghost btn-sm btn-icon" data-excluir="${esc(a.id)}" title="Excluir análise">${icon("trash")}</button></td></tr>`; }).join("")}
   </tbody></table></div></div>` : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">${todas.length ? "Nenhuma análise corresponde à busca." : "As análises feitas a partir de agora ficam guardadas aqui."}</p></div>`);
   const inp = box.querySelector("#hist-busca"); if (inp) { inp.addEventListener("input", () => { histBusca = inp.value; const pos = inp.selectionStart; historico(el); const n = box.querySelector("#hist-busca"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }
   box.querySelectorAll("[data-hist-sit]").forEach((b) => b.addEventListener("click", () => { histSit = b.dataset.histSit; historico(el); }));
@@ -229,6 +229,7 @@ function abaEdital(r, L) {
   return `
     <div class="card" style="margin-bottom:16px"><div class="card-head"><h2>Resumo</h2>${extras.length ? `<span class="muted" style="font-size:12.5px">${esc(extras.join(" · "))}</span>` : ""}</div><div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Campo</th><th>Resposta</th><th>Base no edital</th></tr></thead><tbody>
       ${linha("Órgão", `${L.orgao || "—"}${L.uasg && !NAO_LOC.test(L.uasg) ? ` (UASG ${L.uasg})` : ""}${cnpjDigitos(L.cnpj) ? ` · CNPJ ${cnpjFormatado(L.cnpj)}` : ""}`)}
+      ${portalDe(L) ? linha("Portal da disputa", portalDe(L)) : ""}
       ${contatosIA(L).length ? linha("Contatos", contatosIA(L).map((c) => [c.nome, c.cargo, c.email, c.telefone].filter(Boolean).join(" · ")).join("; ")) : ""}
       ${linha("Nº do pregão / dispensa", `${modalidadeCurta(L.modalidade)} ${numeroCurto(L.numero) || ""}`)}
       ${linha("Município / UF", [L.municipio, L.estado].filter(Boolean).join(" / "))}
@@ -265,6 +266,15 @@ function textoResumo(r) {
 
 // ---------- Etapa D: "Nova licitação" — cria órgão (se preciso), licitação e proposta-rascunho ----------
 const normTxt = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+// Portal da disputa: campo "portal" da análise ou, nas análises antigas, reconhecido no texto do resumo
+const PORTAIS_CONHECIDOS = [["compras.gov.br", "Compras.gov.br"], ["comprasnet", "Compras.gov.br"], ["comprasgovernamentais", "Compras.gov.br"], ["portal de compras publicas", "Portal de Compras Públicas"], ["portaldecompraspublicas", "Portal de Compras Públicas"], ["bll", "BLL"], ["bolsa de licitacoes", "BLL"], ["bnc", "BNC"], ["bolsa nacional de compras", "BNC"], ["licitanet", "Licitanet"], ["licitar digital", "Licitar Digital"], ["bec", "BEC/SP"], ["bolsa eletronica de compras", "BEC/SP"], ["banrisul", "Pregão Online Banrisul"], ["compras publicas", "Portal de Compras Públicas"], ["licitacoes-e", "Licitações-e"], ["licitacoes e", "Licitações-e"], ["novo bbmnet", "BBMNET"], ["bbmnet", "BBMNET"], ["portal nacional de contratacoes", "PNCP"]];
+function portalDe(L) {
+  if (!L) return "";
+  if (L.portal && !NAO_LOC.test(L.portal)) return String(L.portal).trim();
+  const txt = normTxt([L.dataSessaoBase, L.entregaBase, L.validadeBase, L.observacoes, L.objeto, JSON.stringify(L)].join(" "));
+  const hit = PORTAIS_CONHECIDOS.find(([k]) => txt.includes(normTxt(k)));
+  return hit ? hit[1] : "";
+}
 const limparNaoLoc = (v) => (!v || NAO_LOC.test(String(v))) ? "" : String(v).trim();
 // Contatos que a IA achou no edital, já limpos
 function contatosIA(L) {
@@ -303,7 +313,7 @@ function novaLicitacao(el) {
   const r = ultima; if (!r) return; const L = r.resumo || {}; const linhas = linhasCorr().filter((x) => x.p);
   if (!linhas.length) return toast("Nenhum item com produto escolhido. Casar os itens primeiro.", "erro");
   const orgaoEx = acharOrgao(L); const portais = store.get("portais");
-  const portalIni = portais.find((pt) => normTxt(L.portal || "").includes(normTxt(pt.sigla)) || (pt.nome && normTxt(L.portal || "").includes(normTxt(pt.nome))))?.id || "";
+  const portalTxt = normTxt(portalDe(L)); const portalIni = portais.find((pt) => portalTxt && (portalTxt.includes(normTxt(pt.sigla)) || (pt.nome && (portalTxt.includes(normTxt(pt.nome)) || normTxt(pt.nome).includes(portalTxt)))))?.id || "";
   const tipoIni = TIPOS.find((t) => normTxt(t) === normTxt(modalidadeCurta(L.modalidade))) || TIPOS[0];
   const precos = linhas.map(({ it, p }) => precoInicial(it, p, L));
   let orgSel;

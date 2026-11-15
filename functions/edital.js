@@ -59,7 +59,7 @@ const TOOL = {
           exigeAmostra: { type: "string", description: "Sim/Não + condição" }, amostraBase: { type: "string" },
           entrega: { type: "string", description: "Cidade/UF do local de entrega" }, multiplosEnderecos: { type: "boolean" }, entregaDetalhe: { type: "string", description: "Uma frase sobre os locais, se forem vários" }, entregaBase: { type: "string" },
           garantiaContratual: { type: "string", description: "Sim/Não + percentual" }, garantiaBase: { type: "string" },
-          dataSessao: { type: "string", description: "AAAA-MM-DD" }, horaSessao: { type: "string" }, srp: { type: "boolean" }, valorEstimado: { type: "string" }, criterioJulgamento: { type: "string" },
+          dataSessao: { type: "string", description: "AAAA-MM-DD" }, horaSessao: { type: "string" }, portal: { type: "string", description: "Plataforma eletrônica onde a disputa ocorre, como escrito no edital (ex.: Compras.gov.br, BLL, BNC, Portal de Compras Públicas, Licitanet, Licitar Digital, BEC, Comprasnet). Vazio se não constar." }, srp: { type: "boolean" }, valorEstimado: { type: "string" }, criterioJulgamento: { type: "string" },
         },
       },
       documentacaoEspecial: {
