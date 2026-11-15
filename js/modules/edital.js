@@ -1,23 +1,23 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261115-110103";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261115-110103";
-import { EMPRESA } from "../core/pdf.js?v=20261115-110103";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261115-110103";
-import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261115-110103";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261115-110103";
-import { store } from "../core/store.js?v=20261115-110103";
-import { ssel } from "../core/ssel.js?v=20261115-110103";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261115-110103";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261115-110103";
-import { newId } from "../core/store.js?v=20261115-110103";
-import { navigate } from "../core/router.js?v=20261115-110103";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261115-110103";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261115-110103";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261115-110103";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-110103";
-import { copiarTexto } from "../core/regua.js?v=20261115-110103";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261115-120940";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261115-120940";
+import { EMPRESA } from "../core/pdf.js?v=20261115-120940";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261115-120940";
+import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261115-120940";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261115-120940";
+import { store } from "../core/store.js?v=20261115-120940";
+import { ssel } from "../core/ssel.js?v=20261115-120940";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261115-120940";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261115-120940";
+import { newId } from "../core/store.js?v=20261115-120940";
+import { navigate } from "../core/router.js?v=20261115-120940";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261115-120940";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261115-120940";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261115-120940";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-120940";
+import { copiarTexto } from "../core/regua.js?v=20261115-120940";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -81,7 +81,7 @@ export default {
       const x = e.target.closest("[data-excluir]");
       if (x) { const a = store.find("analises", x.dataset.excluir); if (!a) return; if (!await confirmar(`Excluir a análise de ${modalidadeCurta(a.resumo?.modalidade)} ${numeroCurto(a.resumo?.numero) || ""}?${a.criada ? " A licitação e a proposta criadas a partir dela continuam existindo." : ""}`, { ok: "Excluir", perigo: true })) return; await store.remove("analises", a.id); if (ultima?.id === a.id) { ultima = null; mostrar(el); } toast("Análise excluída."); return; }
       const b = e.target.closest("[data-abrir]"); if (!b) return; const a = store.find("analises", b.dataset.abrir); if (!a) return; ultima = JSON.parse(JSON.stringify(a)); aba = "edital"; mostrar(el); window.scrollTo({ top: 0, behavior: "smooth" }); });
-    const hist = () => historico(el); hist(); unsubH = store.on("analises", hist);
+    const hist = () => historico(el); hist(); const uA = store.on("analises", hist), uP = store.on("propostas", () => { hist(); if (ultima) mostrar(el); }); unsubH = () => { uA(); uP(); };
     lista(); mostrar(el);
   },
   destroy() { unsubH?.(); unsubH = null; },
@@ -107,7 +107,7 @@ function mostrar(el) {
   const box = el.querySelector("#resultado"), acoes = el.querySelector("#acoes"); if (!box) return;
   if (!ultima) { box.innerHTML = ""; acoes.innerHTML = ""; return; }
   const r = ultima, L = r.resumo || {}, s = semaforo(r), m = r.meta || {};
-  acoes.innerHTML = `<button class="btn btn-ghost" data-act="copiar">${icon("file")} Copiar resumo</button><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel dos itens</button><button class="btn btn-ghost" data-act="nova">${icon("plus")} Nova análise</button>${r.correspondencia && podeEditar() && !r.criada ? `<button class="btn btn-primary" data-act="nova-licitacao">${icon("plus")} Nova licitação</button>` : ""}${r.criada ? `<a class="btn btn-primary" href="#propostas">${icon("doc")} Ver proposta #${r.criada.num}</a>` : ""}`;
+  acoes.innerHTML = `<button class="btn btn-ghost" data-act="copiar">${icon("file")} Copiar resumo</button><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel dos itens</button><button class="btn btn-ghost" data-act="nova">${icon("plus")} Nova análise</button>${r.correspondencia && podeEditar() && !criadaValida(r) ? `<button class="btn btn-primary" data-act="nova-licitacao">${icon("plus")} ${r.criada ? "Gerar proposta novamente" : "Nova licitação"}</button>` : ""}${criadaValida(r) ? `<a class="btn btn-primary" href="#propostas">${icon("doc")} Ver proposta #${propostaCriada(r).num}</a>` : ""}`;
   const semTexto = (r.documentos || []).filter((d) => d.semTexto > 0);
   box.innerHTML = `
     <div class="card" style="margin-bottom:16px"><div class="card-body" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
@@ -146,7 +146,7 @@ function historico(el) {
   const q = normTxt(histBusca); const eu = (currentUser?.email || "").toLowerCase();
   const lst = todas.filter((a) => { const L = a.resumo || {}; const n = (a.itens || []).length;
     if (histDe && (!L.dataSessao || L.dataSessao < histDe)) return false; if (histAte && (!L.dataSessao || L.dataSessao > histAte)) return false;
-    if (histSit === "proposta" && !a.criada) return false; if (histSit === "analisado" && a.criada) return false; if (histSit === "semcorr" && (a.correspondencia || n === 0)) return false; if (histSit === "minhas" && (a.usuario || "").toLowerCase() !== eu) return false;
+    if (histSit === "proposta" && !criadaValida(a)) return false; if (histSit === "analisado" && criadaValida(a)) return false; if (histSit === "semcorr" && (a.correspondencia || n === 0)) return false; if (histSit === "minhas" && (a.usuario || "").toLowerCase() !== eu) return false;
     if (!q) return true; const alvo = normTxt([L.orgao, L.numero, L.modalidade, L.municipio, L.estado, L.uasg, a.usuario, fmtD(dataLocal(a.criadoEm)), L.dataSessao ? fmtD(L.dataSessao) : "", ...(a.itens || []).map((i) => i.descricao)].join(" ")); return q.split(/\s+/).every((t) => alvo.includes(t)); });
   const chave = { analise: (a) => a.criadoEm || "", disputa: (a) => (a.resumo?.dataSessao || "9999-99-99") + " " + (a.resumo?.horaSessao || ""), orgao: (a) => normTxt(a.resumo?.orgao), itens: (a) => (a.itens || []).length, corr: (a) => (a.correspondencia || []).filter((x) => x.produtoId).length / Math.max(1, (a.itens || []).length), situacao: (a) => a.criada ? 2 : (a.itens || []).length ? 1 : 0 }[histOrd] || ((a) => a.criadoEm || "");
   lst.sort((a, b) => { const x = chave(a), y = chave(b); const c = typeof x === "number" ? x - y : String(x).localeCompare(String(y)); return histDir === "asc" ? c : -c; });
@@ -162,7 +162,7 @@ function historico(el) {
       <div style="display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--text-2)"><span>Disputa de</span><input type="date" id="hist-de" class="input input-sm" value="${histDe}" style="width:140px"><span>até</span><input type="date" id="hist-ate" class="input input-sm" value="${histAte}" style="width:140px">${histDe || histAte ? `<button class="btn btn-ghost btn-sm" data-hist-limpar-datas>Limpar</button>` : ""}</div>
     </div>` + (mostrarLst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr>${th("analise", "Análise")}<th>Licitação</th>${th("disputa", "Disputa")}${th("orgao", "Órgão")}${th("itens", "Itens", "num")}${th("corr", "Correspondência")}${th("situacao", "Situação")}<th></th></tr></thead><tbody>
     ${mostrarLst.map((a) => { const L = a.resumo || {}; const n = (a.itens || []).length, c = (a.correspondencia || []).filter((x) => x.produtoId).length;
-      return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtDc(dataLocal(a.criadoEm))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong></td><td style="white-space:nowrap">${disputa(L)}</td><td>${esc((L.orgao || "—").slice(0, 50))}<div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${a.criada ? tag(`Proposta #${a.criada.num}`, "tag-teal") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button> <button class="btn btn-ghost btn-sm btn-icon" data-excluir="${esc(a.id)}" title="Excluir análise">${icon("trash")}</button></td></tr>`; }).join("")}
+      return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtDc(dataLocal(a.criadoEm))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong></td><td style="white-space:nowrap">${disputa(L)}</td><td>${esc((L.orgao || "—").slice(0, 50))}<div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${criadaValida(a) ? tag(`Proposta #${propostaCriada(a).num}`, "tag-teal") : a.criada ? tag("Proposta excluída", "tag-amber") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button> <button class="btn btn-ghost btn-sm btn-icon" data-excluir="${esc(a.id)}" title="Excluir análise">${icon("trash")}</button></td></tr>`; }).join("")}
   </tbody></table></div></div>` : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">${todas.length ? "Nenhuma análise corresponde à busca." : "As análises feitas a partir de agora ficam guardadas aqui."}</p></div>`);
   const inp = box.querySelector("#hist-busca"); if (inp) { inp.addEventListener("input", () => { histBusca = inp.value; const pos = inp.selectionStart; historico(el); const n = box.querySelector("#hist-busca"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }
   box.querySelectorAll("[data-hist-sit]").forEach((b) => b.addEventListener("click", () => { histSit = b.dataset.histSit; historico(el); }));
@@ -211,7 +211,7 @@ function abaCorr(r) {
         <td class="num" style="${ref != null && ps != null && ref < ps ? "color:var(--red);font-weight:600" : ""}">${ref != null ? fmt(ref) : "—"}${ref != null && ps != null && ref < ps ? `<div style="font-size:10.5px">abaixo do piso</div>` : ""}</td>
         <td class="muted" style="font-size:11.5px">${h.orgao ? `Neste órgão: <strong>${fmt(h.orgao.preco)}</strong> (${fmtD(h.orgao.data)})<br>` : ""}${h.geral ? `Último: ${fmt(h.geral.preco)} · ${esc(h.geral.licit || "")}` : (p ? "sem histórico" : "")}</td></tr>`; }).join("")}
     </tbody></table></div></div></div>
-    ${podeEditar() && !r.criada ? `<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-primary" data-act="nova-licitacao">${icon("plus")} Nova licitação — criar licitação e proposta com estes itens</button></div>` : r.criada ? `<div class="info-box" style="margin-top:12px"><div><div class="k">Criado</div>Licitação ${esc(r.criada.numero)} e proposta #${r.criada.num} (rascunho gerado por IA). <a href="#propostas">Abrir Propostas</a></div></div>` : ""}
+    ${podeEditar() && !criadaValida(r) ? `<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-primary" data-act="nova-licitacao">${icon("plus")} ${r.criada ? "Gerar proposta novamente — a anterior foi excluída" : "Nova licitação — criar licitação e proposta com estes itens"}</button></div>` : criadaValida(r) ? `<div class="info-box" style="margin-top:12px"><div><div class="k">Criado</div>Licitação ${esc(r.criada.numero)} e proposta #${r.criada.num} (rascunho gerado por IA). <a href="#propostas">Abrir Propostas</a></div></div>` : ""}
     <p class="muted" style="font-size:11.5px;margin-top:8px">${esc(m.modelo || "")} · ${fmtNum(m.tokensEntrada)} tokens lidos · ${fmtNum(m.tokensSaida)} gerados · ${m.segundos || 0}s · ${r.candidatosEnviados || 0} candidato(s) enviados · piso = custo ÷ ${(1 - (getCfg().simples + getCfg().fretePct + getCfg().lucroMin) / 100).toFixed(4)}</p>`;
 }
 function ligarCorr(el) {
@@ -280,6 +280,9 @@ async function complementarOrgao(id, L) {
   if (add.length) { novo.contatos = [...atuais, ...add]; mudou = true; }
   if (mudou) await store.setItem("orgaos", novo);
 }
+// A proposta gerada ainda existe? (o usuário pode tê-la excluído para refazer)
+const propostaCriada = (r) => r?.criada ? (store.get("propostas").find((p) => p.licitacaoId === r.criada.licId && p.origemIA) || store.get("propostas").find((p) => p.licitacaoId === r.criada.licId) || null) : null;
+const criadaValida = (r) => !!propostaCriada(r);
 function acharOrgao(L) {
   const orgs = store.get("orgaos"); const uasg = String(L.uasg || "").replace(/\D/g, "");
   const dig = cnpjDigitos(L.cnpj); if (dig) { const o = orgs.find((x) => cnpjDigitos(x.cnpj) === dig); if (o) return o; }
@@ -314,6 +317,7 @@ function novaLicitacao(el) {
            ${linha(campo("CNPJ", inputTxt("orgaoCnpj", cnpjFormatado(limparNaoLoc(L.cnpj)))))}`}
       ${contatosIA(L).length ? `<div class="info-box"><div><div class="k">Contatos encontrados no edital</div>${contatosIA(L).map((c) => esc([c.nome, c.cargo, c.email, c.telefone].filter(Boolean).join(" · "))).join("<br>")}<div class="muted" style="font-size:11.5px;margin-top:4px">${orgaoEx ? "Serão acrescentados ao órgão (sem duplicar e-mails já cadastrados)." : "Serão gravados no órgão criado."}</div></div></div>` : ""}
       <div class="form-section">Licitação</div>
+      ${r.criada?.licId && store.find("licitacoes", r.criada.licId) ? `<div class="info-box" style="border-color:var(--amber)"><div><div class="k">Licitação já existe</div>A licitação ${esc(store.find("licitacoes", r.criada.licId).numero || "")} foi criada na primeira vez; agora será gerada apenas uma nova proposta nela (os campos abaixo não a alteram).</div></div>` : ""}
       ${linha(campo("Tipo", select("tipo", TIPOS, tipoIni)), campo("Número", inputTxt("numero", numeroCurto(L.numero) || "", "required")), campo("Data da sessão", inputData("data", L.dataSessao || "")), campo("Portal", select("portalId", [["", "—"], ...portais.map((pt) => [pt.id, pt.sigla])], portalIni)))}
       <div class="form-section">Proposta inicial — ${linhas.length} item(ns) <span class="muted" style="font-weight:400">preço = referência do órgão; sem referência, histórico; sem histórico, piso + 15%. Ajuste aqui ou depois em Propostas.</span></div>
       <div class="table-wrap"><table><thead><tr><th>Item</th><th>Produto</th><th class="num">Qtd</th><th class="num">Custo</th><th class="num">Piso</th><th style="width:130px">Preço</th><th>Origem do preço</th></tr></thead><tbody>
@@ -329,13 +333,14 @@ function novaLicitacao(el) {
         if (dup) { orgaoId = dup.id; await complementarOrgao(orgaoId, L); toast(`Órgão já cadastrado com este CNPJ (${dup.nome}) — usado o existente.`, "aviso", 7000); } }
       if (!orgaoId) { orgaoId = newId(); await store.setItem("orgaos", { id: orgaoId, nome: v.orgaoNome.trim(), uasg: (v.orgaoUasg || "").trim(), municipio: (v.orgaoMunicipio || "").trim(), estado: v.orgaoEstado || "", cnpj: cnpjFormatado(v.orgaoCnpj || ""), contatos: contatosIA(L), origemIA: true }); }
       else await complementarOrgao(orgaoId, L);
-      const licId = newId();
-      await store.setItem("licitacoes", { id: licId, numero: v.numero.trim(), tipo: v.tipo, data: v.data || "", portalId: v.portalId || "", orgaoId, obs: `Criada pela análise de edital (IA). Validade: ${L.validadeProposta || "—"}. Entrega: ${L.entrega || "—"}${L.multiplosEnderecos ? " (múltiplos endereços)" : ""}. Amostra: ${L.exigeAmostra || "—"}. Garantia: ${L.garantiaContratual || "—"}.`, origemIA: true, analiseIA: { resumo: L, documentacaoEspecial: r.documentacaoEspecial || [], observacoes: r.observacoes || [], meta: r.meta || null, arquivos: r.arquivos || [] } });
+      const licAnterior = ultima.criada?.licId ? store.find("licitacoes", ultima.criada.licId) : null;
+      const licId = licAnterior ? licAnterior.id : newId();
+      if (!licAnterior) await store.setItem("licitacoes", { id: licId, numero: v.numero.trim(), tipo: v.tipo, data: v.data || "", portalId: v.portalId || "", orgaoId, obs: `Criada pela análise de edital (IA). Validade: ${L.validadeProposta || "—"}. Entrega: ${L.entrega || "—"}${L.multiplosEnderecos ? " (múltiplos endereços)" : ""}. Amostra: ${L.exigeAmostra || "—"}. Garantia: ${L.garantiaContratual || "—"}.`, origemIA: true, analiseIA: { resumo: L, documentacaoEspecial: r.documentacaoEspecial || [], observacoes: r.observacoes || [], meta: r.meta || null, arquivos: r.arquivos || [] } });
       const itens = linhas.map(({ it, p }, i) => { const qtd = +v[`qtd_${i}`] || 0, preco = +v[`preco_${i}`] || 0; return { num: it.item, produtoId: p.id, nome: it.descricao || p.nome, produtoNome: p.nome, codigo: p.codigo, marca: p.marca || "", qtd, custo: p.custo || 0, preco, total: +(qtd * preco).toFixed(2), descricaoEdital: it.descricao, unidadeEdital: it.unidade || "", precoReferencia: it.precoReferencia ?? null }; });
       const num = Math.max(0, ...store.get("propostas").map((x) => +x.num || 0)) + 1;
       await store.setItem("propostas", { id: newId(), num, licitacaoId: licId, status: "Em Andamento", itens, criadoEm: new Date().toISOString(), origemIA: true });
       ultima.criada = { num, numero: v.numero.trim(), licId }; await salvarAnalise(); closeModal(); mostrar(el);
-      toast(`Licitação ${v.numero.trim()} e proposta #${num} criadas (rascunho IA).`, "ok", 6000);
+      toast(licAnterior ? `Proposta #${num} gerada novamente na licitação ${licAnterior.numero} já existente.` : `Licitação ${v.numero.trim()} e proposta #${num} criadas (rascunho IA).`, "ok", 6000);
     },
   });
 }
