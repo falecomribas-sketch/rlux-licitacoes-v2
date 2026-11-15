@@ -1,23 +1,23 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261115-130626";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261115-130626";
-import { EMPRESA } from "../core/pdf.js?v=20261115-130626";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261115-130626";
-import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261115-130626";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261115-130626";
-import { store } from "../core/store.js?v=20261115-130626";
-import { ssel } from "../core/ssel.js?v=20261115-130626";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261115-130626";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261115-130626";
-import { newId } from "../core/store.js?v=20261115-130626";
-import { navigate } from "../core/router.js?v=20261115-130626";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261115-130626";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261115-130626";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261115-130626";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-130626";
-import { copiarTexto } from "../core/regua.js?v=20261115-130626";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261115-144908";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261115-144908";
+import { EMPRESA } from "../core/pdf.js?v=20261115-144908";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261115-144908";
+import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261115-144908";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261115-144908";
+import { store } from "../core/store.js?v=20261115-144908";
+import { ssel } from "../core/ssel.js?v=20261115-144908";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261115-144908";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261115-144908";
+import { newId } from "../core/store.js?v=20261115-144908";
+import { navigate } from "../core/router.js?v=20261115-144908";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261115-144908";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261115-144908";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261115-144908";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-144908";
+import { copiarTexto } from "../core/regua.js?v=20261115-144908";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -163,10 +163,12 @@ function historico(el) {
       <div style="display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--text-2)"><span>Disputa de</span><input type="date" id="hist-de" class="input input-sm" value="${histDe}" style="width:140px"><span>até</span><input type="date" id="hist-ate" class="input input-sm" value="${histAte}" style="width:140px">${histDe || histAte ? `<button class="btn btn-ghost btn-sm" data-hist-limpar-datas>Limpar</button>` : ""}</div>
     </div>` + (mostrarLst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr>${th("analise", "Análise")}<th>Licitação</th>${th("disputa", "Disputa")}${th("portal", "Portal")}${th("orgao", "Órgão")}${th("itens", "Itens", "num")}${th("corr", "Correspondência")}${th("situacao", "Situação")}<th></th></tr></thead><tbody>
     ${mostrarLst.map((a) => { const L = a.resumo || {}; const n = (a.itens || []).length, c = (a.correspondencia || []).filter((x) => x.produtoId).length;
-      return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtDc(dataLocal(a.criadoEm))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong></td><td style="white-space:nowrap">${disputa(L)}</td><td style="font-size:12.5px">${esc(portalDe(L) || "—")}</td><td>${esc((L.orgao || "—").slice(0, 50))}<div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${criadaValida(a) ? tag(`Proposta #${propostaCriada(a).num}`, "tag-teal") : a.criada ? tag("Proposta excluída", "tag-amber") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button> <button class="btn btn-ghost btn-sm btn-icon" data-excluir="${esc(a.id)}" title="Excluir análise">${icon("trash")}</button></td></tr>`; }).join("")}
+      return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtDc(dataLocal(a.criadoEm))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong></td><td style="white-space:nowrap">${disputa(L)}</td><td style="font-size:12.5px">${podeEditar() ? `<select class="input input-sm" data-portal-de="${esc(a.id)}" title="Portal da disputa" style="max-width:150px;font-size:12px;height:28px;padding:0 6px"><option value="">—</option>${store.get("portais").map((pt) => `<option value="${esc(pt.id)}" ${L.portalId === pt.id || (!L.portalId && portalDe(L) && (normTxt(portalDe(L)).includes(normTxt(pt.sigla)) || (pt.nome && normTxt(pt.nome).includes(normTxt(portalDe(L)))))) ? "selected" : ""}>${esc(pt.sigla)}${pt.nome ? ` — ${esc(pt.nome)}` : ""}</option>`).join("")}${portalDe(L) && !L.portalId && !store.get("portais").some((pt) => normTxt(portalDe(L)).includes(normTxt(pt.sigla)) || (pt.nome && normTxt(pt.nome).includes(normTxt(portalDe(L))))) ? `<option value="__txt" selected>${esc(portalDe(L))} (não cadastrado)</option>` : ""}</select>` : esc(portalDe(L) || "—")}</td><td>${esc((L.orgao || "—").slice(0, 50))}<div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${criadaValida(a) ? tag(`Proposta #${propostaCriada(a).num}`, "tag-teal") : a.criada ? tag("Proposta excluída", "tag-amber") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button> <button class="btn btn-ghost btn-sm btn-icon" data-excluir="${esc(a.id)}" title="Excluir análise">${icon("trash")}</button></td></tr>`; }).join("")}
   </tbody></table></div></div>` : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">${todas.length ? "Nenhuma análise corresponde à busca." : "As análises feitas a partir de agora ficam guardadas aqui."}</p></div>`);
   const inp = box.querySelector("#hist-busca"); if (inp) { inp.addEventListener("input", () => { histBusca = inp.value; const pos = inp.selectionStart; historico(el); const n = box.querySelector("#hist-busca"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }
   box.querySelectorAll("[data-hist-sit]").forEach((b) => b.addEventListener("click", () => { histSit = b.dataset.histSit; historico(el); }));
+  box.querySelectorAll("[data-portal-de]").forEach((sel) => sel.addEventListener("change", async () => { const a = store.find("analises", sel.dataset.portalDe); if (!a) return; const pt = store.find("portais", sel.value); const resumo = { ...(a.resumo || {}), portalId: pt ? pt.id : "", portal: pt ? pt.sigla : (sel.value === "__txt" ? a.resumo?.portal : "") };
+    await store.setItem("analises", { ...a, resumo }); if (ultima?.id === a.id) ultima.resumo = resumo; toast(pt ? `Portal: ${pt.sigla}.` : "Portal removido."); }));
   box.querySelector("#hist-de")?.addEventListener("change", (e) => { histDe = e.target.value; if (histDe && !histOrd.startsWith("disputa")) { histOrd = "disputa"; histDir = "asc"; } historico(el); });
   box.querySelector("#hist-ate")?.addEventListener("change", (e) => { histAte = e.target.value; historico(el); });
   box.querySelector("[data-hist-limpar-datas]")?.addEventListener("click", () => { histDe = ""; histAte = ""; historico(el); });
@@ -283,6 +285,7 @@ const PORTAIS_RE = [
 ];
 function portalDe(L) {
   if (!L) return "";
+  if (L.portalId) { const pt = store.find("portais", L.portalId); if (pt) return pt.sigla; }
   if (L.portal && !NAO_LOC.test(L.portal)) return String(L.portal).trim();
   const txt = [L.dataSessaoBase, L.horaSessao, L.observacoes, L.objeto, L.entregaBase, L.validadeBase].filter(Boolean).join(" \n ");
   const hit = PORTAIS_RE.find(([re]) => re.test(txt));
@@ -326,7 +329,7 @@ function novaLicitacao(el) {
   const r = ultima; if (!r) return; const L = r.resumo || {}; const linhas = linhasCorr().filter((x) => x.p);
   if (!linhas.length) return toast("Nenhum item com produto escolhido. Casar os itens primeiro.", "erro");
   const orgaoEx = acharOrgao(L); const portais = store.get("portais");
-  const portalTxt = normTxt(portalDe(L)); const portalIni = portais.find((pt) => portalTxt && (portalTxt.includes(normTxt(pt.sigla)) || (pt.nome && (portalTxt.includes(normTxt(pt.nome)) || normTxt(pt.nome).includes(portalTxt)))))?.id || "";
+  const portalTxt = normTxt(portalDe(L)); const portalIni = (L.portalId && portais.some((pt) => pt.id === L.portalId)) ? L.portalId : portais.find((pt) => portalTxt && (portalTxt.includes(normTxt(pt.sigla)) || (pt.nome && (portalTxt.includes(normTxt(pt.nome)) || normTxt(pt.nome).includes(portalTxt)))))?.id || "";
   const tipoIni = TIPOS.find((t) => normTxt(t) === normTxt(modalidadeCurta(L.modalidade))) || TIPOS[0];
   const precos = linhas.map(({ it, p }) => precoInicial(it, p, L));
   let orgSel;
