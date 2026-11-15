@@ -1,12 +1,12 @@
 // Órgãos públicos. Campos: id, uasg, nome, cnpj, municipio, estado, contatos[{nome,cargo,email,telefone}]
-import { store, newId } from "../core/store.js?v=20261115-144908";
-import { dataTable, acoes, btnEditar, btnExcluir, btnVer, onAction } from "../core/table.js?v=20261115-144908";
-import { formModal, lerForm, campo, inputTxt, select, linha, exportarExcel, UFS, mascaraCnpj } from "../core/forms.js?v=20261115-144908";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261115-144908";
-import { esc, h, raw, toTitleCase, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-144908";
-import { podeEditar } from "../core/auth.js?v=20261115-144908";
-import { getPortal } from "../core/domain.js?v=20261115-144908";
-import { popover } from "../core/popover.js?v=20261115-144908";
+import { store, newId } from "../core/store.js?v=20261115-173328";
+import { dataTable, acoes, btnEditar, btnExcluir, btnVer, onAction } from "../core/table.js?v=20261115-173328";
+import { formModal, lerForm, campo, inputTxt, select, linha, exportarExcel, UFS, mascaraCnpj } from "../core/forms.js?v=20261115-173328";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261115-173328";
+import { esc, h, raw, toTitleCase, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-173328";
+import { podeEditar } from "../core/auth.js?v=20261115-173328";
+import { getPortal } from "../core/domain.js?v=20261115-173328";
+import { popover } from "../core/popover.js?v=20261115-173328";
 
 const REGIAO = {
   PR: "Sul", SC: "Sul", RS: "Sul", SP: "Sudeste", RJ: "Sudeste", MG: "Sudeste", ES: "Sudeste",

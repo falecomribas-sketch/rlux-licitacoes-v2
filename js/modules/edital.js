@@ -1,23 +1,23 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261115-144908";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261115-144908";
-import { EMPRESA } from "../core/pdf.js?v=20261115-144908";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261115-144908";
-import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261115-144908";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261115-144908";
-import { store } from "../core/store.js?v=20261115-144908";
-import { ssel } from "../core/ssel.js?v=20261115-144908";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261115-144908";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261115-144908";
-import { newId } from "../core/store.js?v=20261115-144908";
-import { navigate } from "../core/router.js?v=20261115-144908";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261115-144908";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261115-144908";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261115-144908";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-144908";
-import { copiarTexto } from "../core/regua.js?v=20261115-144908";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261115-173328";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261115-173328";
+import { EMPRESA } from "../core/pdf.js?v=20261115-173328";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261115-173328";
+import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261115-173328";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261115-173328";
+import { store } from "../core/store.js?v=20261115-173328";
+import { ssel } from "../core/ssel.js?v=20261115-173328";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261115-173328";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261115-173328";
+import { newId } from "../core/store.js?v=20261115-173328";
+import { navigate } from "../core/router.js?v=20261115-173328";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261115-173328";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261115-173328";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261115-173328";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-173328";
+import { copiarTexto } from "../core/regua.js?v=20261115-173328";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -205,7 +205,7 @@ function abaCorr(r) {
     <div class="card"><div class="card-head"><h2>Correspondência item → produto RLUX</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-act="effecti" title="Sobe a planilha exportada da Effecti e devolve preenchida">${icon("upload")} Preencher planilha da Effecti</button><input type="file" id="effecti-file" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" data-act="disputa" title="Sobe a planilha de disputa da Effecti e devolve com o Valor limite = lance mínimo (piso)">${icon("upload")} Preencher lance mínimo (disputa)</button><input type="file" id="disputa-file" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" data-act="excel-corr">${icon("download")} Excel</button><button class="btn btn-ghost btn-sm" data-act="casar" ${casando ? "disabled" : ""}>${icon("refresh")} Refazer</button></div></div>
     <div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Item</th><th style="min-width:260px">Descrição no edital</th><th style="min-width:300px">Nosso produto</th><th>Conf.</th><th class="num">Custo</th><th class="num">Piso</th><th class="num">Ref. edital</th><th>Histórico</th></tr></thead><tbody>
     ${linhas.map(({ it, c, p }) => { const h = p ? historicoProduto(p.id, L.orgao) : {}; const ref = it.precoReferencia; const ps = p ? piso(p.custo) : null;
-      return `<tr data-item="${esc(it.item)}"><td><strong>${esc(it.item)}</strong>${it.quantidade != null ? `<div class="muted" style="font-size:11px">${fmtNum(it.quantidade)} ${esc(it.unidade || "")}</div>` : ""}</td>
+      return `<tr data-item="${esc(it.item)}"><td>${podeEditar() ? `<input type="text" class="input input-sm" data-num-item="${esc(it.item)}" value="${esc(it.item)}" title="Número do item no portal (editável)" style="width:64px;font-weight:700;padding:2px 6px;height:28px">` : `<strong>${esc(it.item)}</strong>`}${it.quantidade != null ? `<div class="muted" style="font-size:11px">${fmtNum(it.quantidade)} ${esc(it.unidade || "")}</div>` : ""}</td>
         <td style="font-size:12.5px">${esc(it.descricao)}</td>
         <td><div class="corr-ssel" data-item="${esc(it.item)}"></div><div class="muted" style="font-size:11.5px;margin-top:3px">${esc(c?.justificativa || "")}${c?.observacao ? ` <span style="color:var(--amber-txt)">· ${esc(c.observacao)}</span>` : ""}</div></td>
         <td>${tag(c?.confianca || "nenhuma", CONF[c?.confianca] || "tag-red")}</td>
@@ -218,6 +218,15 @@ function abaCorr(r) {
     <p class="muted" style="font-size:11.5px;margin-top:8px">${esc(m.modelo || "")} · ${fmtNum(m.tokensEntrada)} tokens lidos · ${fmtNum(m.tokensSaida)} gerados · ${m.segundos || 0}s · ${r.candidatosEnviados || 0} candidato(s) enviados · piso = custo ÷ ${(1 - (getCfg().simples + getCfg().fretePct + getCfg().lucroMin) / 100).toFixed(4)}</p>`;
 }
 function ligarCorr(el) {
+  // nº do item editável (a numeração do portal pode diferir da do edital)
+  el.querySelectorAll("[data-num-item]").forEach((inp) => inp.addEventListener("change", async () => {
+    const antigo = inp.dataset.numItem, novo = inp.value.trim(); if (!novo || novo === antigo) { inp.value = antigo; return; }
+    if ((ultima.itens || []).some((x) => String(x.item) === novo)) { toast(`Já existe um item ${novo} nesta análise.`, "erro"); inp.value = antigo; return; }
+    const it = (ultima.itens || []).find((x) => String(x.item) === antigo); if (it) it.item = novo;
+    (ultima.correspondencia || []).filter((c) => String(c.item) === antigo).forEach((c) => { c.item = novo; });
+    inp.dataset.numItem = novo; inp.closest("tr").dataset.item = novo;
+    await salvarAnalise(); toast(`Item ${antigo} renumerado para ${novo}.`);
+  }));
   const opcoes = store.get("produtos").map((p) => ({ id: p.id, label: `${p.preferido ? "★ " : ""}${p.codigo} — ${p.nome}`, sub: p.descricaoTecnica || "", extra: p.marca })).sort((a, b) => a.label.localeCompare(b.label));
   el.querySelectorAll(".corr-ssel").forEach((host) => { const item = host.dataset.item; const c = (ultima.correspondencia || []).find((x) => x.item === item);
     const sel = ssel(host, { placeholder: "Nenhum produto — buscar…", itens: opcoes, value: c?.produtoId || "", disabled: !podeEditar(), onSelect: (id) => { const cc = (ultima.correspondencia ||= []).find((x) => x.item === item); if (cc) { cc.produtoId = id; cc.confianca = id ? "alta" : "nenhuma"; cc.justificativa = id ? "Escolhido manualmente" : "Sem produto"; } else ultima.correspondencia.push({ item, produtoId: id, confianca: "alta", justificativa: "Escolhido manualmente" }); salvarAnalise(); mostrar(el); } });
