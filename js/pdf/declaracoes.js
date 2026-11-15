@@ -1,5 +1,5 @@
 // PDF das declarações exigidas no edital, no papel timbrado da RLUX.
-import { novoDoc, carregarTimbrado, aplicarTimbrado, EMPRESA, dataExtenso, ESCURO } from "../core/pdf.js?v=20261115-130323";
+import { novoDoc, carregarTimbrado, aplicarTimbrado, EMPRESA, dataExtenso, ESCURO } from "../core/pdf.js?v=20261115-130626";
 
 // decl: { titulo, destinatario, texto, quemAssina }. Devolve o jsPDF (uma declaração por documento ou várias, uma por página).
 export async function gerarPdfDeclaracoes(lista, { data = new Date(), nomeArquivo = "declaracoes" } = {}) {

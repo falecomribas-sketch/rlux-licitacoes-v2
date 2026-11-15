@@ -1,30 +1,30 @@
 // Ponto de entrada: login -> store -> navegação -> módulos.
-import { onAuth, login, logout, esqueciSenha } from "./core/auth.js?v=20261115-130323";
-import { store } from "./core/store.js?v=20261115-130323";
-import { registerModule, buildNav, startRouter } from "./core/router.js?v=20261115-130323";
-import { icon, toast } from "./core/ui.js?v=20261115-130323";
-import { $ } from "./core/utils.js?v=20261115-130323";
-import { iniciarVerificacaoDeVersao } from "./core/version.js?v=20261115-130323";
+import { onAuth, login, logout, esqueciSenha } from "./core/auth.js?v=20261115-130626";
+import { store } from "./core/store.js?v=20261115-130626";
+import { registerModule, buildNav, startRouter } from "./core/router.js?v=20261115-130626";
+import { icon, toast } from "./core/ui.js?v=20261115-130626";
+import { $ } from "./core/utils.js?v=20261115-130626";
+import { iniciarVerificacaoDeVersao } from "./core/version.js?v=20261115-130626";
 
-import dashboard from "./modules/dashboard.js?v=20261115-130323";
-import categorias from "./modules/categorias.js?v=20261115-130323";
-import produtos from "./modules/produtos.js?v=20261115-130323";
-import portais from "./modules/portais.js?v=20261115-130323";
-import orgaos from "./modules/orgaos.js?v=20261115-130323";
-import usuarios from "./modules/usuarios.js?v=20261115-130323";
-import licitacoes from "./modules/licitacoes.js?v=20261115-130323";
-import edital from "./modules/edital.js?v=20261115-130323";
-import propostas from "./modules/propostas.js?v=20261115-130323";
-import atas from "./modules/atas.js?v=20261115-130323";
-import adesoes from "./modules/adesoes.js?v=20261115-130323";
-import empenhos from "./modules/empenhos.js?v=20261115-130323";
-import exequibilidade from "./modules/exequibilidade.js?v=20261115-130323";
-import reequilibrio from "./modules/reequilibrio.js?v=20261115-130323";
-import cobrancas from "./modules/cobrancas.js?v=20261115-130323";
-import crm from "./modules/crm.js?v=20261115-130323";
-import reguas from "./modules/reguas.js?v=20261115-130323";
-import relatorios from "./modules/relatorios.js?v=20261115-130323";
-import parametros from "./modules/parametros.js?v=20261115-130323";
+import dashboard from "./modules/dashboard.js?v=20261115-130626";
+import categorias from "./modules/categorias.js?v=20261115-130626";
+import produtos from "./modules/produtos.js?v=20261115-130626";
+import portais from "./modules/portais.js?v=20261115-130626";
+import orgaos from "./modules/orgaos.js?v=20261115-130626";
+import usuarios from "./modules/usuarios.js?v=20261115-130626";
+import licitacoes from "./modules/licitacoes.js?v=20261115-130626";
+import edital from "./modules/edital.js?v=20261115-130626";
+import propostas from "./modules/propostas.js?v=20261115-130626";
+import atas from "./modules/atas.js?v=20261115-130626";
+import adesoes from "./modules/adesoes.js?v=20261115-130626";
+import empenhos from "./modules/empenhos.js?v=20261115-130626";
+import exequibilidade from "./modules/exequibilidade.js?v=20261115-130626";
+import reequilibrio from "./modules/reequilibrio.js?v=20261115-130626";
+import cobrancas from "./modules/cobrancas.js?v=20261115-130626";
+import crm from "./modules/crm.js?v=20261115-130626";
+import reguas from "./modules/reguas.js?v=20261115-130626";
+import relatorios from "./modules/relatorios.js?v=20261115-130626";
+import parametros from "./modules/parametros.js?v=20261115-130626";
 
 // Ordem define a ordem do menu
 registerModule(dashboard);
