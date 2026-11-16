@@ -23,12 +23,19 @@ async function lerPdf(buffer) {
     const r = await parser.getText();
     const paginas = (r.pages || []).map((pg) => (pg.text || "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim());
     const semTexto = paginas.map((t, i) => (t.length < 80 ? i + 1 : null)).filter(Boolean);
+    // páginas com texto mas que trazem uma imagem grande (tabela de itens colada como figura, print do sistema etc.)
+    let comFigura = [];
+    try {
+      const im = await parser.getImage({ imageThreshold: 250, imageBuffer: false, imageDataUrl: false });
+      comFigura = (im.pages || []).filter((pg) => pg.images.some((i) => i.width >= 400 && i.height >= 200)).map((pg) => pg.pageNumber).filter((n) => !semTexto.includes(n));
+    } catch (e) { console.warn("getImage falhou", e.message); }
     let imagens = [];
-    if (semTexto.length && semTexto.length <= 20) { // renderiza só as páginas escaneadas (limite para não explodir o custo)
-      try { const sc = await parser.getScreenshot({ partial: semTexto, desiredWidth: 1200, imageDataUrl: false }); imagens = (sc.pages || []).map((pg) => ({ pagina: pg.pageNumber, png: Buffer.from(pg.data).toString("base64") })); }
+    const renderizar = [...semTexto, ...comFigura].slice(0, 20); // limite para não explodir o custo
+    if (renderizar.length) {
+      try { const sc = await parser.getScreenshot({ partial: renderizar, desiredWidth: 1200, imageDataUrl: false }); imagens = (sc.pages || []).map((pg) => ({ pagina: pg.pageNumber, png: Buffer.from(pg.data).toString("base64"), figura: comFigura.includes(pg.pageNumber) })); }
       catch (e) { console.warn("screenshot falhou", e.message); }
     }
-    return { paginas, semTexto, imagens };
+    return { paginas, semTexto, comFigura, imagens };
   } finally { await parser.destroy().catch(() => {}); }
 }
 
@@ -71,7 +78,7 @@ async function analisar(req) {
     }
     const texto = d.paginas.map((t, k) => `--- Documento ${i + 1}: ${d.nome} — página ${k + 1} ---\n${t || "[página sem texto]"}`).join("\n\n");
     content.push({ type: "text", text: texto });
-    d.imagens.forEach((img) => { content.push({ type: "text", text: `Documento ${i + 1}, página ${img.pagina} (imagem — página sem texto):` }); content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: img.png } }); });
+    d.imagens.forEach((img) => { content.push({ type: "text", text: img.figura ? `Documento ${i + 1}, página ${img.pagina} (imagem da página — contém figura/tabela que não está no texto acima; leia os itens, quantidades e códigos dela):` : `Documento ${i + 1}, página ${img.pagina} (imagem — página sem texto):` }); content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: img.png } }); });
   });
   // Sem cache de prompt: cada chamada lê o edital uma única vez e gravar cache custa 25% a mais sem reaproveitamento.
   content.push({ type: "text", text: "Analise os documentos acima (o número da página está no marcador de cada trecho) e registre a análise completa com a ferramenta registrar_analise." });
