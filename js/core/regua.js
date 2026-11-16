@@ -2,11 +2,11 @@
 // renovação D-60/D-30, agradecimento) e os textos dos e-mails.
 // Portado do legado. Estado em Firestore: config/reguaEnvios (último carimbo por
 // tipo) e config/reguaHist (histórico acumulado). Sem localStorage.
-import { store } from "./store.js?v=20261116-103109";
-import { fmt, fmtD, hojeIso, diasAte } from "./utils.js?v=20261116-103109";
-import { getLicit, getOrgao, getProp, getAta, isVencido, propTotal, propEmpenhado, propSaldo, propSaldoDetalhado, adesaoSaldo, ataFoiRenovada } from "./domain.js?v=20261116-103109";
-import { EMPRESA } from "./pdf.js?v=20261116-103109";
-import { toast } from "./ui.js?v=20261116-103109";
+import { store } from "./store.js?v=20261116-104038";
+import { fmt, fmtD, hojeIso, diasAte } from "./utils.js?v=20261116-104038";
+import { getLicit, getOrgao, getProp, getAta, isVencido, propTotal, propEmpenhado, propSaldo, propSaldoDetalhado, adesaoSaldo, ataFoiRenovada } from "./domain.js?v=20261116-104038";
+import { EMPRESA } from "./pdf.js?v=20261116-104038";
+import { toast } from "./ui.js?v=20261116-104038";
 
 // ---------- estado ----------
 let envios = {}, hist = {}; let carregado = false;
