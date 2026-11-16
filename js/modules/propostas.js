@@ -1,17 +1,17 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261116-125716";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261116-125716";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261116-125716";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261116-125716";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261116-125716";
-import { podeEditar } from "../core/auth.js?v=20261116-125716";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261116-125716";
-import { ssel } from "../core/ssel.js?v=20261116-125716";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261116-125716";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261116-125716";
-import { iniciarPreco, piso, getCfg } from "../core/preco.js?v=20261116-125716";
-import { dataLocal } from "../core/utils.js?v=20261116-125716";
+import { store, newId } from "../core/store.js?v=20261116-130731";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261116-130731";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261116-130731";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261116-130731";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261116-130731";
+import { podeEditar } from "../core/auth.js?v=20261116-130731";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261116-130731";
+import { ssel } from "../core/ssel.js?v=20261116-130731";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261116-130731";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261116-130731";
+import { iniciarPreco, piso, getCfg } from "../core/preco.js?v=20261116-130731";
+import { dataLocal } from "../core/utils.js?v=20261116-130731";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -66,7 +66,7 @@ export default {
         { key: "data", label: "Data lic.", width: "95px", sort: (p) => getLicit(p.licitacaoId).data || "", render: (p) => fmtD(getLicit(p.licitacaoId).data) },
         { key: "numero", label: "Pregão / Nº", sort: (p) => getLicit(p.licitacaoId).numero || "", render: (p) => { const l = getLicit(p.licitacaoId);
           return `<strong>${esc(l.numero || "?")}</strong>${isEspelho(p) ? ` ${tag(`${p.geracao || 2}ª vig.`, "tag-purple")}` : ""}${p.origemIA ? ` ${tag("IA", "tag-teal")}` : ""}<div class="muted" style="font-size:11px">${esc(l.tipo || "")} · #${p.num || "?"}</div>`; } },
-        { key: "uasg", label: "UASG", width: "85px", sort: (p) => getOrgao(getLicit(p.licitacaoId).orgaoId).uasg || "", render: (p) => { const u = getOrgao(getLicit(p.licitacaoId).orgaoId).uasg; return u ? tag(u, "tag-purple") : "—"; } },
+        { key: "uasg", label: "UASG", width: "85px", sort: (p) => getOrgao(getLicit(p.licitacaoId).orgaoId).uasg || "", render: (p) => { const u = String(getOrgao(getLicit(p.licitacaoId).orgaoId).uasg || "").trim(); if (!u) return "—"; const curto = u.split(/\s+/)[0]; return `<span class="tag tag-purple" title="${esc(u)}">${esc(curto)}</span>`; } },
         { key: "orgao", label: "Órgão", sort: (p) => getOrgao(getLicit(p.licitacaoId).orgaoId).nome || "", render: (p) => esc(toTitleCase(getOrgao(getLicit(p.licitacaoId).orgaoId).nome || "—")) },
         { key: "itens", label: "Itens", num: true, sort: (p) => (p.itens || []).length, render: (p) => String((p.itens || []).length) },
         { key: "total", label: "Total / empenho", num: true, sort: (p) => propTotal(p), render: (p) => { const t = propTotal(p), e = propEmpenhado(p.id), pct = t ? Math.round(e / t * 100) : 0;
