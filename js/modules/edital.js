@@ -1,23 +1,23 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261116-110343";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261116-110343";
-import { EMPRESA } from "../core/pdf.js?v=20261116-110343";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261116-110343";
-import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg } from "../core/preco.js?v=20261116-110343";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261116-110343";
-import { store } from "../core/store.js?v=20261116-110343";
-import { ssel } from "../core/ssel.js?v=20261116-110343";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261116-110343";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261116-110343";
-import { newId } from "../core/store.js?v=20261116-110343";
-import { navigate } from "../core/router.js?v=20261116-110343";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261116-110343";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261116-110343";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261116-110343";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261116-110343";
-import { copiarTexto } from "../core/regua.js?v=20261116-110343";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261116-125716";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261116-125716";
+import { EMPRESA } from "../core/pdf.js?v=20261116-125716";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261116-125716";
+import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg } from "../core/preco.js?v=20261116-125716";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261116-125716";
+import { store } from "../core/store.js?v=20261116-125716";
+import { ssel } from "../core/ssel.js?v=20261116-125716";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261116-125716";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261116-125716";
+import { newId } from "../core/store.js?v=20261116-125716";
+import { navigate } from "../core/router.js?v=20261116-125716";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261116-125716";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261116-125716";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261116-125716";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261116-125716";
+import { copiarTexto } from "../core/regua.js?v=20261116-125716";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
