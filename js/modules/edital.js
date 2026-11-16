@@ -1,23 +1,23 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261116-000053";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261116-000053";
-import { EMPRESA } from "../core/pdf.js?v=20261116-000053";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261116-000053";
-import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261116-000053";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261116-000053";
-import { store } from "../core/store.js?v=20261116-000053";
-import { ssel } from "../core/ssel.js?v=20261116-000053";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261116-000053";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261116-000053";
-import { newId } from "../core/store.js?v=20261116-000053";
-import { navigate } from "../core/router.js?v=20261116-000053";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261116-000053";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261116-000053";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261116-000053";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261116-000053";
-import { copiarTexto } from "../core/regua.js?v=20261116-000053";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261116-103109";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261116-103109";
+import { EMPRESA } from "../core/pdf.js?v=20261116-103109";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261116-103109";
+import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261116-103109";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261116-103109";
+import { store } from "../core/store.js?v=20261116-103109";
+import { ssel } from "../core/ssel.js?v=20261116-103109";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261116-103109";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261116-103109";
+import { newId } from "../core/store.js?v=20261116-103109";
+import { navigate } from "../core/router.js?v=20261116-103109";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261116-103109";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261116-103109";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261116-103109";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261116-103109";
+import { copiarTexto } from "../core/regua.js?v=20261116-103109";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -149,14 +149,16 @@ function historico(el) {
   const todas = store.get("analises").slice().sort((a, b) => (b.criadoEm || "").localeCompare(a.criadoEm || ""));
   const q = normTxt(histBusca); const eu = (currentUser?.email || "").toLowerCase();
   const lst = todas.filter((a) => { const L = a.resumo || {}; const n = (a.itens || []).length;
-    if (histDe && (!L.dataSessao || L.dataSessao < histDe)) return false; if (histAte && (!L.dataSessao || L.dataSessao > histAte)) return false;
+    const ds = isoOk(L.dataSessao) ? L.dataSessao : ""; if (histDe && (!ds || ds < histDe)) return false; if (histAte && (!ds || ds > histAte)) return false;
     if (histSit === "proposta" && !criadaValida(a)) return false; if (histSit === "analisado" && criadaValida(a)) return false; if (histSit === "semcorr" && (a.correspondencia || n === 0)) return false; if (histSit === "minhas" && (a.usuario || "").toLowerCase() !== eu) return false;
-    if (!q) return true; const alvo = normTxt([L.orgao, L.numero, L.modalidade, L.municipio, L.estado, L.uasg, a.usuario, portalDe(L), fmtD(dataLocal(a.criadoEm)), L.dataSessao ? fmtD(L.dataSessao) : "", ...(a.itens || []).map((i) => i.descricao)].join(" ")); return q.split(/\s+/).every((t) => alvo.includes(t)); });
-  const chave = { analise: (a) => a.criadoEm || "", disputa: (a) => (a.resumo?.dataSessao || "9999-99-99") + " " + (a.resumo?.horaSessao || ""), orgao: (a) => normTxt(a.resumo?.orgao), portal: (a) => normTxt(portalDe(a.resumo)) || "zzz", itens: (a) => (a.itens || []).length, corr: (a) => (a.correspondencia || []).filter((x) => x.produtoId).length / Math.max(1, (a.itens || []).length), situacao: (a) => a.criada ? 2 : (a.itens || []).length ? 1 : 0 }[histOrd] || ((a) => a.criadoEm || "");
+    if (!q) return true; const alvo = normTxt([L.orgao, L.numero, L.modalidade, L.municipio, L.estado, L.uasg, a.usuario, portalDe(L), fmtD(dataLocal(a.criadoEm)), isoOk(L.dataSessao) ? fmtD(L.dataSessao) : String(L.dataSessao || ""), ...(a.itens || []).map((i) => i.descricao)].join(" ")); return q.split(/\s+/).every((t) => alvo.includes(t)); });
+  const chave = { analise: (a) => a.criadoEm || "", disputa: (a) => (isoOk(a.resumo?.dataSessao) ? a.resumo.dataSessao : "9999-99-99") + " " + (a.resumo?.horaSessao || ""), orgao: (a) => normTxt(a.resumo?.orgao), portal: (a) => normTxt(portalDe(a.resumo)) || "zzz", itens: (a) => (a.itens || []).length, corr: (a) => (a.correspondencia || []).filter((x) => x.produtoId).length / Math.max(1, (a.itens || []).length), situacao: (a) => a.criada ? 2 : (a.itens || []).length ? 1 : 0 }[histOrd] || ((a) => a.criadoEm || "");
   lst.sort((a, b) => { const x = chave(a), y = chave(b); const c = typeof x === "number" ? x - y : String(x).localeCompare(String(y)); return histDir === "asc" ? c : -c; });
   const mostrarLst = lst.slice(0, 60);
   const th = (k, t, cls = "") => `<th class="${cls}"><a href="#" data-hist-ord="${k}" style="text-decoration:none;${histOrd === k ? "font-weight:700;color:var(--navy-2)" : "font-weight:600;color:inherit"}">${t}${histOrd === k ? (histDir === "asc" ? " ↑" : " ↓") : ""}</a></th>`;
-  const disputa = (L) => { if (!L.dataSessao) return `<span class="muted">—</span>`; const hoje = hojeIso(); const dias = Math.round((new Date(L.dataSessao + "T00:00:00") - new Date(hoje + "T00:00:00")) / 864e5);
+  const disputa = (L) => { if (!L.dataSessao) return `<span class="muted">—</span>`;
+    if (!isoOk(L.dataSessao)) return `<span class="muted" title="${esc(String(L.dataSessao))}">—</span><div class="muted" style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis" title="${esc(String(L.dataSessao))}">${esc(String(L.dataSessao))}</div>`;
+    const hoje = hojeIso(); const dias = Math.round((new Date(L.dataSessao + "T00:00:00") - new Date(hoje + "T00:00:00")) / 864e5);
     const cor = dias < 0 ? "color:var(--muted)" : dias === 0 ? "color:var(--red);font-weight:700" : dias <= 3 ? "color:var(--amber-txt);font-weight:600" : ""; const rot = dias < 0 ? "realizada" : dias === 0 ? "hoje" : dias === 1 ? "amanhã" : `em ${dias} dias`;
     return `<div style="${cor}">${fmtDc(L.dataSessao)}${L.horaSessao ? ` <span style="font-weight:400">${esc(String(L.horaSessao).slice(0, 5))}</span>` : ""}</div><div class="muted" style="font-size:11px">${rot}</div>`; };
   box.innerHTML = `<div class="card-head"><h2>Análises recentes</h2><span class="muted" style="font-size:12px">${mostrarLst.length} de ${todas.length}</span></div>
@@ -526,3 +528,6 @@ function iniciarAndamento(box, btn) {
     fim() { clearInterval(timer); box.hidden = true; box.innerHTML = ""; btn.innerHTML = textoBtn; },
   };
 }
+
+// data de sessão no formato AAAA-MM-DD? (a IA às vezes devolve texto, ex.: "Fase de lances")
+const isoOk = (d) => /^\d{4}-\d{2}-\d{2}/.test(String(d || ""));

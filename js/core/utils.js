@@ -8,11 +8,11 @@ export const fmtNum = (v) => Number(v || 0).toLocaleString("pt-BR");
 // "2026-05-26" -> "26/05/2026"
 export const fmtD = (d) => {
   if (!d) return "—";
-  const [y, m, dd] = String(d).slice(0, 10).split("-");
-  return dd && m && y ? `${dd}/${m}/${y}` : "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d); // texto que não é data (ex.: "Fase de lances") volta como está
 };
 // Data curta dd/mm/aa (para tabelas)
-export const fmtDc = (d) => { const t = fmtD(d); return t === "—" ? t : t.slice(0, 6) + t.slice(8); };
+export const fmtDc = (d) => { const t = fmtD(d); return /^\d{2}\/\d{2}\/\d{4}$/.test(t) ? t.slice(0, 6) + t.slice(8) : t; };
 
 // Data local "YYYY-MM-DD" (sem deslocar o dia pelo fuso)
 // Data local (aaaa-mm-dd) de um timestamp ISO/UTC — evita "virar o dia" depois das 21h no Brasil
