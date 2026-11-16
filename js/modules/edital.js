@@ -1,23 +1,23 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261116-104038";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261116-104038";
-import { EMPRESA } from "../core/pdf.js?v=20261116-104038";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261116-104038";
-import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261116-104038";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261116-104038";
-import { store } from "../core/store.js?v=20261116-104038";
-import { ssel } from "../core/ssel.js?v=20261116-104038";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261116-104038";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261116-104038";
-import { newId } from "../core/store.js?v=20261116-104038";
-import { navigate } from "../core/router.js?v=20261116-104038";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261116-104038";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261116-104038";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261116-104038";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261116-104038";
-import { copiarTexto } from "../core/regua.js?v=20261116-104038";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261116-110343";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261116-110343";
+import { EMPRESA } from "../core/pdf.js?v=20261116-110343";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261116-110343";
+import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg } from "../core/preco.js?v=20261116-110343";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261116-110343";
+import { store } from "../core/store.js?v=20261116-110343";
+import { ssel } from "../core/ssel.js?v=20261116-110343";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261116-110343";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261116-110343";
+import { newId } from "../core/store.js?v=20261116-110343";
+import { navigate } from "../core/router.js?v=20261116-110343";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261116-110343";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261116-110343";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261116-110343";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261116-110343";
+import { copiarTexto } from "../core/regua.js?v=20261116-110343";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -446,12 +446,12 @@ async function preencherDisputa(file) {
   const cItem = col(/^(n[º°.]?\s*)?(do\s+)?item/), cDesc = col(/descri/), cLote = col(/^lote/), cLimite = col(/valor limite|lance m[ií]nimo|limite/);
   if (cItem < 0 || cLimite < 0) return toast("Esta não parece a planilha de disputa da Effecti (precisa das colunas Item e Valor limite).", "erro", 7000);
   const casados = linhasCorr().filter((x) => x.p);
-  const totalPedido = casados.reduce((a, { it, p }) => a + piso(p.custo) * (+it.quantidade || 0), 0); // estimativa do pedido para ratear o frete mínimo
+  const totalPedido = casados.reduce((a, { it, p }) => a + piso(p.custo) * (+it.quantidade || 0), 0); // estimativa do pedido (para avisar sobre o frete mínimo)
   const X = XL(); let n = 0; const faltam = [], acima = [];
   casados.forEach(({ it, p }) => {
     const ri = acharLinha(ex, cItem, cDesc, it, cLote);
     if (ri < 0) { faltam.push(it.item); return; }
-    const lance = +pisoComFreteMin(p.custo, totalPedido).toFixed(2);
+    const lance = +piso(p.custo).toFixed(2); // mesmo piso mostrado na tabela (sem rateio de frete mínimo, que distorce pedidos pequenos)
     const ref = X.utils.encode_cell({ r: ri, c: cLimite }); const atual = +ex.rows[ri][cLimite] || 0;
     ex.ws[ref] = { ...(ex.ws[ref] || {}), t: "n", v: lance, z: "#,##0.00" }; delete ex.ws[ref].w;
     if (atual && lance > atual) acima.push(`${it.item} (piso ${fmt(lance)} > limite ${fmt(atual)})`);
@@ -459,7 +459,8 @@ async function preencherDisputa(file) {
   });
   if (!n) return toast(`Nenhum item da planilha coincide com os itens casados. Itens na planilha: ${itensDaPlanilha(ex, cItem, cLote).slice(0, 15).join(", ") || "nenhum"} · itens casados: ${casados.map((x) => x.it.item).join(", ")}.`, "erro", 12000);
   salvarWorkbook(ex.wb, `disputa_effecti_${(numeroCurto(L.numero) || "edital").replace(/[^\w]+/g, "_")}`);
-  toast(`Lance mínimo preenchido em ${n} item(ns)${faltam.length ? ` · não encontrados na planilha: ${faltam.join(", ")}` : ""}${acima.length ? ` · ATENÇÃO, piso acima do valor atual: ${acima.join("; ")}` : ""}.`, acima.length ? "aviso" : "ok", 10000);
+  const pedMin = pedidoMinimoSemAjuste(); const freteAviso = pedMin && totalPedido < pedMin ? ` · ATENÇÃO: pedido estimado de ${fmt(totalPedido)} fica abaixo de ${fmt(pedMin)} — no piso, o frete mínimo não fica coberto; avalie se vale disputar` : "";
+  toast(`Lance mínimo preenchido em ${n} item(ns)${faltam.length ? ` · não encontrados na planilha: ${faltam.join(", ")}` : ""}${acima.length ? ` · ATENÇÃO, piso acima do valor atual: ${acima.join("; ")}` : ""}${freteAviso}.`, acima.length || freteAviso ? "aviso" : "ok", 12000);
 }
 
 // ---------- Declarações exigidas no edital ----------
