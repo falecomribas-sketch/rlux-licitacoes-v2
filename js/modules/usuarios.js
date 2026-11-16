@@ -4,13 +4,13 @@
 // perfil); a conta tinha que ser criada no console do Firebase. Aqui usamos
 // uma segunda instância do app só para criar a conta, sem derrubar a sessão
 // do administrador.
-import { store, newId } from "../core/store.js?v=20261115-173328";
-import { app } from "../core/firebase.js?v=20261115-173328";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261115-173328";
-import { formModal, lerForm, campo, inputTxt, select, linha } from "../core/forms.js?v=20261115-173328";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261115-173328";
-import { esc, fmtD } from "../core/utils.js?v=20261115-173328";
-import { currentUser, isAdmin } from "../core/auth.js?v=20261115-173328";
+import { store, newId } from "../core/store.js?v=20261116-000053";
+import { app } from "../core/firebase.js?v=20261116-000053";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261116-000053";
+import { formModal, lerForm, campo, inputTxt, select, linha } from "../core/forms.js?v=20261116-000053";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261116-000053";
+import { esc, fmtD } from "../core/utils.js?v=20261116-000053";
+import { currentUser, isAdmin } from "../core/auth.js?v=20261116-000053";
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 

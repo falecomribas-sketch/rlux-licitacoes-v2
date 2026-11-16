@@ -1,23 +1,23 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261115-173328";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261115-173328";
-import { EMPRESA } from "../core/pdf.js?v=20261115-173328";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261115-173328";
-import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261115-173328";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261115-173328";
-import { store } from "../core/store.js?v=20261115-173328";
-import { ssel } from "../core/ssel.js?v=20261115-173328";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261115-173328";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261115-173328";
-import { newId } from "../core/store.js?v=20261115-173328";
-import { navigate } from "../core/router.js?v=20261115-173328";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261115-173328";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261115-173328";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261115-173328";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261115-173328";
-import { copiarTexto } from "../core/regua.js?v=20261115-173328";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261116-000053";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261116-000053";
+import { EMPRESA } from "../core/pdf.js?v=20261116-000053";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261116-000053";
+import { iniciarPreco, piso, pisoComFreteMin, custoVencido, getCfg } from "../core/preco.js?v=20261116-000053";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261116-000053";
+import { store } from "../core/store.js?v=20261116-000053";
+import { ssel } from "../core/ssel.js?v=20261116-000053";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261116-000053";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261116-000053";
+import { newId } from "../core/store.js?v=20261116-000053";
+import { navigate } from "../core/router.js?v=20261116-000053";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261116-000053";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261116-000053";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261116-000053";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261116-000053";
+import { copiarTexto } from "../core/regua.js?v=20261116-000053";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -34,7 +34,7 @@ export default {
         <p class="muted" style="margin:0 0 10px;font-size:13px">Envie o edital e, se houver, o termo de referência e anexos (até 4 PDFs, 30 MB cada). A IA lê tudo no servidor e devolve as respostas com a cláusula/página. Nada é gravado: use para decidir se vale participar e quais itens cotar.</p>
         <label class="dropzone" id="dz" style="display:block">${icon("upload")} <span id="dz-txt">Clique para escolher os PDFs ou arraste aqui</span><input type="file" accept="application/pdf,.pdf" multiple hidden></label>
         <div id="lista" style="margin-top:10px"></div>
-        <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap"><button class="btn btn-primary" id="btn-analisar" disabled>${icon("bulb")} Analisar edital</button><label class="field field-inline"><span>Modelo</span><select id="sel-modelo">${MODELOS.map(([v, t]) => `<option value="${v}" ${modelo === v ? "selected" : ""}>${t}</option>`).join("")}</select></label><span class="muted" id="progresso" style="font-size:13px"></span></div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap"><button class="btn btn-primary" id="btn-analisar" disabled>${icon("bulb")} Analisar edital</button><label class="field field-inline"><span>Modelo</span><select id="sel-modelo">${MODELOS.map(([v, t]) => `<option value="${v}" ${modelo === v ? "selected" : ""}>${t}</option>`).join("")}</select></label><span class="muted" id="progresso" style="font-size:13px"></span></div><div id="andamento" class="andamento" hidden></div>
       </div></div>
       <div id="resultado" style="margin-top:16px"></div>
       <div class="card" id="historico" style="margin-top:16px"></div>`;
@@ -47,16 +47,19 @@ export default {
     el.querySelector("#lista").addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (b) { arquivos.splice(+b.dataset.rm, 1); lista(); } });
     el.querySelector("#sel-modelo").addEventListener("change", (e) => { modelo = e.target.value; });
     btn.addEventListener("click", async () => {
-      ocupado = true; lista(); prog.textContent = "Preparando…";
+      ocupado = true; lista(); prog.textContent = "";
+      const and_ = iniciarAndamento(el.querySelector("#andamento"), btn);
+      and_.etapa("Preparando os arquivos…");
       // mesmo conjunto de PDFs já analisado? evita pagar duas vezes
       let hash = ""; try { hash = await hashArquivos(arquivos); } catch { hash = ""; }
       const igual = hash ? store.get("analises").find((a) => a.hashArquivos === hash) : null;
       if (igual) {
         const abrir = await confirmar(`Estes mesmos PDFs já foram analisados em ${fmtD(dataLocal(igual.criadoEm))} (${modalidadeCurta(igual.resumo?.modalidade)} ${numeroCurto(igual.resumo?.numero) || ""}). Abrir a análise existente em vez de pagar uma nova?`, { ok: "Abrir a existente", cancelar: "Analisar de novo" });
-        if (abrir) { ultima = JSON.parse(JSON.stringify(igual)); aba = "edital"; arquivos = []; ocupado = false; lista(); prog.textContent = ""; mostrar(el); return; }
+        if (abrir) { and_.fim(); ultima = JSON.parse(JSON.stringify(igual)); aba = "edital"; arquivos = []; ocupado = false; lista(); mostrar(el); return; }
       }
-      try { ultima = await analisarEdital(arquivos, { modelo, prompt: getPrompts().analise, onProgresso: (t) => { prog.textContent = t; } }); ultima.hashArquivos = hash; registrarUso(ultima, "analise", ultima.meta); ultima.arquivosNomes = arquivos.map((f) => f.name); ultima.criadoEm = new Date().toISOString(); ultima.usuario = currentUser?.email || ""; await salvarAnalise(); prog.textContent = ""; toast("Análise concluída."); }
-      catch (e) { prog.textContent = ""; toast(e.message, "erro", 8000); }
+      try { ultima = await analisarEdital(arquivos, { modelo, prompt: getPrompts().analise, onProgresso: (t) => and_.etapa(t) }); and_.etapa("Guardando a análise…"); ultima.hashArquivos = hash; registrarUso(ultima, "analise", ultima.meta); ultima.arquivosNomes = arquivos.map((f) => f.name); ultima.criadoEm = new Date().toISOString(); ultima.usuario = currentUser?.email || ""; await salvarAnalise(); toast("Análise concluída."); }
+      catch (e) { toast(e.message, "erro", 8000); }
+      and_.fim();
       ocupado = false; lista(); mostrar(el);
     });
     const agir = (act, id) => {
@@ -500,4 +503,26 @@ function ligarDecl(el) {
     if (act === "decl-pdf-todas") { const docs = r.declaracoes.filter((d) => d.forma !== "sistema"); if (!docs.length) return toast("Todas as declarações deste edital são marcadas no portal — nada a imprimir.", "aviso"); const doc = await gerarPdfDeclaracoes(docs, { data }); doc.save(`declaracoes_${nomeBase}.pdf`); toast(`PDF com ${docs.length} declaração(ões)${docs.length < r.declaracoes.length ? ` — ${r.declaracoes.length - docs.length} marcada(s) no portal ficaram de fora` : ""}.`, "ok", 6000); return; }
     if (act === "decl-rm") { if (!await confirmar("Remover esta declaração da lista?")) return; r.declaracoes.splice(+b.dataset.i, 1); await salvarAnalise(); mostrar(el); }
   });
+}
+
+// Painel de andamento durante a análise: etapa atual, cronômetro e o que a IA está fazendo
+// (a função roda de uma vez só no servidor, então as sub-etapas da leitura são estimadas pelo tempo).
+function iniciarAndamento(box, btn) {
+  const t0 = Date.now(); const textoBtn = btn.innerHTML; let etapa = ""; let lendo = false;
+  btn.innerHTML = `<span class="spin"></span> Analisando…`;
+  const SUB = [[0, "Lendo o edital e os anexos"], [35, "Identificando modalidade, órgão, datas e portal"], [70, "Extraindo a planilha de itens"], [110, "Levantando exigências, documentos e declarações"], [160, "Organizando o resumo"], [240, "Quase lá — editais grandes demoram um pouco mais"]];
+  const mmss = (s) => `${String(Math.floor(s / 60)).padStart(1, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const desenhar = () => {
+    const seg = Math.floor((Date.now() - t0) / 1000);
+    const sub = lendo ? SUB.filter(([t]) => seg >= t).pop()[1] : etapa;
+    box.innerHTML = `<div class="andamento-top"><span class="spin"></span><strong>${esc(lendo ? "Analisando o edital com a IA" : etapa)}</strong><span class="muted">${mmss(seg)}</span></div>
+      <div class="andamento-sub">${esc(lendo ? sub + "…" : "")}</div>
+      <div class="andamento-bar"><i style="width:${Math.min(96, 8 + seg / 2.2)}%"></i></div>
+      <div class="muted" style="font-size:12px">Costuma levar de 1 a 3 minutos. Mantenha esta tela aberta — você será avisado quando terminar.</div>`;
+  };
+  box.hidden = false; desenhar(); const timer = setInterval(desenhar, 1000);
+  return {
+    etapa(t) { etapa = t; lendo = /Lendo o edital/i.test(t); desenhar(); },
+    fim() { clearInterval(timer); box.hidden = true; box.innerHTML = ""; btn.innerHTML = textoBtn; },
+  };
 }
