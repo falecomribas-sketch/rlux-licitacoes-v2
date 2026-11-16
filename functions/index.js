@@ -17,7 +17,7 @@ const MAX_PDF_MB = 30;
 
 // Texto por página (modo econômico: a IA recebe texto, não o PDF). Páginas sem texto (escaneadas)
 // são renderizadas como imagem só quando necessário.
-async function lerPdf(buffer) {
+async function lerPdf(buffer, { comImagens = true } = {}) {
   const parser = new PDFParse({ data: buffer });
   try {
     const r = await parser.getText();
@@ -25,12 +25,14 @@ async function lerPdf(buffer) {
     const semTexto = paginas.map((t, i) => (t.length < 80 ? i + 1 : null)).filter(Boolean);
     // páginas com texto mas que trazem uma imagem grande (tabela de itens colada como figura, print do sistema etc.)
     let comFigura = [];
-    try {
+    if (comImagens) try {
       const im = await parser.getImage({ imageThreshold: 250, imageBuffer: false, imageDataUrl: false });
-      comFigura = (im.pages || []).filter((pg) => pg.images.some((i) => i.width >= 400 && i.height >= 200)).map((pg) => pg.pageNumber).filter((n) => !semTexto.includes(n));
+      // ignora timbre/marca-d'água: a mesma imagem (mesmo tamanho) repetida em 3+ páginas
+      const rep = {}; (im.pages || []).forEach((pg) => { const vistos = new Set(pg.images.map((i) => `${i.width}x${i.height}`)); vistos.forEach((k) => { rep[k] = (rep[k] || 0) + 1; }); });
+      comFigura = (im.pages || []).filter((pg) => pg.images.some((i) => i.width >= 400 && i.height >= 200 && rep[`${i.width}x${i.height}`] < 3)).map((pg) => pg.pageNumber).filter((n) => !semTexto.includes(n));
     } catch (e) { console.warn("getImage falhou", e.message); }
     let imagens = [];
-    const renderizar = [...semTexto, ...comFigura].slice(0, 20); // limite para não explodir o custo
+    const renderizar = comImagens ? [...semTexto, ...comFigura].slice(0, 20) : []; // limite para não explodir o custo
     if (renderizar.length) {
       try { const sc = await parser.getScreenshot({ partial: renderizar, desiredWidth: 1200, imageDataUrl: false }); imagens = (sc.pages || []).map((pg) => ({ pagina: pg.pageNumber, png: Buffer.from(pg.data).toString("base64"), figura: comFigura.includes(pg.pageNumber) })); }
       catch (e) { console.warn("screenshot falhou", e.message); }
@@ -67,7 +69,7 @@ async function analisar(req) {
   const todasPaginas = docs.flatMap((d) => d.paginas);
   const semTexto = docs.map((d) => ({ nome: d.nome, paginas: d.paginas.length, semTexto: d.semTexto.length, modo: d.falhou || (d.paginas.length && d.semTexto.length > d.paginas.length * 0.5) ? "pdf" : "texto" }));
 
-  const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() });
+  const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value(), maxRetries: 1, timeout: 480000 });
   const content = [];
   docs.forEach((d, i) => {
     const info = semTexto[i];
@@ -135,7 +137,7 @@ exports.casarItens = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "512MiB", ti
   if (itens.length > 60) throw new HttpsError("invalid-argument", "No máximo 60 itens por chamada.");
   const modelo = ["claude-sonnet-5-5", "claude-haiku-5-5"].includes(req.data?.modelo) ? req.data.modelo : MODELO_PADRAO;
   const texto = itens.map((it, i) => `ITEM ${it.item} (${i + 1}/${itens.length})\nDescrição no edital: ${it.descricao}\nUnidade: ${it.unidade || "—"} · Quantidade: ${it.quantidade ?? "—"}${it.marcaReferencia ? ` · Marca de referência: ${it.marcaReferencia}` : ""}\nCANDIDATOS:\n${(it.candidatos || []).map((c) => `  - id=${c.id} | ${c.nome}${c.descricaoTecnica ? ` | ${c.descricaoTecnica}` : ""}${c.tecnico ? ` | ${c.tecnico}` : ""}${c.unidade ? ` | un: ${c.unidade}` : ""}${c.custo ? ` | custo R$ ${Number(c.custo).toFixed(2)}` : ""}${c.preferido ? " | PREFERIDO" : ""}`).join("\n") || "  (nenhum candidato na família)"}`).join("\n\n");
-  const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() });
+  const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value(), maxRetries: 1, timeout: 480000 });
   const t0 = Date.now();
   let resp;
   try {
@@ -175,7 +177,7 @@ exports.extrairDeclaracoes = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1Gi
     for (let i = 0; i < arquivos.length; i++) {
       const a = arquivos[i]; if (typeof a.path !== "string" || !a.path.startsWith("anexos/editais/")) throw new HttpsError("invalid-argument", "Caminho de arquivo inválido.");
       let buf; try { [buf] = await bucket.file(a.path).download(); } catch (e) { throw new HttpsError("not-found", `Não encontrei ${a.nome || a.path} no Storage (os PDFs da análise podem ter sido apagados).`); }
-      let lido = { paginas: [], semTexto: [], imagens: [] }, falhou = false; try { lido = await lerPdf(buf); } catch (e) { falhou = true; }
+      let lido = { paginas: [], semTexto: [], imagens: [] }, falhou = false; try { lido = await lerPdf(buf, { comImagens: false }); } catch (e) { falhou = true; }
       const nome = a.nome || a.path.split("/").pop();
       if (falhou || (lido.paginas.length && lido.semTexto.length > lido.paginas.length * 0.5)) { content.push({ type: "text", text: `Documento ${i + 1}: ${nome} (lido por imagem)` }); content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: buf.toString("base64") }, title: nome }); continue; }
       const sel = paginasDeclaracoes(lido.paginas); paginasTotal += lido.paginas.length; paginasEnviadas += sel.length;
@@ -183,9 +185,10 @@ exports.extrairDeclaracoes = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1Gi
       lido.imagens.forEach((img) => { content.push({ type: "text", text: `Documento ${i + 1}, página ${img.pagina} (imagem):` }); content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: img.png } }); });
     }
     content.push({ type: "text", text: `Os trechos acima são as páginas dos documentos que mencionam declarações, habilitação ou anexos (${paginasEnviadas} de ${paginasTotal} páginas; o número da página está no marcador). Localize todas as declarações exigidas da licitante e registre-as preenchidas com a ferramenta registrar_declaracoes.` });
-    const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() }); const t0 = Date.now();
+    const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value(), maxRetries: 1, timeout: 420000 }); const t0 = Date.now();
+    console.log("extrairDeclaracoes: paginas", paginasEnviadas, "de", paginasTotal);
     let resp;
-    try { resp = await client.messages.stream({ model: modelo, max_tokens: 24000, system: systemPromptDeclaracoes(empresa, prompt, certame), tools: [TOOL_DECL], tool_choice: { type: "auto" }, messages: [{ role: "user", content }] }).finalMessage(); }
+    try { resp = await client.messages.stream({ model: modelo, max_tokens: 14000, system: systemPromptDeclaracoes(empresa, prompt, certame), tools: [TOOL_DECL], tool_choice: { type: "auto" }, messages: [{ role: "user", content }] }).finalMessage(); }
     catch (e) { console.error("Anthropic:", e); throw new HttpsError("internal", `Falha na IA: ${e.status || ""} ${e.message || e}`); }
     const bloco = (resp.content || []).find((c) => c.type === "tool_use"); let r = bloco?.input;
     if (!r) { const txt = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"); const m = txt.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; } if (!r) throw new HttpsError("internal", "A IA não devolveu as declarações estruturadas."); }

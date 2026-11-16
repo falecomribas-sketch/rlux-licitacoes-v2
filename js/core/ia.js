@@ -1,9 +1,9 @@
 // Ponte com as funções de servidor (IA). O navegador nunca vê a chave da API:
 // envia os PDFs para o Storage e pede ao servidor que analise.
-import { app, storage } from "./firebase.js?v=20261116-130731";
+import { app, storage } from "./firebase.js?v=20261116-182627";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 import { ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-import { newId } from "./store.js?v=20261116-130731";
+import { newId } from "./store.js?v=20261116-182627";
 
 const functions = getFunctions(app, "southamerica-east1");
 export const LIMITE_PDF = 30 * 1024 * 1024;
@@ -44,5 +44,5 @@ export async function casarItens(itens, { regras, modelo, prompt } = {}) {
 export async function extrairDeclaracoes(arquivos, { empresa, prompt, modelo, certame } = {}) {
   const fn = httpsCallable(functions, "extrairDeclaracoes", { timeout: 540000 });
   try { const r = await fn({ arquivos, empresa, certame, prompt: prompt || undefined, modelo }); return r.data; }
-  catch (e) { const msg = (e?.message || String(e)).replace(/^FirebaseError:\s*/, ""); if (/not-found|NOT_FOUND|404/i.test(msg) && !/Storage/.test(msg)) throw new Error("A função de declarações ainda não foi publicada no servidor."); throw new Error(msg); }
+  catch (e) { const msg = (e?.message || String(e)).replace(/^FirebaseError:\s*/, ""); if (/not-found|NOT_FOUND|404/i.test(msg) && !/Storage/.test(msg)) throw new Error("A função de declarações ainda não foi publicada no servidor."); if (/deadline|timeout|504|internal/i.test(msg) && !/Falha na IA|Erro no servidor/.test(msg)) throw new Error("A leitura das declarações demorou demais e foi interrompida pelo servidor. Tente de novo; se repetir, troque o modelo para Haiku ou me avise informando o edital."); throw new Error(msg); }
 }
