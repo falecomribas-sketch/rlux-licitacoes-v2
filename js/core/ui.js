@@ -1,5 +1,5 @@
 // Componentes de interface compartilhados: toast, modal, confirmação, ícones.
-import { $, esc, raw, h } from "./utils.js?v=20261117-181413";
+import { $, esc, raw, h } from "./utils.js?v=20261117-182002";
 
 // ---------- toasts ----------
 export function toast(msg, tipo = "ok", ms = 3200) {

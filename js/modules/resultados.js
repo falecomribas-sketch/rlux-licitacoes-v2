@@ -1,12 +1,12 @@
 // Resultados de disputa: êxito por item, onde perdemos (classe da perda) e para quem, com cortes por família, UF, portal e concorrente.
-import { store } from "../core/store.js?v=20261117-181413";
-import { icon, tag } from "../core/ui.js?v=20261117-181413";
-import { esc, fmt, fmtNum, fmtD, fmtDc, toTitleCase } from "../core/utils.js?v=20261117-181413";
-import { exportarExcel } from "../core/forms.js?v=20261117-181413";
-import { iniciarPreco } from "../core/preco.js?v=20261117-181413";
-import { linhasResultados, agrupar, CLASSE_ROTULO } from "../core/resultados.js?v=20261117-181413";
+import { store } from "../core/store.js?v=20261117-182002";
+import { icon, tag } from "../core/ui.js?v=20261117-182002";
+import { esc, fmt, fmtNum, fmtD, fmtDc, toTitleCase } from "../core/utils.js?v=20261117-182002";
+import { exportarExcel } from "../core/forms.js?v=20261117-182002";
+import { iniciarPreco } from "../core/preco.js?v=20261117-182002";
+import { linhasResultados, agrupar, CLASSE_ROTULO } from "../core/resultados.js?v=20261117-182002";
 
-let unsub = null, corte = "familia", filtroClasse = "", busca = "", ordem = "data", dir = "desc", de = "", ate = "", limite = 60;
+let unsub = null, corte = "familia", filtroClasse = "", busca = "", ordem = "data", dir = "desc", de = "", ate = "", limite = 60, orgaoSel = "";
 const CORTES = { familia: ["Família", (r) => r.familiaNome], uf: ["UF", (r) => r.uf || "—"], portal: ["Portal", (r) => r.portal || "—"], concorrente: ["Concorrente (quem venceu)", (r) => r.perdido ? (r.vencedor || "—") : "RLUX (ganho)"], marca: ["Marca do vencedor", (r) => r.perdido ? (r.marcaVencedor || "não informada") : (r.nossaMarca ? `RLUX · ${r.nossaMarca}` : "RLUX (ganho)")], orgao: ["Órgão", (r) => toTitleCase(r.o?.nome || "—")], mes: ["Mês", (r) => (r.data || "").slice(0, 7) || "—"] };
 const pct = (v) => v === null || v === undefined || isNaN(v) ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
 
@@ -16,7 +16,8 @@ export default {
     iniciarPreco();
     const desenhar = () => {
       const todas = linhasResultados();
-      const periodo = todas.filter((r) => (!de || (r.data || "") >= de) && (!ate || (r.data || "") <= ate));
+      const periodo = todas.filter((r) => (!de || (r.data || "") >= de) && (!ate || (r.data || "") <= ate) && (!orgaoSel || r.o?.id === orgaoSel));
+      const orgaosComResultado = [...new Map(todas.filter((r) => r.o?.id).map((r) => [r.o.id, r.o])).values()].sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR"));
       const q = busca.trim().toLowerCase();
       const lst = periodo.filter((r) => (!filtroClasse || (filtroClasse === "perdido" ? r.perdido : r.classe === filtroClasse)) && (!q || [r.nome, r.codigo, r.vencedor, r.marcaVencedor, r.o?.nome, r.l?.numero, r.uf, r.portal, r.familiaNome].some((x) => String(x || "").toLowerCase().includes(q))));
       const g = agrupar(periodo, () => "tudo")[0] || { itens: 0, ganhos: 0, perdidos: 0, valorGanho: 0, valorPerdido: 0, exito: 0, difMedia: null, classes: {} };
@@ -34,9 +35,10 @@ export default {
           <div class="kpi"><div class="kpi-label">Distância do vencedor</div><div class="kpi-value">${pct(g.difMedia)}</div><div class="kpi-note">média nos perdidos (${comConc} com concorrência)</div></div>
           <div class="kpi"><div class="kpi-label">Por que perdemos</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${["empate", "acima_piso", "entre_custo_piso", "abaixo_custo"].map((c) => g.classes[c] ? `<span class="tag ${CLASSE_ROTULO[c][1]}" title="${esc(CLASSE_ROTULO[c][2])}">${g.classes[c]} ${CLASSE_ROTULO[c][0]}</span>` : "").join("") || '<span class="muted" style="font-size:12px">importe os resultados da Effecti nas disputas</span>'}</div></div>
         </div>
-        <div class="page-head"><h2>Resultados de disputa</h2><div class="actions"><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel</button></div></div>
+        <div class="page-head"><h2>Resultados de disputa${orgaoSel ? ` — ${esc(toTitleCase(orgaosComResultado.find((o) => o.id === orgaoSel)?.nome || ""))}` : ""}</h2><div class="actions"><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel</button></div></div>
         <div class="card"><div class="card-body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px">
           <span class="muted">Período (data da disputa)</span><input type="date" class="input input-sm" id="res-de" value="${de}" style="width:140px"><span>até</span><input type="date" class="input input-sm" id="res-ate" value="${ate}" style="width:140px">
+          <span class="muted" style="margin-left:10px">Órgão</span><select class="input input-sm" id="res-orgao" style="width:auto;max-width:320px"><option value="">Todos</option>${orgaosComResultado.map((o) => `<option value="${esc(o.id)}" ${orgaoSel === o.id ? "selected" : ""}>${esc(toTitleCase(o.nome || ""))}${o.uasg ? ` · ${esc(String(o.uasg).split(/\s+/)[0])}` : ""}${o.estado ? ` (${esc(o.estado)})` : ""}</option>`).join("")}</select>
           <span class="muted" style="margin-left:10px">Agrupar por</span><select class="input input-sm" id="res-corte" style="width:auto">${Object.entries(CORTES).map(([k, [t]]) => `<option value="${k}" ${corte === k ? "selected" : ""}>${t}</option>`).join("")}</select>
         </div>
         <div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>${CORTES[corte][0]}</th><th class="num">Itens</th><th class="num">Ganhos</th><th class="num">Êxito</th><th class="num">Valor ganho</th><th class="num">Valor perdido</th><th class="num">Dist. média</th><th>Por que perdemos</th></tr></thead><tbody>
@@ -53,6 +55,7 @@ export default {
       el.querySelector("#res-de").addEventListener("change", (e) => { de = e.target.value; desenhar(); });
       el.querySelector("#res-ate").addEventListener("change", (e) => { ate = e.target.value; desenhar(); });
       el.querySelector("#res-corte").addEventListener("change", (e) => { corte = e.target.value; desenhar(); });
+      el.querySelector("#res-orgao").addEventListener("change", (e) => { orgaoSel = e.target.value; desenhar(); });
       const bi = el.querySelector("#res-busca"); bi.addEventListener("input", () => { busca = bi.value; const pos = bi.selectionStart; desenhar(); const nb = el.querySelector("#res-busca"); nb.focus(); nb.setSelectionRange(pos, pos); });
       el.querySelectorAll("[data-classe]").forEach((b) => b.addEventListener("click", () => { filtroClasse = b.dataset.classe; desenhar(); }));
       el.querySelectorAll("th.sortable").forEach((h) => h.addEventListener("click", () => { const k = h.dataset.ord; if (ordem === k) dir = dir === "asc" ? "desc" : "asc"; else { ordem = k; dir = k === "data" ? "desc" : "asc"; } desenhar(); }));
