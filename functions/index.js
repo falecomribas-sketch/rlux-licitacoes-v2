@@ -25,8 +25,10 @@ async function lerPdf(buffer, { comImagens = true } = {}) {
     const semTexto = paginas.map((t, i) => (t.length < 80 ? i + 1 : null)).filter(Boolean);
     // páginas com texto mas que trazem uma imagem grande (tabela de itens colada como figura, print do sistema etc.)
     let comFigura = [];
+    // pdf.js trava em alguns PDFs ao listar imagens (visto em edital com páginas escaneadas) → tempo limite, e segue sem figuras
+    const comLimite = (prom, ms, rotulo) => Promise.race([prom, new Promise((_, rej) => setTimeout(() => rej(new Error(`${rotulo}: tempo esgotado (${ms / 1000}s)`)), ms))]);
     if (comImagens) try {
-      const im = await parser.getImage({ imageThreshold: 250, imageBuffer: false, imageDataUrl: false });
+      const im = await comLimite(parser.getImage({ imageThreshold: 250, imageBuffer: false, imageDataUrl: false }), 15000, "getImage");
       // ignora timbre/marca-d'água: a mesma imagem (mesmo tamanho) repetida em 3+ páginas
       const rep = {}; (im.pages || []).forEach((pg) => { const vistos = new Set(pg.images.map((i) => `${i.width}x${i.height}`)); vistos.forEach((k) => { rep[k] = (rep[k] || 0) + 1; }); });
       comFigura = (im.pages || []).filter((pg) => pg.images.some((i) => i.width >= 400 && i.height >= 200 && rep[`${i.width}x${i.height}`] < 3)).map((pg) => pg.pageNumber).filter((n) => !semTexto.includes(n));
@@ -34,7 +36,7 @@ async function lerPdf(buffer, { comImagens = true } = {}) {
     let imagens = [];
     const renderizar = comImagens ? [...semTexto, ...comFigura].slice(0, 20) : []; // limite para não explodir o custo
     if (renderizar.length) {
-      try { const sc = await parser.getScreenshot({ partial: renderizar, desiredWidth: 1200, imageDataUrl: false }); imagens = (sc.pages || []).map((pg) => ({ pagina: pg.pageNumber, png: Buffer.from(pg.data).toString("base64"), figura: comFigura.includes(pg.pageNumber) })); }
+      try { const sc = await comLimite(parser.getScreenshot({ partial: renderizar, desiredWidth: 1200, imageDataUrl: false }), 90000, "screenshot"); imagens = (sc.pages || []).map((pg) => ({ pagina: pg.pageNumber, png: Buffer.from(pg.data).toString("base64"), figura: comFigura.includes(pg.pageNumber) })); }
       catch (e) { console.warn("screenshot falhou", e.message); }
     }
     return { paginas, semTexto, comFigura, imagens };
