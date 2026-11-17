@@ -1,18 +1,18 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261117-184253";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261117-184253";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261117-184253";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261117-184253";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261117-184253";
-import { podeEditar } from "../core/auth.js?v=20261117-184253";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261117-184253";
-import { ssel } from "../core/ssel.js?v=20261117-184253";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261117-184253";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261117-184253";
-import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261117-184253";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261117-184253";
-import { dataLocal } from "../core/utils.js?v=20261117-184253";
+import { store, newId } from "../core/store.js?v=20261117-225612";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261117-225612";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261117-225612";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261117-225612";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261117-225612";
+import { podeEditar } from "../core/auth.js?v=20261117-225612";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261117-225612";
+import { ssel } from "../core/ssel.js?v=20261117-225612";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261117-225612";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261117-225612";
+import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261117-225612";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261117-225612";
+import { dataLocal } from "../core/utils.js?v=20261117-225612";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -306,7 +306,7 @@ function lancarResultado(p) {
         const numItem = (x) => String(x ?? "").trim().replace(/^0+(?=\d)/, "");
         let casados = 0; const semNos = [], naoAchados = [], porValor = [];
         // 1ª passada: pelo número do item; 2ª: pelo valor do nosso lance (a numeração do portal às vezes difere da proposta)
-        const usados = new Set(); const porNum = itens.map((it, i) => { const n = numItem(it.num ?? i + 1); const r = res.find((x) => x.item === n) || res.find((x) => numItem(x.itemOriginal) === n); if (r) usados.add(r); return r || null; });
+        const usados = new Set(); const porNum = itens.map((it, i) => { const n = numItem(it.num ?? i + 1), np = it.numPortal ? numItem(it.numPortal) : ""; const r = (np && (res.find((x) => x.item === np) || res.find((x) => numItem(x.itemOriginal) === np))) || res.find((x) => x.item === n) || res.find((x) => numItem(x.itemOriginal) === n); if (r) usados.add(r); return r || null; });
         const nossoLance = (r) => r.lances.find((l) => /rlux/i.test(l.empresa))?.valor;
         const igual = (a, b) => a > 0 && b > 0 && Math.abs(a - b) <= 0.011;
         itens.forEach((it, i) => { if (porNum[i]) return; const ps = piso(it.custo, getCfg(), o.estado); const cand = res.filter((r) => !usados.has(r) && (igual(nossoLance(r), ps) || igual(nossoLance(r), lanceDesempate(ps)) || igual(nossoLance(r), +it.preco)) && (!r.qtd || !it.qtd || +r.qtd === +it.qtd));

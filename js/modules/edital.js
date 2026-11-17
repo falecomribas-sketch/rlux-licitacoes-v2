@@ -1,24 +1,24 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261117-184253";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261117-184253";
-import { EMPRESA } from "../core/pdf.js?v=20261117-184253";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261117-184253";
-import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261117-184253";
-import { lanceDesempate } from "../core/resultados.js?v=20261117-184253";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261117-184253";
-import { store } from "../core/store.js?v=20261117-184253";
-import { ssel } from "../core/ssel.js?v=20261117-184253";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261117-184253";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261117-184253";
-import { newId } from "../core/store.js?v=20261117-184253";
-import { navigate } from "../core/router.js?v=20261117-184253";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261117-184253";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261117-184253";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261117-184253";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261117-184253";
-import { copiarTexto } from "../core/regua.js?v=20261117-184253";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261117-225612";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261117-225612";
+import { EMPRESA } from "../core/pdf.js?v=20261117-225612";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261117-225612";
+import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261117-225612";
+import { lanceDesempate } from "../core/resultados.js?v=20261117-225612";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261117-225612";
+import { store } from "../core/store.js?v=20261117-225612";
+import { ssel } from "../core/ssel.js?v=20261117-225612";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261117-225612";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261117-225612";
+import { newId } from "../core/store.js?v=20261117-225612";
+import { navigate } from "../core/router.js?v=20261117-225612";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261117-225612";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261117-225612";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261117-225612";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261117-225612";
+import { copiarTexto } from "../core/regua.js?v=20261117-225612";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -58,7 +58,7 @@ export default {
         const abrir = await confirmar(`Estes mesmos PDFs já foram analisados em ${fmtD(dataLocal(igual.criadoEm))} (${modalidadeCurta(igual.resumo?.modalidade)} ${numeroCurto(igual.resumo?.numero) || ""}). Abrir a análise existente em vez de pagar uma nova?`, { ok: "Abrir a existente", cancelar: "Analisar de novo" });
         if (abrir) { and_.fim(); ultima = JSON.parse(JSON.stringify(igual)); aba = "edital"; arquivos = []; ocupado = false; lista(); mostrar(el); return; }
       }
-      try { ultima = await analisarEdital(arquivos, { modelo, prompt: getPrompts().analise, onProgresso: (t) => and_.etapa(t) }); and_.etapa("Guardando a análise…"); ultima.hashArquivos = hash; registrarUso(ultima, "analise", ultima.meta); ultima.arquivosNomes = arquivos.map((f) => f.name); ultima.criadoEm = new Date().toISOString(); ultima.usuario = currentUser?.email || ""; await salvarAnalise(); toast("Análise concluída."); }
+      try { ultima = await analisarEdital(arquivos, { modelo, prompt: getPrompts().analise, onProgresso: (t) => and_.etapa(t) }); separarNumeroPortal(ultima); and_.etapa("Guardando a análise…"); ultima.hashArquivos = hash; registrarUso(ultima, "analise", ultima.meta); ultima.arquivosNomes = arquivos.map((f) => f.name); ultima.criadoEm = new Date().toISOString(); ultima.usuario = currentUser?.email || ""; await salvarAnalise(); toast("Análise concluída."); }
       catch (e) { toast(e.message, "erro", 8000); }
       and_.fim();
       ocupado = false; lista(); mostrar(el);
@@ -109,6 +109,7 @@ function semaforo(r) {
 }
 
 function mostrar(el) {
+  if (ultima) separarNumeroPortal(ultima);
   const box = el.querySelector("#resultado"), acoes = el.querySelector("#acoes"); if (!box) return;
   if (!ultima) { box.innerHTML = ""; acoes.innerHTML = ""; return; }
   const r = ultima, L = r.resumo || {}, s = semaforo(r), m = r.meta || {};
@@ -272,7 +273,7 @@ function abaItens(r) {
     ${aud.length ? `<div class="info-box" style="margin-bottom:12px;border-color:var(--amber)"><div><div class="k">Ocorrências não classificadas — confira se são itens licitados</div>${aud.map((a) => `${esc(a.familia)}: “${esc(a.termo)}” na pág. ${a.pagina}`).join(" · ")}</div></div>` : ""}
     <div class="card"><div class="card-head"><h2>Itens das famílias RLUX</h2>${total ? `<span class="muted">Referência total: <strong>${fmt(total)}</strong></span>` : ""}</div><div class="card-body flush">
       ${itens.length ? `<div class="table-wrap"><table><thead><tr><th>Item</th><th>Descrição no edital</th><th>Un.</th><th class="num">Qtd</th><th class="num">Ref. unit.</th><th class="num">Ref. total</th><th>ME/EPP</th><th>Família</th><th>Pág.</th></tr></thead><tbody>
-      ${itens.map((i) => `<tr><td><strong>${esc(i.item)}</strong>${i.lote ? `<div class="muted" style="font-size:11px">Lote ${esc(i.lote)}</div>` : ""}</td><td style="max-width:420px">${esc(i.descricao)}${i.marcaReferencia ? `<div class="muted" style="font-size:11px">Ref.: ${esc(i.marcaReferencia)}${i.aceitaSimilar ? " (ou similar)" : ""}</div>` : ""}</td><td>${esc(i.unidade || "—")}</td><td class="num">${i.quantidade != null ? fmtNum(i.quantidade) : "—"}</td><td class="num">${i.precoReferencia != null ? fmt(i.precoReferencia) : "—"}</td><td class="num">${i.quantidade != null && i.precoReferencia != null ? fmt(i.quantidade * i.precoReferencia) : "—"}</td><td>${i.exclusivoMeEpp ? tag(i.exclusivoMeEpp, "tag-purple") : ""}</td><td class="muted" style="font-size:12px">${esc(i.familia || "")}</td><td class="muted">${i.pagina || ""}</td></tr>`).join("")}</tbody></table></div>` : vazio("Nenhum item das famílias RLUX neste edital")}
+      ${itens.map((i) => `<tr><td><strong>${esc(i.item)}</strong>${i.numeroPortal ? `<div class="muted" style="font-size:11px" title="Número do item no portal">${esc(i.numeroPortal)}</div>` : ""}${i.lote ? `<div class="muted" style="font-size:11px">Lote ${esc(i.lote)}</div>` : ""}</td><td style="max-width:420px">${esc(i.descricao)}${i.marcaReferencia ? `<div class="muted" style="font-size:11px">Ref.: ${esc(i.marcaReferencia)}${i.aceitaSimilar ? " (ou similar)" : ""}</div>` : ""}</td><td>${esc(i.unidade || "—")}</td><td class="num">${i.quantidade != null ? fmtNum(i.quantidade) : "—"}</td><td class="num">${i.precoReferencia != null ? fmt(i.precoReferencia) : "—"}</td><td class="num">${i.quantidade != null && i.precoReferencia != null ? fmt(i.quantidade * i.precoReferencia) : "—"}</td><td>${i.exclusivoMeEpp ? tag(i.exclusivoMeEpp, "tag-purple") : ""}</td><td class="muted" style="font-size:12px">${esc(i.familia || "")}</td><td class="muted">${i.pagina || ""}</td></tr>`).join("")}</tbody></table></div>` : vazio("Nenhum item das famílias RLUX neste edital")}
     </div></div>`;
 }
 
@@ -383,7 +384,7 @@ function novaLicitacao(el) {
       const licAnterior = ultima.criada?.licId ? store.find("licitacoes", ultima.criada.licId) : null;
       const licId = licAnterior ? licAnterior.id : newId();
       if (!licAnterior) await store.setItem("licitacoes", { id: licId, numero: v.numero.trim(), tipo: v.tipo, data: v.data || "", portalId: v.portalId || "", orgaoId, obs: `Criada pela análise de edital (IA). Validade: ${L.validadeProposta || "—"}. Entrega: ${L.entrega || "—"}${L.multiplosEnderecos ? " (múltiplos endereços)" : ""}. Amostra: ${L.exigeAmostra || "—"}. Garantia: ${L.garantiaContratual || "—"}.`, origemIA: true, analiseIA: { resumo: L, documentacaoEspecial: r.documentacaoEspecial || [], observacoes: r.observacoes || [], meta: r.meta || null, arquivos: r.arquivos || [] } });
-      const itens = linhas.map(({ it, p }, i) => { const qtd = +v[`qtd_${i}`] || 0, preco = +v[`preco_${i}`] || 0; return { num: it.item, produtoId: p.id, nome: it.descricao || p.nome, produtoNome: p.nome, codigo: p.codigo, marca: p.marca || "", qtd, custo: p.custo || 0, preco, total: +(qtd * preco).toFixed(2), descricaoEdital: it.descricao, unidadeEdital: it.unidade || "", precoReferencia: it.precoReferencia ?? null }; });
+      const itens = linhas.map(({ it, p }, i) => { const qtd = +v[`qtd_${i}`] || 0, preco = +v[`preco_${i}`] || 0; return { num: it.item, numPortal: it.numeroPortal || "", produtoId: p.id, nome: it.descricao || p.nome, produtoNome: p.nome, codigo: p.codigo, marca: p.marca || "", qtd, custo: p.custo || 0, preco, total: +(qtd * preco).toFixed(2), descricaoEdital: it.descricao, unidadeEdital: it.unidade || "", precoReferencia: it.precoReferencia ?? null }; });
       const num = Math.max(0, ...store.get("propostas").map((x) => +x.num || 0)) + 1;
       await store.setItem("propostas", { id: newId(), num, licitacaoId: licId, status: "Em Andamento", itens, criadoEm: new Date().toISOString(), origemIA: true });
       ultima.criada = { num, numero: v.numero.trim(), licId }; await salvarAnalise(); closeModal(); mostrar(el);
@@ -404,9 +405,10 @@ function colunaChave(ex, cItem, cLote) {
   return (repetidos || (itens.length && itens.every((v) => v === "1"))) && lotesUnicos && lotes.length ? cLote : cItem;
 }
 function acharLinha(ex, cItem, cDesc, it, cLote = -1) {
-  const alvo = numItem(it.item); const cKey = colunaChave(ex, cItem, cLote);
+  const alvo = numItem(it.item), alvoPortal = it.numeroPortal ? numItem(it.numeroPortal) : ""; const cKey = colunaChave(ex, cItem, cLote);
   const numLinha = (row) => numItem(row[cKey]) || (cDesc >= 0 && /^(lote|item)\s*\d+/i.test(String(row[cDesc] || "")) ? numItem(row[cDesc]) : "");
-  let ri = ex.rows.findIndex((row, i) => i > 0 && numLinha(row) === alvo);
+  let ri = alvoPortal ? ex.rows.findIndex((row, i) => i > 0 && numLinha(row) === alvoPortal) : -1; // numeração do portal (ex.: "BLL 3") tem prioridade
+  if (ri < 0) ri = ex.rows.findIndex((row, i) => i > 0 && numLinha(row) === alvo);
   if (ri < 0 && cDesc >= 0) { // tenta pela descrição (início igual)
     const d = String(it.descricao || "").toUpperCase().replace(/\s+/g, " ").slice(0, 40);
     if (d.length > 10) ri = ex.rows.findIndex((row, i) => i > 0 && String(row[cDesc] || "").toUpperCase().replace(/\s+/g, " ").startsWith(d));
@@ -545,4 +547,15 @@ function portalIdDe(L) {
   if (L.portalId) return L.portalId;
   const t = normTxt(portalDe(L)); if (!t) return "";
   return store.get("portais").find((pt) => t.includes(normTxt(pt.sigla)) || (pt.nome && normTxt(pt.nome).includes(t)))?.id || "";
+}
+
+// A IA às vezes devolve o item como "03 (BLL 3)" / "12 (Item 12 no portal)": separa o número do edital do número no portal.
+export function separarNumeroPortal(r) {
+  (r?.itens || []).forEach((it) => {
+    const m = /^\s*([\w.\-\/]+)\s*\(\s*([^)]*?\d[^)]*?)\s*\)\s*$/.exec(String(it.item || ""));
+    if (!m) return; it.item = m[1]; const np = m[2].replace(/^(item|lote|n[º°.]?)\s*/i, "").trim();
+    if (np && numItem(np) !== numItem(it.item)) it.numeroPortal = np; else if (np) it.numeroPortal = np; // guarda mesmo igual: é a numeração do portal
+  });
+  (r?.correspondencia || []).forEach((c) => { const m = /^\s*([\w.\-\/]+)\s*\(/.exec(String(c.item || "")); if (m) c.item = m[1]; });
+  return r;
 }
