@@ -1,11 +1,11 @@
 // Parâmetros: precificação (piso) e regras da IA (padrões por família e equivalências de termo).
 // Firestore: config/precificacao e config/regrasIA. Só Admin edita; todos podem ver.
-import { store } from "../core/store.js?v=20261117-014052";
-import { toast, icon, closeModal, confirmar } from "../core/ui.js?v=20261117-014052";
-import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js?v=20261117-014052";
-import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js?v=20261117-014052";
-import { isAdmin } from "../core/auth.js?v=20261117-014052";
-import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js?v=20261117-014052";
+import { store } from "../core/store.js?v=20261117-175756";
+import { toast, icon, closeModal, confirmar } from "../core/ui.js?v=20261117-175756";
+import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js?v=20261117-175756";
+import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js?v=20261117-175756";
+import { isAdmin } from "../core/auth.js?v=20261117-175756";
+import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js?v=20261117-175756";
 
 // Regras portadas do prompt "GPT 2" — ponto de partida editável
 export const REGRAS_PADRAO = {
@@ -87,6 +87,7 @@ export default {
                 <label class="field"><span>Validade do custo (dias)</span><input type="number" name="custoValidadeDias" value="${c.custoValidadeDias}" ${ro}></label>
                 <label class="field"><span>Reequilíbrio: alertar se lucro atual &lt; (%)</span><input type="number" step="0.1" name="lucroMinReq" value="${c.lucroMinReq ?? c.lucroMin}" ${ro}></label>
                 <label class="field"><span>Reequilíbrio: alertar se custo subiu &gt; (%)</span><input type="number" step="0.1" name="altaCustoReq" value="${c.altaCustoReq ?? 10}" ${ro}></label>
+                <label class="field"><span>Lance mínimo: folga de desempate (centavos)</span><input type="number" step="1" min="0" max="9" name="folgaDesempate" value="${c.folgaDesempate ?? 3}" ${ro} title="O lance mínimo da Effecti evita centavos terminados em 0 ou 5 (que empatam com o limite do concorrente), descendo até esta quantidade de centavos abaixo do piso. 0 desliga."></label>
               </div>
               <div style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><strong style="font-size:13.5px">Encargos por estado (sobre o valor da nota)</strong>${isAdmin() ? `<button type="button" class="btn btn-ghost btn-sm" id="enc-add">+ Estado</button>` : ""}</div>
                 <p class="muted" style="font-size:12px;margin:0 0 8px">Imposto cobrado pelo estado do órgão como % do valor da nota (ex.: Tocantins, 13% de ICMS na entrada). Entra no piso, no lucro líquido e no monitor de reequilíbrio de toda licitação daquele estado — para todos os produtos. Por lei, faturamento e entrega são no mesmo estado, então vale a UF do órgão.</p>
@@ -99,6 +100,7 @@ export default {
             <p><strong>Piso = custo ÷ (1 − Simples − frete − lucro − encargo do estado)</strong>. Os percentuais incidem sobre o preço de venda; por isso a divisão, e não a soma sobre o custo. O encargo do estado só entra quando a UF do órgão está na tabela acima (hoje: ${(c.encargosUF || []).filter((e) => e.pct > 0).map((e) => `${e.uf} ${e.pct}%`).join(", ") || "nenhum"}).</p>
             <p>A proposta entra com o <strong>preço de referência do órgão</strong> (menos o desconto configurado, se houver). O piso é o limite para o robô de lance.</p>
             <p>Quando ${c.fretePct}% do pedido fica abaixo de ${fmt(c.freteMin)} (pedidos abaixo de <strong>${fmt(pedidoMinimoSemAjuste(c))}</strong>), a diferença é rateada entre os itens e o sistema avisa.</p>
+            <p><strong>Lance mínimo (Effecti)</strong>: o valor limite é o piso, mas evitando centavos terminados em 0 ou 5 — limites "redondos" costumam coincidir com o do concorrente e o desempate vai para quem cobriu primeiro. O sistema desce até ${c.folgaDesempate ?? 3} centavo(s) abaixo do piso para fugir do empate (ex.: piso 5,50 → limite 5,49).</p>
             <p>Produto com custo há mais de ${c.custoValidadeDias} dias aparece marcado como <strong>custo vencido</strong> na proposta e na análise do edital.</p>
             <p><strong>Monitor de reequilíbrio</strong> (tela Reequilíbrio): para ATAs vigentes com saldo, compara o custo gravado na proposta com o custo atual do produto e alerta quando o lucro de hoje fica abaixo de ${c.lucroMinReq ?? c.lucroMin}% ou o custo subiu mais de ${c.altaCustoReq ?? 10}%.</p>
           </div></div>
@@ -169,7 +171,7 @@ export default {
 };
 const lerPreco = (el) => { const f = el.querySelector("#f-preco"); const n = (k) => parseFloat(f.elements[k].value) || 0;
   const encargosUF = [...el.querySelectorAll("#enc-tab tbody tr")].map((tr) => ({ uf: (tr.querySelector("[data-enc=uf]")?.value || "").trim().toUpperCase().slice(0, 2), pct: parseFloat(tr.querySelector("[data-enc=pct]")?.value) || 0, obs: (tr.querySelector("[data-enc=obs]")?.value || "").trim() })).filter((e) => /^[A-Z]{2}$/.test(e.uf));
-  return { simples: n("simples"), lucroMin: n("lucroMin"), fretePct: n("fretePct"), freteMin: n("freteMin"), descontoRef: n("descontoRef"), custoValidadeDias: Math.round(n("custoValidadeDias")) || 90, lucroMinReq: n("lucroMinReq"), altaCustoReq: n("altaCustoReq"), encargosUF }; };
+  return { simples: n("simples"), lucroMin: n("lucroMin"), fretePct: n("fretePct"), freteMin: n("freteMin"), descontoRef: n("descontoRef"), custoValidadeDias: Math.round(n("custoValidadeDias")) || 90, lucroMinReq: n("lucroMinReq"), altaCustoReq: n("altaCustoReq"), folgaDesempate: Math.max(0, Math.round(n("folgaDesempate"))), encargosUF }; };
 const encLinha = (e, i, ro) => `<tr><td><input class="input input-sm" data-enc="uf" value="${esc(e.uf || "")}" maxlength="2" placeholder="UF" style="width:56px;text-transform:uppercase" ${ro}></td><td><input class="input input-sm" type="number" step="0.01" data-enc="pct" value="${e.pct ?? ""}" style="width:90px" ${ro}></td><td><input class="input input-sm" data-enc="obs" value="${esc(e.obs || "")}" placeholder="ex.: ICMS na entrada" ${ro}></td>${ro ? "" : `<td><button type="button" class="icon-btn sm danger" data-enc-rm title="Remover">${icon("x")}</button></td>`}</tr>`;
 
 const ETAPAS = { analise: "Análise do edital", correspondencia: "Correspondência", declaracoes: "Declarações" };

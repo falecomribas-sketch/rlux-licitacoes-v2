@@ -1,23 +1,24 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261117-014052";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261117-014052";
-import { EMPRESA } from "../core/pdf.js?v=20261117-014052";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261117-014052";
-import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261117-014052";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261117-014052";
-import { store } from "../core/store.js?v=20261117-014052";
-import { ssel } from "../core/ssel.js?v=20261117-014052";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261117-014052";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261117-014052";
-import { newId } from "../core/store.js?v=20261117-014052";
-import { navigate } from "../core/router.js?v=20261117-014052";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261117-014052";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261117-014052";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261117-014052";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261117-014052";
-import { copiarTexto } from "../core/regua.js?v=20261117-014052";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261117-175756";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261117-175756";
+import { EMPRESA } from "../core/pdf.js?v=20261117-175756";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261117-175756";
+import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261117-175756";
+import { lanceDesempate } from "../core/resultados.js?v=20261117-175756";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261117-175756";
+import { store } from "../core/store.js?v=20261117-175756";
+import { ssel } from "../core/ssel.js?v=20261117-175756";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261117-175756";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261117-175756";
+import { newId } from "../core/store.js?v=20261117-175756";
+import { navigate } from "../core/router.js?v=20261117-175756";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261117-175756";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261117-175756";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261117-175756";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261117-175756";
+import { copiarTexto } from "../core/regua.js?v=20261117-175756";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -454,7 +455,7 @@ async function preencherDisputa(file) {
   casados.forEach(({ it, p }) => {
     const ri = acharLinha(ex, cItem, cDesc, it, cLote);
     if (ri < 0) { faltam.push(it.item); return; }
-    const lance = +pisoUF(p.custo).toFixed(2); // mesmo piso mostrado na tabela (sem rateio de frete mínimo, que distorce pedidos pequenos)
+    const lance = lanceDesempate(pisoUF(p.custo)); // piso da tabela (sem rateio de frete mínimo), fugindo de centavos "redondos" que empatam com o concorrente
     const ref = X.utils.encode_cell({ r: ri, c: cLimite }); const atual = +ex.rows[ri][cLimite] || 0;
     ex.ws[ref] = { ...(ex.ws[ref] || {}), t: "n", v: lance, z: "#,##0.00" }; delete ex.ws[ref].w;
     if (atual && lance > atual) acima.push(`${it.item} (piso ${fmt(lance)} > limite ${fmt(atual)})`);

@@ -1,17 +1,18 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261117-014052";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261117-014052";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261117-014052";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261117-014052";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261117-014052";
-import { podeEditar } from "../core/auth.js?v=20261117-014052";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261117-014052";
-import { ssel } from "../core/ssel.js?v=20261117-014052";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261117-014052";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261117-014052";
-import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261117-014052";
-import { dataLocal } from "../core/utils.js?v=20261117-014052";
+import { store, newId } from "../core/store.js?v=20261117-175756";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261117-175756";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261117-175756";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261117-175756";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261117-175756";
+import { podeEditar } from "../core/auth.js?v=20261117-175756";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261117-175756";
+import { ssel } from "../core/ssel.js?v=20261117-175756";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261117-175756";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261117-175756";
+import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261117-175756";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO } from "../core/resultados.js?v=20261117-175756";
+import { dataLocal } from "../core/utils.js?v=20261117-175756";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -280,13 +281,15 @@ function opcoesPdf(p) {
 
 // ---------- Etapa E: resultado da disputa → proposta readequada ----------
 function lancarResultado(p) {
-  if (!p) return; iniciarPreco(); const l = getLicit(p.licitacaoId), o = getOrgao(l.orgaoId); const itens = p.itens || [];
+  if (!p) return; iniciarPreco(); const l = getLicit(p.licitacaoId), o = getOrgao(l.orgaoId); const itens = p.itens || []; const importado = {};
   formModal({
     titulo: `Resultado da disputa — ${l.numero || "?"} · ${toTitleCase(o.nome || "")}`, largura: "xl", salvarTexto: "Aplicar resultado",
     corpo: `
-      <p class="muted" style="font-size:13px;margin:0 0 10px">Informe o <strong>preço arrematado</strong> dos itens que vocês venceram e marque os perdidos. A proposta vira a <strong>readequada</strong> (só os itens vencidos, com os preços finais), o status muda e a margem obtida fica registrada. Os preços iniciais ficam guardados no histórico.</p>
-      <div class="table-wrap"><table><thead><tr><th>Item</th><th>Produto</th><th class="num">Qtd</th><th class="num">Custo</th><th class="num">Piso</th><th class="num">Preço inicial</th><th style="width:130px">Arrematado</th><th class="num">Margem</th><th>Perdido</th></tr></thead><tbody>
-        ${itens.map((it, i) => `<tr data-i="${i}"><td><strong>${esc(it.num ?? i + 1)}</strong></td><td>${esc(it.nome)}<div class="muted" style="font-size:11px">${esc(it.codigo || "")}</div></td><td class="num">${fmtNum(it.qtd)}</td><td class="num">${fmt(it.custo)}</td><td class="num">${fmt(piso(it.custo, getCfg(), o.estado))}</td><td class="num">${fmt(it.preco)}</td><td><input type="number" class="input input-sm" name="final_${i}" value="${it.preco ?? ""}" step="0.01" min="0" style="width:120px"></td><td class="num mg" style="font-weight:600"></td><td style="text-align:center"><input type="checkbox" name="perdido_${i}"></td></tr>`).join("")}
+      <div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin:0 0 10px"><p class="muted" style="font-size:13px;margin:0;flex:1;min-width:280px">Informe o <strong>preço arrematado</strong> dos itens que vocês venceram e marque os perdidos — ou importe a <strong>exportação de resultados da Effecti</strong>, que preenche tudo e guarda vencedor, preço e nossa posição por item. A proposta vira a <strong>readequada</strong> (só os itens vencidos), o status muda e a margem obtida fica registrada.</p>
+        <div><button type="button" class="btn btn-ghost" id="btn-imp-res">${icon("upload")} Importar resultado da Effecti</button><input type="file" id="imp-res-file" accept=".xlsx,.xls" hidden></div></div>
+      <div id="imp-res-aviso" class="info-box" hidden style="margin-bottom:10px"></div>
+      <div class="table-wrap"><table><thead><tr><th>Item</th><th>Produto</th><th class="num">Qtd</th><th class="num">Custo</th><th class="num">Piso</th><th class="num">Preço inicial</th><th style="width:130px">Arrematado</th><th class="num">Margem</th><th>Perdido</th><th class="col-conc" hidden>Concorrência</th></tr></thead><tbody>
+        ${itens.map((it, i) => `<tr data-i="${i}"><td><strong>${esc(it.num ?? i + 1)}</strong></td><td>${esc(it.nome)}<div class="muted" style="font-size:11px">${esc(it.codigo || "")}</div></td><td class="num">${fmtNum(it.qtd)}</td><td class="num">${fmt(it.custo)}</td><td class="num">${fmt(piso(it.custo, getCfg(), o.estado))}</td><td class="num">${fmt(it.preco)}</td><td><input type="number" class="input input-sm" name="final_${i}" value="${it.preco ?? ""}" step="0.01" min="0" style="width:120px"></td><td class="num mg" style="font-weight:600"></td><td style="text-align:center"><input type="checkbox" name="perdido_${i}"></td><td class="col-conc conc" hidden style="font-size:12px;max-width:260px"></td></tr>`).join("")}
       </tbody></table></div>
       <div class="totais" style="margin-top:10px"><div class="total-geral"><span class="muted">Total readequado (itens vencidos)</span><strong id="t-final">—</strong></div></div>
       ${linha(campo(`Data da disputa${l.data ? ` (sessão: ${fmtD(l.data)})` : ""}`, `<input type="date" name="dataDisputa" value="${l.data && l.data <= hojeIso() ? l.data : hojeIso()}">`), campo("Observação", `<input type="text" name="obsDisputa" placeholder="ex.: perdemos o item 3 por R$ 0,02">`))}`,
@@ -296,16 +299,36 @@ function lancarResultado(p) {
         const pct = it.custo > 0 ? (v / it.custo - 1) * 100 : 0; const abaixo = v < piso(it.custo, getCfg(), o.estado); mg.textContent = `${pct.toFixed(1)}%${abaixo ? " ⚠" : ""}`; mg.style.color = abaixo ? "var(--red)" : "var(--green)"; mg.title = abaixo ? "Abaixo do piso" : ""; tot += v * (it.qtd || 0); });
         form.querySelector("#t-final").textContent = fmt(tot); };
       form.addEventListener("input", calc); form.addEventListener("change", calc); calc();
+      // importação da exportação de resultados da Effecti
+      const fileInp = form.querySelector("#imp-res-file"); form.querySelector("#btn-imp-res").addEventListener("click", () => fileInp.click());
+      fileInp.addEventListener("change", async () => { const f = fileInp.files[0]; fileInp.value = ""; if (!f) return;
+        let res; try { res = await lerResultadosEffecti(f); } catch (e) { return toast(e.message, "erro", 8000); }
+        const numItem = (x) => String(x ?? "").trim().replace(/^0+(?=\d)/, "");
+        let casados = 0; const semNos = [], naoAchados = [];
+        itens.forEach((it, i) => { const n = numItem(it.num ?? i + 1); const r = res.find((x) => x.item === n) || res.find((x) => numItem(x.itemOriginal) === n); const tr = form.querySelector(`tr[data-i="${i}"]`); const cel = tr.querySelector(".conc");
+          if (!r) { naoAchados.push(n); importado[i] = null; cel.innerHTML = `<span class="muted">não consta no arquivo</span>`; return; }
+          const ri = resumoItem(r); importado[i] = { ...ri, qtd: r.qtd, lances: r.lances.length };
+          if (!ri.participamos) { semNos.push(n); form.elements[`perdido_${i}`].checked = true; cel.innerHTML = `<span class="muted">RLUX não aparece nos lances</span><div>1º ${esc(ri.vencedor)} · ${fmt(ri.precoVencedor)}</div>`; return; }
+          casados++;
+          if (ri.ganhamos) { form.elements[`perdido_${i}`].checked = false; form.elements[`final_${i}`].value = ri.nossoPreco; cel.innerHTML = `<strong style="color:var(--green)">1º lugar</strong>${ri.precoSegundo ? ` · 2º ${esc((r.lances.find((l) => l.pos === 2) || {}).empresa || "")} ${fmt(ri.precoSegundo)}` : ""}`; }
+          else { form.elements[`perdido_${i}`].checked = true; form.elements[`final_${i}`].value = ri.nossoPreco; const cls = classificarPerda({ precoVencedor: ri.precoVencedor, nossoPreco: ri.nossoPreco, custo: +it.custo || 0, piso: piso(it.custo, getCfg(), o.estado) }); importado[i].classe = cls;
+            cel.innerHTML = `<div><strong>${ri.nossaPosicao}º</strong> · nosso ${fmt(ri.nossoPreco)} · 1º ${esc(ri.vencedor)} <strong>${fmt(ri.precoVencedor)}</strong> (${((ri.nossoPreco - ri.precoVencedor) / ri.precoVencedor * 100).toFixed(1)}%)</div>${cls ? `<span class="tag ${CLASSE_ROTULO[cls][1]}" title="${esc(CLASSE_ROTULO[cls][2])}">${CLASSE_ROTULO[cls][0]}</span>` : ""}`; } });
+        form.querySelectorAll(".col-conc").forEach((c) => { c.hidden = false; }); calc();
+        const av = form.querySelector("#imp-res-aviso"); av.hidden = false;
+        av.innerHTML = `<div><div class="k">Resultado importado: ${esc(f.name)}</div>${casados} item(ns) com lance da RLUX · ${res.length} item(ns) no arquivo${semNos.length ? ` · <strong>sem lance nosso: ${semNos.join(", ")}</strong> (marcados como perdidos)` : ""}${naoAchados.length ? ` · não constam no arquivo: ${naoAchados.join(", ")} (confira manualmente)` : ""}. Revise e clique em Aplicar resultado.</div>`;
+        if (!form.elements.obsDisputa.value) form.elements.obsDisputa.value = `Resultado importado da Effecti (${f.name})`;
+      });
     },
     async onSalvar(form) {
       const v = lerForm(form); const vencidos = [], perdidos = [], hist = [];
       itens.forEach((it, i) => { const perdido = !!v[`perdido_${i}`]; const fin = +v[`final_${i}`] || 0;
-        hist.push({ num: it.num ?? i + 1, codigo: it.codigo, precoInicial: it.preco, precoFinal: perdido ? null : fin, perdido });
+        const imp = importado[i]; const conc = imp ? { vencedor: imp.vencedor, cnpjVencedor: imp.cnpjVencedor, precoVencedor: imp.precoVencedor, marcaVencedor: imp.marcaVencedor, nossaPosicao: imp.nossaPosicao, nossoPreco: imp.nossoPreco ?? (perdido ? fin || it.preco : fin), precoSegundo: imp.precoSegundo, melhorConcorrente: imp.melhorConcorrente, precoMelhorConcorrente: imp.precoMelhorConcorrente, nLances: imp.nLances, participamos: imp.participamos, qtd: it.qtd, custo: +it.custo || 0, piso: +piso(it.custo, getCfg(), o.estado).toFixed(4), uf: o.estado || "" } : null;
+        hist.push({ num: it.num ?? i + 1, codigo: it.codigo, precoInicial: it.preco, precoFinal: perdido ? null : fin, perdido, ...(conc ? { concorrencia: conc } : {}) });
         if (perdido) perdidos.push(it); else { if (fin <= 0) throw new Error(`Informe o preço arrematado do item ${it.num ?? i + 1} ou marque como perdido.`); vencidos.push({ ...it, precoInicial: it.preco, preco: fin, total: +(fin * (it.qtd || 0)).toFixed(2) }); } });
       const abaixo = vencidos.filter((it) => it.preco < piso(it.custo, getCfg(), o.estado));
       if (abaixo.length && !await confirmar(`${abaixo.length} item(ns) arrematado(s) abaixo do piso. Aplicar mesmo assim?`, { ok: "Aplicar" })) return;
       const status = vencidos.length ? "Vencida" : "Perdida";
-      await store.setItem("propostas", { ...p, itens: vencidos.length ? vencidos : itens, status, resultadoDisputa: { data: v.dataDisputa || hojeIso(), obs: v.obsDisputa || "", itens: hist, perdidos: perdidos.map((it) => ({ num: it.num, codigo: it.codigo, nome: it.nome, qtd: it.qtd, preco: it.preco })) }, readequadaEm: vencidos.length ? new Date().toISOString() : "" });
+      await store.setItem("propostas", { ...p, itens: vencidos.length ? vencidos : itens, status, resultadoDisputa: { data: v.dataDisputa || hojeIso(), obs: v.obsDisputa || "", itens: hist, perdidos: perdidos.map((it) => ({ num: it.num, codigo: it.codigo, nome: it.nome, qtd: it.qtd, preco: it.preco, custo: it.custo, produtoId: it.produtoId || "" })) }, readequadaEm: vencidos.length ? new Date().toISOString() : "" });
       closeModal(); toast(vencidos.length ? `Proposta readequada: ${vencidos.length} item(ns) vencido(s), ${perdidos.length} perdido(s). Status: Vencida.` : "Todos os itens perdidos. Status: Perdida.", "ok", 6000);
       if (vencidos.length && await confirmar("Gerar o PDF da proposta readequada agora?", { ok: "Gerar PDF" })) opcoesPdf(store.find("propostas", p.id));
     },

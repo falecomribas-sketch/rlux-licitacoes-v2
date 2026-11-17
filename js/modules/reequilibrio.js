@@ -1,20 +1,20 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261117-014052";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261117-014052";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261117-014052";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261117-014052";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261117-014052";
-import { podeEditar } from "../core/auth.js?v=20261117-014052";
-import { itensEmRisco } from "../core/risco.js?v=20261117-014052";
-import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261117-014052";
-import { EMPRESA } from "../core/pdf.js?v=20261117-014052";
-import { dataLocal } from "../core/utils.js?v=20261117-014052";
-import { getCfg, encargoUF } from "../core/preco.js?v=20261117-014052";
-import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261117-014052";
-import { ssel } from "../core/ssel.js?v=20261117-014052";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261117-014052";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261117-014052";
+import { store, newId } from "../core/store.js?v=20261117-175756";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261117-175756";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261117-175756";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261117-175756";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261117-175756";
+import { podeEditar } from "../core/auth.js?v=20261117-175756";
+import { itensEmRisco } from "../core/risco.js?v=20261117-175756";
+import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261117-175756";
+import { EMPRESA } from "../core/pdf.js?v=20261117-175756";
+import { dataLocal } from "../core/utils.js?v=20261117-175756";
+import { getCfg, encargoUF } from "../core/preco.js?v=20261117-175756";
+import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261117-175756";
+import { ssel } from "../core/ssel.js?v=20261117-175756";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261117-175756";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261117-175756";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
