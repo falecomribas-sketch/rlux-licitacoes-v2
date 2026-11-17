@@ -1,18 +1,18 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261117-182931";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261117-182931";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261117-182931";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261117-182931";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261117-182931";
-import { podeEditar } from "../core/auth.js?v=20261117-182931";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261117-182931";
-import { ssel } from "../core/ssel.js?v=20261117-182931";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261117-182931";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261117-182931";
-import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261117-182931";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO } from "../core/resultados.js?v=20261117-182931";
-import { dataLocal } from "../core/utils.js?v=20261117-182931";
+import { store, newId } from "../core/store.js?v=20261117-184253";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261117-184253";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261117-184253";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261117-184253";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261117-184253";
+import { podeEditar } from "../core/auth.js?v=20261117-184253";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261117-184253";
+import { ssel } from "../core/ssel.js?v=20261117-184253";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261117-184253";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261117-184253";
+import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261117-184253";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261117-184253";
+import { dataLocal } from "../core/utils.js?v=20261117-184253";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -304,25 +304,37 @@ function lancarResultado(p) {
       fileInp.addEventListener("change", async () => { const f = fileInp.files[0]; fileInp.value = ""; if (!f) return;
         let res; try { res = await lerResultadosEffecti(f); } catch (e) { return toast(e.message, "erro", 8000); }
         const numItem = (x) => String(x ?? "").trim().replace(/^0+(?=\d)/, "");
-        let casados = 0; const semNos = [], naoAchados = [];
-        itens.forEach((it, i) => { const n = numItem(it.num ?? i + 1); const r = res.find((x) => x.item === n) || res.find((x) => numItem(x.itemOriginal) === n); const tr = form.querySelector(`tr[data-i="${i}"]`); const cel = tr.querySelector(".conc");
-          if (!r) { naoAchados.push(n); importado[i] = null; cel.innerHTML = `<span class="muted">não consta no arquivo</span>`; return; }
-          const ri = resumoItem(r); importado[i] = { ...ri, qtd: r.qtd, lances: r.lances.length };
-          if (!ri.participamos) { semNos.push(n); form.elements[`perdido_${i}`].checked = true; cel.innerHTML = `<span class="muted">RLUX não aparece nos lances</span><div>1º ${esc(ri.vencedor)} · ${fmt(ri.precoVencedor)}</div>`; return; }
+        let casados = 0; const semNos = [], naoAchados = [], porValor = [];
+        // 1ª passada: pelo número do item; 2ª: pelo valor do nosso lance (a numeração do portal às vezes difere da proposta)
+        const usados = new Set(); const porNum = itens.map((it, i) => { const n = numItem(it.num ?? i + 1); const r = res.find((x) => x.item === n) || res.find((x) => numItem(x.itemOriginal) === n); if (r) usados.add(r); return r || null; });
+        const nossoLance = (r) => r.lances.find((l) => /rlux/i.test(l.empresa))?.valor;
+        const igual = (a, b) => a > 0 && b > 0 && Math.abs(a - b) <= 0.011;
+        itens.forEach((it, i) => { if (porNum[i]) return; const ps = piso(it.custo, getCfg(), o.estado); const cand = res.filter((r) => !usados.has(r) && (igual(nossoLance(r), ps) || igual(nossoLance(r), lanceDesempate(ps)) || igual(nossoLance(r), +it.preco)) && (!r.qtd || !it.qtd || +r.qtd === +it.qtd));
+          if (cand.length === 1) { porNum[i] = cand[0]; usados.add(cand[0]); porValor.push(`${numItem(it.num ?? i + 1)}→${cand[0].item}`); } });
+        const preencherLinha = (it, i, r) => {
+          const tr = form.querySelector(`tr[data-i="${i}"]`); const cel = tr.querySelector(".conc"); const n = numItem(it.num ?? i + 1);
+          if (!r) { importado[i] = null; const livres = res.filter((x) => !usados.has(x));
+            cel.innerHTML = `<span class="muted">não consta no arquivo</span>${livres.length ? `<div style="margin-top:4px"><select class="input input-sm" data-manual="${i}" style="font-size:11.5px;height:26px;max-width:230px"><option value="">é outro item do portal?</option>${livres.map((x) => `<option value="${esc(x.item)}">item ${esc(x.item)} · ${(x.lances.find((l) => /rlux/i.test(l.empresa)) ? "nosso " + fmt(nossoLance(x)) : "sem lance nosso")} · 1º ${fmt(x.lances[0]?.valor)}${x.qtd ? ` · ${fmtNum(x.qtd)} un` : ""}</option>`).join("")}</select></div>` : ""}`; return; }
+          const ri = resumoItem(r); importado[i] = { ...ri, qtd: r.qtd, lances: r.lances.length, itemPortal: r.item };
+          const nota = r.item !== n ? `<div class="muted" style="font-size:11px">item ${esc(r.item)} no portal</div>` : "";
+          if (!ri.participamos) { semNos.push(n); form.elements[`perdido_${i}`].checked = true; cel.innerHTML = `<span class="muted">RLUX não aparece nos lances</span><div>1º ${esc(ri.vencedor)} · ${fmt(ri.precoVencedor)}</div>${nota}`; return; }
           casados++;
-          if (ri.ganhamos) { form.elements[`perdido_${i}`].checked = false; form.elements[`final_${i}`].value = ri.nossoPreco; cel.innerHTML = `<strong style="color:var(--green)">1º lugar</strong>${ri.precoSegundo ? ` · 2º ${esc((r.lances.find((l) => l.pos === 2) || {}).empresa || "")} ${fmt(ri.precoSegundo)}` : ""}`; }
+          if (ri.ganhamos) { form.elements[`perdido_${i}`].checked = false; form.elements[`final_${i}`].value = ri.nossoPreco; cel.innerHTML = `<strong style="color:var(--green)">1º lugar</strong>${ri.precoSegundo ? ` · 2º ${esc((r.lances.find((l) => l.pos === 2) || {}).empresa || "")} ${fmt(ri.precoSegundo)}` : ""}${nota}`; }
           else { form.elements[`perdido_${i}`].checked = true; form.elements[`final_${i}`].value = ri.nossoPreco; const cls = classificarPerda({ precoVencedor: ri.precoVencedor, nossoPreco: ri.nossoPreco, custo: +it.custo || 0, piso: piso(it.custo, getCfg(), o.estado) }); importado[i].classe = cls;
-            cel.innerHTML = `<div><strong>${ri.nossaPosicao}º</strong> · nosso ${fmt(ri.nossoPreco)} · 1º ${esc(ri.vencedor)} <strong>${fmt(ri.precoVencedor)}</strong> (${((ri.nossoPreco - ri.precoVencedor) / ri.precoVencedor * 100).toFixed(1)}%)${ri.marcaVencedor ? `<div class="muted" style="font-size:11px">marca do vencedor: ${esc(ri.marcaVencedor)}</div>` : ""}</div>${cls ? `<span class="tag ${CLASSE_ROTULO[cls][1]}" title="${esc(CLASSE_ROTULO[cls][2])}">${CLASSE_ROTULO[cls][0]}</span>` : ""}`; } });
+            cel.innerHTML = `<div><strong>${ri.nossaPosicao}º</strong> · nosso ${fmt(ri.nossoPreco)} · 1º ${esc(ri.vencedor)} <strong>${fmt(ri.precoVencedor)}</strong> (${((ri.nossoPreco - ri.precoVencedor) / ri.precoVencedor * 100).toFixed(1)}%)${ri.marcaVencedor ? `<div class="muted" style="font-size:11px">marca do vencedor: ${esc(ri.marcaVencedor)}</div>` : ""}${nota}</div>${cls ? `<span class="tag ${CLASSE_ROTULO[cls][1]}" title="${esc(CLASSE_ROTULO[cls][2])}">${CLASSE_ROTULO[cls][0]}</span>` : ""}`; } };
+        itens.forEach((it, i) => { if (!porNum[i]) naoAchados.push(numItem(it.num ?? i + 1)); preencherLinha(it, i, porNum[i]); });
         form.querySelectorAll(".col-conc").forEach((c) => { c.hidden = false; }); calc();
         const av = form.querySelector("#imp-res-aviso"); av.hidden = false;
-        av.innerHTML = `<div><div class="k">Resultado importado: ${esc(f.name)}</div>${casados} item(ns) com lance da RLUX · ${res.length} item(ns) no arquivo${semNos.length ? ` · <strong>sem lance nosso: ${semNos.join(", ")}</strong> (marcados como perdidos)` : ""}${naoAchados.length ? ` · não constam no arquivo: ${naoAchados.join(", ")} (confira manualmente)` : ""}. Revise e clique em Aplicar resultado.</div>`;
+        av.innerHTML = `<div><div class="k">Resultado importado: ${esc(f.name)}</div>${casados} item(ns) com lance da RLUX · ${res.length} item(ns) no arquivo${porValor.length ? ` · <strong>numeração diferente no portal</strong>, casados pelo valor do nosso lance: ${porValor.join(", ")}` : ""}${semNos.length ? ` · <strong>sem lance nosso: ${semNos.join(", ")}</strong> (marcados como perdidos)` : ""}${naoAchados.length ? ` · não constam no arquivo: ${naoAchados.join(", ")} (use o seletor na coluna Concorrência se for outro número no portal)` : ""}. Revise e clique em Aplicar resultado.</div>`;
+        // casamento manual: escolher o item do portal
+        form.querySelectorAll("[data-manual]").forEach((sel) => sel.addEventListener("change", () => { const i = +sel.dataset.manual; const r = res.find((x) => x.item === sel.value); if (!r) return; usados.add(r); porNum[i] = r; preencherLinha(itens[i], i, r); calc(); }));
         if (!form.elements.obsDisputa.value) form.elements.obsDisputa.value = `Resultado importado da Effecti (${f.name})`;
       });
     },
     async onSalvar(form) {
       const v = lerForm(form); const vencidos = [], perdidos = [], hist = [];
       itens.forEach((it, i) => { const perdido = !!v[`perdido_${i}`]; const fin = +v[`final_${i}`] || 0;
-        const imp = importado[i]; const conc = imp ? { vencedor: imp.vencedor, cnpjVencedor: imp.cnpjVencedor, precoVencedor: imp.precoVencedor, marcaVencedor: imp.marcaVencedor || "", nossaMarca: imp.nossaMarca || "", nossaPosicao: imp.nossaPosicao, nossoPreco: imp.nossoPreco ?? (perdido ? fin || it.preco : fin), precoSegundo: imp.precoSegundo, melhorConcorrente: imp.melhorConcorrente, precoMelhorConcorrente: imp.precoMelhorConcorrente, nLances: imp.nLances, participamos: imp.participamos, qtd: it.qtd, custo: +it.custo || 0, piso: +piso(it.custo, getCfg(), o.estado).toFixed(4), uf: o.estado || "" } : null;
+        const imp = importado[i]; const conc = imp ? { vencedor: imp.vencedor, cnpjVencedor: imp.cnpjVencedor, precoVencedor: imp.precoVencedor, marcaVencedor: imp.marcaVencedor || "", nossaMarca: imp.nossaMarca || "", nossaPosicao: imp.nossaPosicao, nossoPreco: imp.nossoPreco ?? (perdido ? fin || it.preco : fin), precoSegundo: imp.precoSegundo, melhorConcorrente: imp.melhorConcorrente, precoMelhorConcorrente: imp.precoMelhorConcorrente, nLances: imp.nLances, participamos: imp.participamos, itemPortal: imp.itemPortal || "", qtd: it.qtd, custo: +it.custo || 0, piso: +piso(it.custo, getCfg(), o.estado).toFixed(4), uf: o.estado || "" } : null;
         hist.push({ num: it.num ?? i + 1, codigo: it.codigo, precoInicial: it.preco, precoFinal: perdido ? null : fin, perdido, ...(conc ? { concorrencia: conc } : {}) });
         if (perdido) perdidos.push(it); else { if (fin <= 0) throw new Error(`Informe o preço arrematado do item ${it.num ?? i + 1} ou marque como perdido.`); vencidos.push({ ...it, precoInicial: it.preco, preco: fin, total: +(fin * (it.qtd || 0)).toFixed(2) }); } });
       const abaixo = vencidos.filter((it) => it.preco < piso(it.custo, getCfg(), o.estado));
