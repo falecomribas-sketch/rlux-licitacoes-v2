@@ -31,6 +31,15 @@ function listarFiguras(buffer) {
   });
 }
 
+// Páginas cujo texto, tirando linhas repetidas em muitas páginas (timbre, rodapé) e números de página, tem menos de 150 caracteres:
+// o conteúdo real está em imagem (tabela de itens colada como figura). Complementa a listagem de imagens, que falha em alguns PDFs.
+function paginasQuaseVazias(paginas) {
+  const linhas = paginas.map((t) => t.split(/\n+/).map((l) => l.trim().replace(/\s+/g, " ")).filter((l) => l.length > 3));
+  const freq = {}; linhas.forEach((ls) => new Set(ls).forEach((l) => { freq[l] = (freq[l] || 0) + 1; }));
+  const n = paginas.length; const boiler = (l) => freq[l] >= Math.max(3, n * 0.3) || /^\d{1,3}$/.test(l) || /^(p[áa]gina\s*)?\d+\s*(de|\/)\s*\d+$/i.test(l);
+  return linhas.map((ls, i) => (ls.filter((l) => !boiler(l)).join(" ").length < 150 ? i + 1 : null)).filter(Boolean);
+}
+
 // Texto por página (modo econômico: a IA recebe texto, não o PDF). Páginas sem texto (escaneadas)
 // são renderizadas como imagem só quando necessário.
 async function lerPdf(buffer, { comImagens = true } = {}) {
@@ -39,13 +48,16 @@ async function lerPdf(buffer, { comImagens = true } = {}) {
     const r = await parser.getText();
     const paginas = (r.pages || []).map((pg) => (pg.text || "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim());
     const semTexto = paginas.map((t, i) => (t.length < 80 ? i + 1 : null)).filter(Boolean);
+    // páginas "quase vazias": só cabeçalho/rodapé repetido + número de página → o conteúdo (tabela de itens) é imagem
+    const quaseVazias = paginasQuaseVazias(paginas).filter((n) => !semTexto.includes(n));
     // páginas com texto mas que trazem uma imagem grande (tabela de itens colada como figura, print do sistema etc.)
     let comFigura = [];
     if (comImagens) { // páginas com texto que trazem uma figura grande (tabela de itens colada como imagem)
       const figs = await listarFiguras(buffer); // processo separado: pdf.js trava e estoura memória em alguns PDFs escaneados
       const rep = {}; figs.forEach((pg) => { new Set(pg.i.map(([w, h]) => `${w}x${h}`)).forEach((k) => { rep[k] = (rep[k] || 0) + 1; }); }); // timbre/marca-d'água repetido
-      comFigura = figs.filter((pg) => pg.i.some(([w, h]) => w >= 400 && h >= 200 && rep[`${w}x${h}`] < 3)).map((pg) => pg.p).filter((n) => !semTexto.includes(n));
+      comFigura = figs.filter((pg) => pg.i.some(([w, h]) => w >= 400 && h >= 200 && rep[`${w}x${h}`] < 3)).map((pg) => pg.p).filter((n) => !semTexto.includes(n) && !quaseVazias.includes(n));
     }
+    comFigura = [...quaseVazias, ...comFigura];
     let imagens = [];
     const comLimite = (prom, ms, rotulo) => Promise.race([prom, new Promise((_, rej) => setTimeout(() => rej(new Error(`${rotulo}: tempo esgotado (${ms / 1000}s)`)), ms))]);
     const renderizar = comImagens ? [...semTexto, ...comFigura].slice(0, 20) : []; // limite para não explodir o custo
