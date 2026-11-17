@@ -6,6 +6,7 @@ const { setGlobalOptions } = require("firebase-functions/v2");
 const admin = require("firebase-admin");
 const Anthropic = require("@anthropic-ai/sdk");
 const { PDFParse } = require("pdf-parse");
+const { execFile } = require("child_process"); const fs = require("fs"); const os = require("os"); const path = require("path");
 const { FAMILIAS_PADRAO, NAO_LOCALIZADO, systemPrompt, TOOL, auditoria } = require("./edital.js");
 
 admin.initializeApp({ storageBucket: "rlux-licitacoes.firebasestorage.app" });
@@ -14,6 +15,21 @@ const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 const MODELO_PADRAO = "claude-haiku-5-5";
 const MAX_PDF_MB = 30;
+
+// Lista imagens grandes por página num processo filho com tempo e memória limitados (ver figuras.js).
+function listarFiguras(buffer) {
+  return new Promise((resolve) => {
+    const tmp = path.join(os.tmpdir(), `fig-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
+    try { fs.writeFileSync(tmp, buffer); } catch (e) { console.warn("figuras: tmp", e.message); return resolve([]); }
+    const fim = (r, why) => { try { fs.unlinkSync(tmp); } catch {} if (why) console.warn("figuras:", why); resolve(r); };
+    let saida = "";
+    const ch = execFile(process.execPath, ["--max-old-space-size=384", path.join(__dirname, "figuras.js"), tmp], { timeout: 15000, killSignal: "SIGKILL", maxBuffer: 4e6 }, (err) => {
+      if (err) return fim([], err.killed ? "tempo esgotado (15s) — segue sem figuras" : err.message.slice(0, 200));
+      try { resolve(JSON.parse(saida || "[]")); } catch (e) { return fim([], "saída inválida"); } fim(null);
+    });
+    ch.stdout.on("data", (d) => { saida += d; });
+  });
+}
 
 // Texto por página (modo econômico: a IA recebe texto, não o PDF). Páginas sem texto (escaneadas)
 // são renderizadas como imagem só quando necessário.
@@ -25,15 +41,13 @@ async function lerPdf(buffer, { comImagens = true } = {}) {
     const semTexto = paginas.map((t, i) => (t.length < 80 ? i + 1 : null)).filter(Boolean);
     // páginas com texto mas que trazem uma imagem grande (tabela de itens colada como figura, print do sistema etc.)
     let comFigura = [];
-    // pdf.js trava em alguns PDFs ao listar imagens (visto em edital com páginas escaneadas) → tempo limite, e segue sem figuras
-    const comLimite = (prom, ms, rotulo) => Promise.race([prom, new Promise((_, rej) => setTimeout(() => rej(new Error(`${rotulo}: tempo esgotado (${ms / 1000}s)`)), ms))]);
-    if (comImagens) try {
-      const im = await comLimite(parser.getImage({ imageThreshold: 250, imageBuffer: false, imageDataUrl: false }), 15000, "getImage");
-      // ignora timbre/marca-d'água: a mesma imagem (mesmo tamanho) repetida em 3+ páginas
-      const rep = {}; (im.pages || []).forEach((pg) => { const vistos = new Set(pg.images.map((i) => `${i.width}x${i.height}`)); vistos.forEach((k) => { rep[k] = (rep[k] || 0) + 1; }); });
-      comFigura = (im.pages || []).filter((pg) => pg.images.some((i) => i.width >= 400 && i.height >= 200 && rep[`${i.width}x${i.height}`] < 3)).map((pg) => pg.pageNumber).filter((n) => !semTexto.includes(n));
-    } catch (e) { console.warn("getImage falhou", e.message); }
+    if (comImagens) { // páginas com texto que trazem uma figura grande (tabela de itens colada como imagem)
+      const figs = await listarFiguras(buffer); // processo separado: pdf.js trava e estoura memória em alguns PDFs escaneados
+      const rep = {}; figs.forEach((pg) => { new Set(pg.i.map(([w, h]) => `${w}x${h}`)).forEach((k) => { rep[k] = (rep[k] || 0) + 1; }); }); // timbre/marca-d'água repetido
+      comFigura = figs.filter((pg) => pg.i.some(([w, h]) => w >= 400 && h >= 200 && rep[`${w}x${h}`] < 3)).map((pg) => pg.p).filter((n) => !semTexto.includes(n));
+    }
     let imagens = [];
+    const comLimite = (prom, ms, rotulo) => Promise.race([prom, new Promise((_, rej) => setTimeout(() => rej(new Error(`${rotulo}: tempo esgotado (${ms / 1000}s)`)), ms))]);
     const renderizar = comImagens ? [...semTexto, ...comFigura].slice(0, 20) : []; // limite para não explodir o custo
     if (renderizar.length) {
       try { const sc = await comLimite(parser.getScreenshot({ partial: renderizar, desiredWidth: 1200, imageDataUrl: false }), 90000, "screenshot"); imagens = (sc.pages || []).map((pg) => ({ pagina: pg.pageNumber, png: Buffer.from(pg.data).toString("base64"), figura: comFigura.includes(pg.pageNumber) })); }
@@ -43,7 +57,7 @@ async function lerPdf(buffer, { comImagens = true } = {}) {
   } finally { await parser.destroy().catch(() => {}); }
 }
 
-exports.analisarEdital = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "1GiB", timeoutSeconds: 540, cors: true, invoker: "public" }, async (req) => {
+exports.analisarEdital = onCall({ secrets: [ANTHROPIC_API_KEY], memory: "2GiB", timeoutSeconds: 540, cors: true, invoker: "public" }, async (req) => {
   try { return await analisar(req); }
   catch (e) { if (e instanceof HttpsError) throw e; console.error("analisarEdital:", e); throw new HttpsError("internal", `Erro no servidor: ${e.message || e}`, { etapa: e.etapa || "" }); }
 });
