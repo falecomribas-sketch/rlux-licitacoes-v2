@@ -1,0 +1,24 @@
+# Mostra os registros recentes das funções de IA (para diagnóstico). Rodar manualmente em Actions → "Logs das funções".
+name: Logs das funções
+
+on:
+  workflow_dispatch:
+    inputs:
+      funcao: { description: "Função (analisarEdital, casarItens, extrairDeclaracoes ou vazio = todas)", default: "" }
+      horas: { description: "Quantas horas para trás", default: "6" }
+
+jobs:
+  logs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Credenciais do Google Cloud
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          gcloud auth activate-service-account --key-file="$RUNNER_TEMP/sa.json"
+          gcloud config set project rlux-licitacoes
+      - name: Ler registros
+        run: |
+          DESDE=$(date -u -d "${{ github.event.inputs.horas }} hours ago" +%Y-%m-%dT%H:%M:%SZ)
+          F='resource.type="cloud_run_revision" AND timestamp>="'"$DESDE"'"'
+          if [ -n "${{ github.event.inputs.funcao }}" ]; then F="$F AND resource.labels.service_name=\"$(echo '${{ github.event.inputs.funcao }}' | tr 'A-Z' 'a-z')\""; fi
+          gcloud logging read "$F" --limit 300 --order asc --format='value(timestamp,resource.labels.service_name,severity,textPayload,jsonPayload.message)' | cut -c1-600
