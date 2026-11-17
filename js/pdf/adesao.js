@@ -1,9 +1,9 @@
 // Termo de Aceite de Adesão — portado de _gerarTermoAceitePDF.
-import { novoDoc, cabecalho, rodape, tabelaPadrao, AZUL, VERDE, ROXO, EMPRESA } from "../core/pdf.js?v=20261117-182755";
-import { store } from "../core/store.js?v=20261117-182755";
-import { fmt, fmtD, fmtNum } from "../core/utils.js?v=20261117-182755";
-import { getLicit, getOrgao, getProp, getAta } from "../core/domain.js?v=20261117-182755";
-import { toast } from "../core/ui.js?v=20261117-182755";
+import { novoDoc, cabecalho, rodape, tabelaPadrao, AZUL, VERDE, ROXO, EMPRESA } from "../core/pdf.js?v=20261117-182931";
+import { store } from "../core/store.js?v=20261117-182931";
+import { fmt, fmtD, fmtNum } from "../core/utils.js?v=20261117-182931";
+import { getLicit, getOrgao, getProp, getAta } from "../core/domain.js?v=20261117-182931";
+import { toast } from "../core/ui.js?v=20261117-182931";
 
 function cab(doc) { cabecalho(doc, "TERMO DE ACEITE", "Adesão de Ata de Registro de Preços"); }
 
