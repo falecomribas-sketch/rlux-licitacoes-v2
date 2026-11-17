@@ -1,25 +1,34 @@
 // Precificação e famílias técnicas dos produtos.
 // Configuração em Firestore: config/precificacao { simples, fretePct, freteMin, lucroMin, descontoRef, custoValidadeDias }
-import { store } from "./store.js?v=20261116-182627";
-import { hojeIso } from "./utils.js?v=20261116-182627";
+import { store } from "./store.js?v=20261117-014052";
+import { hojeIso } from "./utils.js?v=20261117-014052";
 
-export const CFG_PADRAO = { simples: 11.35, fretePct: 6, freteMin: 50, lucroMin: 7, descontoRef: 0, custoValidadeDias: 90, lucroMinReq: 7, altaCustoReq: 10 };
+export const CFG_PADRAO = { simples: 11.35, fretePct: 6, freteMin: 50, lucroMin: 7, descontoRef: 0, custoValidadeDias: 90, lucroMinReq: 7, altaCustoReq: 10, encargosUF: [{ uf: "TO", pct: 13, obs: "ICMS cobrado na entrada do estado (sobre o valor da nota)" }] };
 let cfg = { ...CFG_PADRAO }; let iniciado = false; const ouvintes = new Set();
 export function iniciarPreco() { if (iniciado) return; iniciado = true; store.watchObj("config", "precificacao", (d) => { cfg = { ...CFG_PADRAO, ...(d || {}) }; ouvintes.forEach((f) => f(cfg)); }); }
 export const getCfg = () => cfg;
 export function onCfg(fn) { ouvintes.add(fn); return () => ouvintes.delete(fn); }
 export async function salvarCfg(novo) { cfg = { ...CFG_PADRAO, ...novo }; await store.setObj("config", "precificacao", { ...cfg, _atualizado: new Date().toISOString() }); }
 
-// Piso de venda: custo ÷ (1 − simples − frete − lucro). Os percentuais incidem sobre o preço de venda.
-export function divisor(c = cfg) { return Math.max(0.05, 1 - (c.simples + c.fretePct + c.lucroMin) / 100); }
-export const piso = (custo, c = cfg) => (custo || 0) / divisor(c);
+// Encargo por estado (ex.: TO cobra 13% de ICMS na entrada, sobre o valor da nota) — incide sobre o preço de venda,
+// então entra no divisor como o Simples e o frete. uf = UF do órgão (por lei, faturamento e entrega são no mesmo estado).
+export const normUF = (uf) => String(uf || "").trim().toUpperCase().slice(0, 2);
+export function encargoUF(uf, c = cfg) { const u = normUF(uf); if (!u) return null; const e = (c.encargosUF || []).find((x) => normUF(x.uf) === u && +x.pct > 0); return e ? { uf: u, pct: +e.pct, obs: e.obs || "" } : null; }
+export const encargoPct = (uf, c = cfg) => encargoUF(uf, c)?.pct || 0;
+// Piso de venda: custo ÷ (1 − simples − frete − lucro − encargo UF). Os percentuais incidem sobre o preço de venda.
+export function divisor(c = cfg, uf) { return Math.max(0.05, 1 - (c.simples + c.fretePct + c.lucroMin + encargoPct(uf, c)) / 100); }
+export const piso = (custo, c = cfg, uf) => (custo || 0) / divisor(c || cfg, uf);
 // Piso ajustado ao frete mínimo: se 6% do total do pedido < frete mínimo, a diferença é rateada
-export function pisoComFreteMin(custo, totalPedido, c = cfg) {
-  const base = piso(custo, c); if (!totalPedido || totalPedido <= 0) return base;
+export function pisoComFreteMin(custo, totalPedido, c = cfg, uf) {
+  const base = piso(custo, c, uf); if (!totalPedido || totalPedido <= 0) return base;
   const freteCalc = totalPedido * c.fretePct / 100; if (freteCalc >= c.freteMin) return base;
   const fator = (c.freteMin - freteCalc) / totalPedido; // fração extra sobre o preço
-  return (custo || 0) / Math.max(0.05, divisor(c) - fator);
+  return (custo || 0) / Math.max(0.05, divisor(c, uf) - fator);
 }
+// Lucro líquido estimado: venda − custo − (Simples + frete + encargo UF) sobre a venda
+export const lucroLiquido = (venda, custo, uf, c = cfg) => venda - custo - venda * ((+c.simples || 0) + (+c.fretePct || 0) + encargoPct(uf, c)) / 100;
+// Texto curto para avisar que o piso inclui encargo estadual
+export const notaEncargo = (uf, c = cfg) => { const e = encargoUF(uf, c); return e ? `inclui encargo ${e.uf} ${e.pct}%` : ""; };
 export const pedidoMinimoSemAjuste = (c = cfg) => c.fretePct > 0 ? c.freteMin / (c.fretePct / 100) : 0;
 
 // Custo vencido?

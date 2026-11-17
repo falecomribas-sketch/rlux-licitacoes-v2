@@ -1,6 +1,6 @@
 // Aviso de nova versão: compara version.json do servidor com o carregado.
 // version.json é atualizado a cada publicação (scripts/publicar.sh).
-import { icon } from "./ui.js?v=20261116-182627";
+import { icon } from "./ui.js?v=20261117-014052";
 
 let atual = null;
 async function ler() {

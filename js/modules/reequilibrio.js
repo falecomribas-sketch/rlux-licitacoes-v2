@@ -1,20 +1,20 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261116-182627";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261116-182627";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261116-182627";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261116-182627";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261116-182627";
-import { podeEditar } from "../core/auth.js?v=20261116-182627";
-import { itensEmRisco } from "../core/risco.js?v=20261116-182627";
-import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261116-182627";
-import { EMPRESA } from "../core/pdf.js?v=20261116-182627";
-import { dataLocal } from "../core/utils.js?v=20261116-182627";
-import { getCfg } from "../core/preco.js?v=20261116-182627";
-import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261116-182627";
-import { ssel } from "../core/ssel.js?v=20261116-182627";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261116-182627";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261116-182627";
+import { store, newId } from "../core/store.js?v=20261117-014052";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261117-014052";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261117-014052";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261117-014052";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261117-014052";
+import { podeEditar } from "../core/auth.js?v=20261117-014052";
+import { itensEmRisco } from "../core/risco.js?v=20261117-014052";
+import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261117-014052";
+import { EMPRESA } from "../core/pdf.js?v=20261117-014052";
+import { dataLocal } from "../core/utils.js?v=20261117-014052";
+import { getCfg, encargoUF } from "../core/preco.js?v=20261117-014052";
+import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261117-014052";
+import { ssel } from "../core/ssel.js?v=20261117-014052";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261117-014052";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261117-014052";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -206,7 +206,8 @@ function textoJustificativa(lst, cfg) {
   const x0 = lst[0]; const ata = x0.ata, l = x0.l, p = x0.p; const hoje = fmtD(hojeIso());
   const dataProp = p?.criadoEm ? fmtD(p.criadoEm.slice(0, 10)) : "[data da proposta]";
   const pct = (v) => (v > 0 ? "+" : "") + v.toFixed(2).replace(".", ",") + "%";
-  const desc = (cfg.simples + cfg.fretePct) / 100;
+  const enc = encargoUF(x0.o?.estado, cfg); const desc = (cfg.simples + cfg.fretePct + (enc?.pct || 0)) / 100;
+  const encTxt = enc ? ` − ${enc.obs ? enc.obs.split(" (")[0] : "encargo estadual"} ${enc.uf} ${String(enc.pct).replace(".", ",")}% (${"{{ENC}}"})` : "";
   const itens = lst.map((x) => {
     const liquido = x.item.preco * (1 - desc), res = liquido - x.custoAtual, novo = x.item.preco * (x.custoAtual / (x.custoProp || x.custoAtual));
     return { x, liquido, res, novo };
@@ -215,7 +216,7 @@ function textoJustificativa(lst, cfg) {
 - Custo de aquisição na proposta (${dataProp}): ${fmt(x.custoProp)}
 - Custo de aquisição atual, após reajuste dos fornecedores (${x.custoData ? fmtD(x.custoData) : "[data]"}): ${fmt(x.custoAtual)} (${x.variacao !== null ? pct(x.variacao) : "n/d"})
 - Preço registrado: ${fmt(x.item.preco)}
-- Composição por unidade ao preço registrado: ${fmt(x.item.preco)} − Simples Nacional ${String(cfg.simples).replace(".", ",")}% (${fmt(x.item.preco * cfg.simples / 100)}) − frete ${String(cfg.fretePct).replace(".", ",")}% (${fmt(x.item.preco * cfg.fretePct / 100)}) = ${fmt(liquido)} líquidos, contra custo de ${fmt(x.custoAtual)} → resultado de ${fmt(res)} por unidade (${pct(res / x.item.preco * 100)})
+- Composição por unidade ao preço registrado: ${fmt(x.item.preco)} − Simples Nacional ${String(cfg.simples).replace(".", ",")}% (${fmt(x.item.preco * cfg.simples / 100)}) − frete ${String(cfg.fretePct).replace(".", ",")}% (${fmt(x.item.preco * cfg.fretePct / 100)})${encTxt.replace("{{ENC}}", fmt(x.item.preco * (enc?.pct || 0) / 100))} = ${fmt(liquido)} líquidos, contra custo de ${fmt(x.custoAtual)} → resultado de ${fmt(res)} por unidade (${pct(res / x.item.preco * 100)})
 - Saldo a fornecer: ${fmtNum(x.item.saldo)} un. → ${res < 0 ? "prejuízo" : "resultado"} estimado de ${fmt(Math.abs(res) * x.item.saldo)}
 - Preço revisado pleiteado (mesma proporção da variação do custo): ${fmt(novo)}`).join("\n\n");
   const pedidos = itens.map(({ x, novo }, i) => `${i + 1}. A revisão do preço registrado do Item ${x.item.num ?? ""} de ${fmt(x.item.preco)} para ${fmt(novo)}, na mesma proporção da variação do custo de aquisição, preservando-se a equação econômico-financeira originalmente proposta, com efeitos para os fornecimentos a partir da data deste pedido;`).join("\n");

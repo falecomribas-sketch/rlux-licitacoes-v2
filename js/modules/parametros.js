@@ -1,11 +1,11 @@
 // Parâmetros: precificação (piso) e regras da IA (padrões por família e equivalências de termo).
 // Firestore: config/precificacao e config/regrasIA. Só Admin edita; todos podem ver.
-import { store } from "../core/store.js?v=20261116-182627";
-import { toast, icon, closeModal, confirmar } from "../core/ui.js?v=20261116-182627";
-import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js?v=20261116-182627";
-import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js?v=20261116-182627";
-import { isAdmin } from "../core/auth.js?v=20261116-182627";
-import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js?v=20261116-182627";
+import { store } from "../core/store.js?v=20261117-014052";
+import { toast, icon, closeModal, confirmar } from "../core/ui.js?v=20261117-014052";
+import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js?v=20261117-014052";
+import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js?v=20261117-014052";
+import { isAdmin } from "../core/auth.js?v=20261117-014052";
+import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js?v=20261117-014052";
 
 // Regras portadas do prompt "GPT 2" — ponto de partida editável
 export const REGRAS_PADRAO = {
@@ -88,11 +88,15 @@ export default {
                 <label class="field"><span>Reequilíbrio: alertar se lucro atual &lt; (%)</span><input type="number" step="0.1" name="lucroMinReq" value="${c.lucroMinReq ?? c.lucroMin}" ${ro}></label>
                 <label class="field"><span>Reequilíbrio: alertar se custo subiu &gt; (%)</span><input type="number" step="0.1" name="altaCustoReq" value="${c.altaCustoReq ?? 10}" ${ro}></label>
               </div>
+              <div style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><strong style="font-size:13.5px">Encargos por estado (sobre o valor da nota)</strong>${isAdmin() ? `<button type="button" class="btn btn-ghost btn-sm" id="enc-add">+ Estado</button>` : ""}</div>
+                <p class="muted" style="font-size:12px;margin:0 0 8px">Imposto cobrado pelo estado do órgão como % do valor da nota (ex.: Tocantins, 13% de ICMS na entrada). Entra no piso, no lucro líquido e no monitor de reequilíbrio de toda licitação daquele estado — para todos os produtos. Por lei, faturamento e entrega são no mesmo estado, então vale a UF do órgão.</p>
+                <table id="enc-tab" style="max-width:640px"><thead><tr><th style="width:70px">UF</th><th style="width:110px">% da nota</th><th>Observação</th>${ro ? "" : "<th></th>"}</tr></thead><tbody>${(c.encargosUF || []).map((e, i) => encLinha(e, i, ro)).join("")}</tbody></table>
+              </div>
               <div class="info-box" id="simul"></div>
               ${isAdmin() ? `<div style="text-align:right;margin-top:10px"><button class="btn btn-primary" type="submit">Salvar</button></div>` : `<p class="muted" style="font-size:12px">Somente administradores alteram os parâmetros.</p>`}
             </form></div></div>
           <div class="card"><div class="card-head"><h2>Como o piso é calculado</h2></div><div class="card-body" style="font-size:13.5px;line-height:1.55">
-            <p><strong>Piso = custo ÷ (1 − Simples − frete − lucro)</strong>. Os três percentuais incidem sobre o preço de venda; por isso a divisão, e não a soma sobre o custo.</p>
+            <p><strong>Piso = custo ÷ (1 − Simples − frete − lucro − encargo do estado)</strong>. Os percentuais incidem sobre o preço de venda; por isso a divisão, e não a soma sobre o custo. O encargo do estado só entra quando a UF do órgão está na tabela acima (hoje: ${(c.encargosUF || []).filter((e) => e.pct > 0).map((e) => `${e.uf} ${e.pct}%`).join(", ") || "nenhum"}).</p>
             <p>A proposta entra com o <strong>preço de referência do órgão</strong> (menos o desconto configurado, se houver). O piso é o limite para o robô de lance.</p>
             <p>Quando ${c.fretePct}% do pedido fica abaixo de ${fmt(c.freteMin)} (pedidos abaixo de <strong>${fmt(pedidoMinimoSemAjuste(c))}</strong>), a diferença é rateada entre os itens e o sistema avisa.</p>
             <p>Produto com custo há mais de ${c.custoValidadeDias} dias aparece marcado como <strong>custo vencido</strong> na proposta e na análise do edital.</p>
@@ -127,7 +131,9 @@ export default {
       painelCusto(el);
       el.querySelector("#f-precos").addEventListener("submit", async (e) => { e.preventDefault(); if (!isAdmin()) return; const f = e.target; const modelos = {}; Object.keys(PRECOS_PADRAO.modelos).forEach((k) => { modelos[k] = { entrada: +f.elements[`in_${k}`].value || 0, saida: +f.elements[`out_${k}`].value || 0 }; }); await store.setObj("config", "precosIA", { cambio: +f.elements.cambio.value || PRECOS_PADRAO.cambio, modelos, _atualizado: new Date().toISOString() }); toast("Preços salvos."); });
       carregarPadrao().then((pd) => ["analise", "casar", "declaracoes"].forEach((k) => { const ta = el.querySelector(`#pr-${k}`); if (ta && !ta.value) ta.value = getPrompts()[k] || pd[k] || ""; }));
-      const simul = () => { const v = lerPreco(el); const ex = [16.44, 22.45, 142.68]; el.querySelector("#simul").innerHTML = `<div><div class="k">Fator</div>× ${(1 / Math.max(0.05, 1 - (v.simples + v.fretePct + v.lucroMin) / 100)).toFixed(3)}</div>` + ex.map((x) => `<div><div class="k">Custo ${fmt(x)}</div>piso ${fmt(piso(x, v))}</div>`).join(""); };
+      const simul = () => { const v = lerPreco(el); const ex = [16.44, 22.45, 142.68]; const encs = (v.encargosUF || []).filter((e) => e.uf && e.pct > 0); el.querySelector("#simul").innerHTML = `<div><div class="k">Fator</div>× ${(1 / Math.max(0.05, 1 - (v.simples + v.fretePct + v.lucroMin) / 100)).toFixed(3)}</div>` + ex.map((x) => `<div><div class="k">Custo ${fmt(x)}</div>piso ${fmt(piso(x, v))}${encs.map((e) => `<div class="muted" style="font-size:11.5px">${esc(e.uf)}: ${fmt(piso(x, v, e.uf))}</div>`).join("")}</div>`).join(""); };
+      el.querySelector("#enc-add")?.addEventListener("click", () => { const tb = el.querySelector("#enc-tab tbody"); tb.insertAdjacentHTML("beforeend", encLinha({ uf: "", pct: 0, obs: "" }, tb.children.length, "")); tb.lastElementChild.querySelector("input").focus(); });
+      el.querySelector("#enc-tab").addEventListener("click", (e) => { const b = e.target.closest("[data-enc-rm]"); if (!b) return; b.closest("tr").remove(); simul(); });
       el.querySelector("#f-preco").addEventListener("input", simul); simul();
       el.querySelector("#f-preco").addEventListener("submit", async (e) => { e.preventDefault(); if (!isAdmin()) return; await salvarCfg(lerPreco(el)); toast("Parâmetros salvos."); });
       tabelas(el, r);
@@ -161,7 +167,10 @@ export default {
   },
   destroy() { unsubC?.(); unsubC = null; ouvintesR.clear(); },
 };
-const lerPreco = (el) => { const f = el.querySelector("#f-preco"); const n = (k) => parseFloat(f.elements[k].value) || 0; return { simples: n("simples"), lucroMin: n("lucroMin"), fretePct: n("fretePct"), freteMin: n("freteMin"), descontoRef: n("descontoRef"), custoValidadeDias: Math.round(n("custoValidadeDias")) || 90, lucroMinReq: n("lucroMinReq"), altaCustoReq: n("altaCustoReq") }; };
+const lerPreco = (el) => { const f = el.querySelector("#f-preco"); const n = (k) => parseFloat(f.elements[k].value) || 0;
+  const encargosUF = [...el.querySelectorAll("#enc-tab tbody tr")].map((tr) => ({ uf: (tr.querySelector("[data-enc=uf]")?.value || "").trim().toUpperCase().slice(0, 2), pct: parseFloat(tr.querySelector("[data-enc=pct]")?.value) || 0, obs: (tr.querySelector("[data-enc=obs]")?.value || "").trim() })).filter((e) => /^[A-Z]{2}$/.test(e.uf));
+  return { simples: n("simples"), lucroMin: n("lucroMin"), fretePct: n("fretePct"), freteMin: n("freteMin"), descontoRef: n("descontoRef"), custoValidadeDias: Math.round(n("custoValidadeDias")) || 90, lucroMinReq: n("lucroMinReq"), altaCustoReq: n("altaCustoReq"), encargosUF }; };
+const encLinha = (e, i, ro) => `<tr><td><input class="input input-sm" data-enc="uf" value="${esc(e.uf || "")}" maxlength="2" placeholder="UF" style="width:56px;text-transform:uppercase" ${ro}></td><td><input class="input input-sm" type="number" step="0.01" data-enc="pct" value="${e.pct ?? ""}" style="width:90px" ${ro}></td><td><input class="input input-sm" data-enc="obs" value="${esc(e.obs || "")}" placeholder="ex.: ICMS na entrada" ${ro}></td>${ro ? "" : `<td><button type="button" class="icon-btn sm danger" data-enc-rm title="Remover">${icon("x")}</button></td>`}</tr>`;
 
 const ETAPAS = { analise: "Análise do edital", correspondencia: "Correspondência", declaracoes: "Declarações" };
 function painelCusto(el) {

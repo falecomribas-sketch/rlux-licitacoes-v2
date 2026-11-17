@@ -1,17 +1,17 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261116-182627";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261116-182627";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261116-182627";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261116-182627";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261116-182627";
-import { podeEditar } from "../core/auth.js?v=20261116-182627";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261116-182627";
-import { ssel } from "../core/ssel.js?v=20261116-182627";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261116-182627";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261116-182627";
-import { iniciarPreco, piso, getCfg } from "../core/preco.js?v=20261116-182627";
-import { dataLocal } from "../core/utils.js?v=20261116-182627";
+import { store, newId } from "../core/store.js?v=20261117-014052";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261117-014052";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261117-014052";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261117-014052";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261117-014052";
+import { podeEditar } from "../core/auth.js?v=20261117-014052";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261117-014052";
+import { ssel } from "../core/ssel.js?v=20261117-014052";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261117-014052";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261117-014052";
+import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261117-014052";
+import { dataLocal } from "../core/utils.js?v=20261117-014052";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -169,15 +169,16 @@ function abrirForm(p = null) {
       licSel = ssel(form.querySelector("#lic-ssel"), { placeholder: "Selecione um órgão primeiro…", itens: lOld ? opcoesLicitacoes(lOld.orgaoId) : [], value: p?.licitacaoId || "", disabled: !lOld, onSelect: infoLic });
       if (lOld) infoLic(p.licitacaoId);
 
+      const ufForm = () => getOrgao(orgSel?.value || getLicit(licSel?.value || "").orgaoId || lOld?.orgaoId)?.estado || "";
       const cont = form.querySelector("#itens");
       const addItem = (d, before) => { const tmp = document.createElement("div"); tmp.innerHTML = itemHtml(d); const node = tmp.firstElementChild; before ? cont.insertBefore(node, before) : cont.appendChild(node); ligarItem(node, d); calcTotais(); };
       function infoLic(id) { const l = getLicit(id), box = form.querySelector("#lic-info"); if (!l.id) { box.hidden = true; return; } const o = getOrgao(l.orgaoId);
-        box.hidden = false; box.innerHTML = `<div><div class="k">Órgão</div>${esc(toTitleCase(o.nome || "—"))}</div><div><div class="k">UASG</div>${esc(o.uasg || "—")}</div><div><div class="k">Portal</div>${esc(getPortal(l.portalId).sigla || "—")}</div><div><div class="k">Data do pregão</div>${fmtD(l.data)}</div>`; }
+        box.hidden = false; box.innerHTML = `<div><div class="k">Órgão</div>${esc(toTitleCase(o.nome || "—"))}</div><div><div class="k">UASG</div>${esc(o.uasg || "—")}</div><div><div class="k">Portal</div>${esc(getPortal(l.portalId).sigla || "—")}</div><div><div class="k">Data do pregão</div>${fmtD(l.data)}</div>${encargoUF(o.estado) ? `<div><div class="k">Encargo estadual</div><span class="tag tag-amber" title="${esc(encargoUF(o.estado).obs || "")}">${esc(o.estado)} ${encargoUF(o.estado).pct}% sobre a nota — já no piso e no lucro</span></div>` : ""}`; form.querySelectorAll("#itens .item").forEach((n) => calcItem(n)); }
       function ligarItem(node, d) {
         const ps = ssel(node.querySelector(".prod-ssel"), { placeholder: "Código ou nome do produto…", itens: prodOpts(), value: d.produtoId || "", onSelect: (id) => {
           const prod = store.find("produtos", id); node.querySelector("[name=produtoId]").value = id || ""; node.querySelector(".item-warn").hidden = !!id;
           if (prod) { if (!d.descricaoEdital) node.querySelector("[name=nome]").value = prod.nome; node.querySelector("[name=codigo]").value = prod.codigo; node.querySelector("[name=marca]").value = prod.marca || "";
-            node.querySelector("[name=custo]").value = prod.custo || 0; node.querySelector("[name=preco]").value = (d.precoReferencia > 0 ? d.precoReferencia : Math.max((prod.custo || 0) * 1.3, piso(prod.custo || 0))).toFixed(2); calcItem(node); } } });
+            node.querySelector("[name=custo]").value = prod.custo || 0; node.querySelector("[name=preco]").value = (d.precoReferencia > 0 ? d.precoReferencia : Math.max((prod.custo || 0) * 1.3, piso(prod.custo || 0, getCfg(), ufForm()))).toFixed(2); calcItem(node); } } });
         node.querySelector(".custo-nota").addEventListener("click", (e) => { const b = e.target.closest("[data-usar-custo]"); if (!b) return; usarCustoAtual(node); });
         node.querySelectorAll("[name=qtd],[name=custo],[name=preco]").forEach((i) => i.addEventListener("input", () => calcItem(node)));
         node.querySelector("[data-rm]").addEventListener("click", () => { node.remove(); calcTotais(); });
@@ -202,12 +203,12 @@ function abrirForm(p = null) {
         const pr = custoAtualDe(node); const defasado = pr && c > 0 && difCusto(c, pr.custo); const cfg = getCfg();
         if (c > 0) {
           const pct = (v / c - 1) * 100; let txt = pctTxt(pct); let cor = pct >= 0 ? "var(--green)" : "var(--red)";
-          if (defasado) { const real = (v / pr.custo - 1) * 100; txt += ` · real ${pctTxt(real)}`; cor = v < piso(pr.custo) ? "var(--red)" : real < (cfg.lucroMin || 7) ? "var(--amber-txt)" : cor; }
+          if (defasado) { const real = (v / pr.custo - 1) * 100; txt += ` · real ${pctTxt(real)}`; cor = v < piso(pr.custo, cfg, ufForm()) ? "var(--red)" : real < (cfg.lucroMin || 7) ? "var(--amber-txt)" : cor; }
           mg.value = txt; mg.style.color = cor; bar.style.width = Math.min(Math.abs(pct), 100) + "%"; bar.style.background = cor;
-          const ln = node.querySelector(".lucro-nota"); if (ln) { const liq = lucroLiq(q * v, q * c, cfg); ln.textContent = `líquido ≈ ${fmt(liq)}${defasado ? ` · real ${fmt(lucroLiq(q * v, q * pr.custo, cfg))}` : ""}`; ln.title = `Total ${fmt(q * v)} − custo ${fmt(q * c)} − Simples ${cfg.simples}% − frete ${cfg.fretePct}% sobre a venda`; ln.style.color = liq < 0 ? "var(--red)" : ""; }
+          const ln = node.querySelector(".lucro-nota"); if (ln) { const uf = ufForm(), enc = encargoUF(uf); const liq = lucroLiquido(q * v, q * c, uf, cfg); ln.textContent = `líquido ≈ ${fmt(liq)}${defasado ? ` · real ${fmt(lucroLiquido(q * v, q * pr.custo, uf, cfg))}` : ""}`; ln.title = `Total ${fmt(q * v)} − custo ${fmt(q * c)} − Simples ${cfg.simples}% − frete ${cfg.fretePct}%${enc ? ` − encargo ${enc.uf} ${enc.pct}%` : ""} sobre a venda`; ln.style.color = liq < 0 ? "var(--red)" : ""; }
         } else { mg.value = "—"; mg.style.color = ""; bar.style.width = "0"; const ln = node.querySelector(".lucro-nota"); if (ln) ln.textContent = ""; }
-        if (defasado) { const varp = (pr.custo - c) / c * 100; nota.hidden = false; nota.style.color = v < piso(pr.custo) ? "var(--red)" : "var(--amber-txt)";
-          nota.innerHTML = `custo da proposta ${fmt(c)}${p?.criadoEm ? ` (${fmtD(dataLocal(p.criadoEm))})` : ""} · atual <strong>${fmt(pr.custo)}</strong>${pr.custoData ? ` (${fmtD(pr.custoData)}` : " ("}${varp > 0 ? ", +" : ", "}${pctTxt(varp)}) · piso hoje ${fmt(piso(pr.custo))}${podeAtualizar() ? ` <button type="button" class="btn btn-ghost btn-sm" data-usar-custo style="padding:0 8px;height:20px;font-size:11px;margin-left:4px">Usar custo atual</button>` : ""}`; }
+        if (defasado) { const varp = (pr.custo - c) / c * 100; nota.hidden = false; nota.style.color = v < piso(pr.custo, cfg, ufForm()) ? "var(--red)" : "var(--amber-txt)";
+          nota.innerHTML = `custo da proposta ${fmt(c)}${p?.criadoEm ? ` (${fmtD(dataLocal(p.criadoEm))})` : ""} · atual <strong>${fmt(pr.custo)}</strong>${pr.custoData ? ` (${fmtD(pr.custoData)}` : " ("}${varp > 0 ? ", +" : ", "}${pctTxt(varp)}) · piso hoje ${fmt(piso(pr.custo, cfg, ufForm()))}${podeAtualizar() ? ` <button type="button" class="btn btn-ghost btn-sm" data-usar-custo style="padding:0 8px;height:20px;font-size:11px;margin-left:4px">Usar custo atual</button>` : ""}`; }
         else { nota.hidden = true; nota.innerHTML = ""; }
         calcTotais();
       }
@@ -215,7 +216,7 @@ function abrirForm(p = null) {
         let venda = 0, custo = 0, custoReal = 0, defasados = 0;
         cont.querySelectorAll(".item").forEach((n) => { const q = +n.querySelector("[name=qtd]").value || 0, c = +n.querySelector("[name=custo]").value || 0; venda += q * (+n.querySelector("[name=preco]").value || 0); custo += q * c; const pr = custoAtualDe(n); const cr = pr ? pr.custo : c; custoReal += q * cr; if (pr && c > 0 && difCusto(c, pr.custo)) defasados++; });
         form.querySelector("#t-total").textContent = fmt(venda); form.querySelector("#t-custo").innerHTML = fmt(custo) + (difCusto(custo, custoReal) ? ` <span class="muted" style="font-weight:400;font-size:12px">· real ${fmt(custoReal)}</span>` : "");
-        const tl = form.querySelector("#t-lucro"); if (tl) { if (custo > 0) { const cfg = getCfg(); const liq = lucroLiq(venda, custo, cfg); tl.innerHTML = fmt(liq) + (difCusto(custo, custoReal) && custoReal > 0 ? ` <span class="muted" style="font-weight:400;font-size:12px">· real ${fmt(lucroLiq(venda, custoReal, cfg))}</span>` : ""); tl.style.color = liq >= 0 ? "var(--green)" : "var(--red)"; } else { tl.textContent = "—"; tl.style.color = ""; } }
+        const tl = form.querySelector("#t-lucro"); if (tl) { if (custo > 0) { const cfg = getCfg(), uf = ufForm(); const liq = lucroLiquido(venda, custo, uf, cfg); tl.innerHTML = fmt(liq) + (difCusto(custo, custoReal) && custoReal > 0 ? ` <span class="muted" style="font-weight:400;font-size:12px">· real ${fmt(lucroLiquido(venda, custoReal, uf, cfg))}</span>` : "") + (notaEncargo(uf) ? ` <span class="muted" style="font-weight:400;font-size:11px">· ${esc(notaEncargo(uf))}</span>` : ""); tl.style.color = liq >= 0 ? "var(--green)" : "var(--red)"; } else { tl.textContent = "—"; tl.style.color = ""; } }
         const m = form.querySelector("#t-margem"); if (custo > 0) { const pct = (venda / custo - 1) * 100; let t = pctTxt(pct); if (difCusto(custo, custoReal) && custoReal > 0) { const r = (venda / custoReal - 1) * 100; t += ` <span style="font-weight:400;font-size:12px">· real ${pctTxt(r)}</span>`; } m.innerHTML = t; m.style.color = (custoReal > 0 ? venda / custoReal - 1 : pct) >= 0 ? "var(--green)" : "var(--red)"; } else { m.textContent = "—"; m.style.color = ""; }
         // aviso no topo
         const av = form.querySelector("#aviso-custos"); const dias = p ? diasDesde(p.criadoEm) : null;
@@ -225,7 +226,7 @@ function abrirForm(p = null) {
       }
       form.querySelector("#aviso-custos").addEventListener("click", async (e) => { if (!e.target.closest("[data-atualizar-todos]")) return;
         const nodes = [...cont.querySelectorAll(".item")].filter((n) => { const pr = custoAtualDe(n); const c = +n.querySelector("[name=custo]").value || 0; return pr && c > 0 && difCusto(c, pr.custo); });
-        const abaixo = nodes.filter((n) => { const pr = custoAtualDe(n); return (+n.querySelector("[name=preco]").value || 0) < piso(pr.custo); }).length;
+        const abaixo = nodes.filter((n) => { const pr = custoAtualDe(n); return (+n.querySelector("[name=preco]").value || 0) < piso(pr.custo, getCfg(), ufForm()); }).length;
         if (!await confirmar(`Atualizar o custo de ${nodes.length} item(ns) para o valor atual do cadastro?${abaixo ? ` Atenção: ${abaixo} ficará(ão) com preço de venda abaixo do piso de hoje.` : ""} Os custos anteriores ficam no histórico do item; o preço de venda não muda.`, { ok: "Atualizar custos" })) return;
         nodes.forEach(usarCustoAtual); toast(`${nodes.length} custo(s) atualizado(s).`); });
       form.querySelector("[name=status]").addEventListener("change", () => cont.querySelectorAll(".item").forEach(calcItem));
@@ -285,14 +286,14 @@ function lancarResultado(p) {
     corpo: `
       <p class="muted" style="font-size:13px;margin:0 0 10px">Informe o <strong>preço arrematado</strong> dos itens que vocês venceram e marque os perdidos. A proposta vira a <strong>readequada</strong> (só os itens vencidos, com os preços finais), o status muda e a margem obtida fica registrada. Os preços iniciais ficam guardados no histórico.</p>
       <div class="table-wrap"><table><thead><tr><th>Item</th><th>Produto</th><th class="num">Qtd</th><th class="num">Custo</th><th class="num">Piso</th><th class="num">Preço inicial</th><th style="width:130px">Arrematado</th><th class="num">Margem</th><th>Perdido</th></tr></thead><tbody>
-        ${itens.map((it, i) => `<tr data-i="${i}"><td><strong>${esc(it.num ?? i + 1)}</strong></td><td>${esc(it.nome)}<div class="muted" style="font-size:11px">${esc(it.codigo || "")}</div></td><td class="num">${fmtNum(it.qtd)}</td><td class="num">${fmt(it.custo)}</td><td class="num">${fmt(piso(it.custo))}</td><td class="num">${fmt(it.preco)}</td><td><input type="number" class="input input-sm" name="final_${i}" value="${it.preco ?? ""}" step="0.01" min="0" style="width:120px"></td><td class="num mg" style="font-weight:600"></td><td style="text-align:center"><input type="checkbox" name="perdido_${i}"></td></tr>`).join("")}
+        ${itens.map((it, i) => `<tr data-i="${i}"><td><strong>${esc(it.num ?? i + 1)}</strong></td><td>${esc(it.nome)}<div class="muted" style="font-size:11px">${esc(it.codigo || "")}</div></td><td class="num">${fmtNum(it.qtd)}</td><td class="num">${fmt(it.custo)}</td><td class="num">${fmt(piso(it.custo, getCfg(), o.estado))}</td><td class="num">${fmt(it.preco)}</td><td><input type="number" class="input input-sm" name="final_${i}" value="${it.preco ?? ""}" step="0.01" min="0" style="width:120px"></td><td class="num mg" style="font-weight:600"></td><td style="text-align:center"><input type="checkbox" name="perdido_${i}"></td></tr>`).join("")}
       </tbody></table></div>
       <div class="totais" style="margin-top:10px"><div class="total-geral"><span class="muted">Total readequado (itens vencidos)</span><strong id="t-final">—</strong></div></div>
       ${linha(campo(`Data da disputa${l.data ? ` (sessão: ${fmtD(l.data)})` : ""}`, `<input type="date" name="dataDisputa" value="${l.data && l.data <= hojeIso() ? l.data : hojeIso()}">`), campo("Observação", `<input type="text" name="obsDisputa" placeholder="ex.: perdemos o item 3 por R$ 0,02">`))}`,
     onAberto(form) {
       const calc = () => { let tot = 0; form.querySelectorAll("tr[data-i]").forEach((tr) => { const i = +tr.dataset.i, it = itens[i]; const perdido = form.elements[`perdido_${i}`].checked; const v = +form.elements[`final_${i}`].value || 0; const mg = tr.querySelector(".mg"); tr.style.opacity = perdido ? ".45" : "1";
         if (perdido || !v) { mg.textContent = perdido ? "perdido" : "—"; mg.style.color = "var(--muted)"; return; }
-        const pct = it.custo > 0 ? (v / it.custo - 1) * 100 : 0; const abaixo = v < piso(it.custo); mg.textContent = `${pct.toFixed(1)}%${abaixo ? " ⚠" : ""}`; mg.style.color = abaixo ? "var(--red)" : "var(--green)"; mg.title = abaixo ? "Abaixo do piso" : ""; tot += v * (it.qtd || 0); });
+        const pct = it.custo > 0 ? (v / it.custo - 1) * 100 : 0; const abaixo = v < piso(it.custo, getCfg(), o.estado); mg.textContent = `${pct.toFixed(1)}%${abaixo ? " ⚠" : ""}`; mg.style.color = abaixo ? "var(--red)" : "var(--green)"; mg.title = abaixo ? "Abaixo do piso" : ""; tot += v * (it.qtd || 0); });
         form.querySelector("#t-final").textContent = fmt(tot); };
       form.addEventListener("input", calc); form.addEventListener("change", calc); calc();
     },
@@ -301,7 +302,7 @@ function lancarResultado(p) {
       itens.forEach((it, i) => { const perdido = !!v[`perdido_${i}`]; const fin = +v[`final_${i}`] || 0;
         hist.push({ num: it.num ?? i + 1, codigo: it.codigo, precoInicial: it.preco, precoFinal: perdido ? null : fin, perdido });
         if (perdido) perdidos.push(it); else { if (fin <= 0) throw new Error(`Informe o preço arrematado do item ${it.num ?? i + 1} ou marque como perdido.`); vencidos.push({ ...it, precoInicial: it.preco, preco: fin, total: +(fin * (it.qtd || 0)).toFixed(2) }); } });
-      const abaixo = vencidos.filter((it) => it.preco < piso(it.custo));
+      const abaixo = vencidos.filter((it) => it.preco < piso(it.custo, getCfg(), o.estado));
       if (abaixo.length && !await confirmar(`${abaixo.length} item(ns) arrematado(s) abaixo do piso. Aplicar mesmo assim?`, { ok: "Aplicar" })) return;
       const status = vencidos.length ? "Vencida" : "Perdida";
       await store.setItem("propostas", { ...p, itens: vencidos.length ? vencidos : itens, status, resultadoDisputa: { data: v.dataDisputa || hojeIso(), obs: v.obsDisputa || "", itens: hist, perdidos: perdidos.map((it) => ({ num: it.num, codigo: it.codigo, nome: it.nome, qtd: it.qtd, preco: it.preco })) }, readequadaEm: vencidos.length ? new Date().toISOString() : "" });
@@ -311,5 +312,3 @@ function lancarResultado(p) {
   });
 }
 
-// Lucro líquido estimado: venda − custo − Simples e frete (percentuais dos Parâmetros) sobre a venda
-const lucroLiq = (venda, custo, cfg) => venda - custo - venda * ((+cfg.simples || 0) + (+cfg.fretePct || 0)) / 100;

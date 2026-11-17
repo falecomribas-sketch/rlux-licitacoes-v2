@@ -1,9 +1,9 @@
 // Monitor de reequilíbrio: compara o custo gravado na proposta (época da disputa) com o custo atual do cadastro,
 // para ATAs vigentes com saldo. Gatilhos (Parâmetros): lucro atual abaixo do mínimo OU alta do custo acima do limite.
-import { store } from "./store.js?v=20261116-182627";
-import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada } from "./domain.js?v=20261116-182627";
-import { getCfg, piso, custoVencido, diasCusto } from "./preco.js?v=20261116-182627";
-import { hojeIso } from "./utils.js?v=20261116-182627";
+import { store } from "./store.js?v=20261117-014052";
+import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada } from "./domain.js?v=20261117-014052";
+import { getCfg, piso, encargoPct, custoVencido, diasCusto } from "./preco.js?v=20261117-014052";
+import { hojeIso } from "./utils.js?v=20261117-014052";
 
 export function itensEmRisco() {
   const cfg = getCfg(); const hoje = hojeIso();
@@ -22,8 +22,8 @@ export function itensEmRisco() {
       if (!it.produtoId || !(it.saldo > 0) || !(it.preco > 0)) return;
       const prod = store.find("produtos", it.produtoId); if (!prod) return;
       const custoProp = +it.custo || 0, custoAtual = +prod.custo || 0; if (!custoAtual) return;
-      const pisoAtual = piso(custoAtual);
-      const lucroAtual = (1 - (cfg.simples + cfg.fretePct) / 100) - custoAtual / it.preco; // fração do preço que sobra como lucro hoje
+      const pisoAtual = piso(custoAtual, cfg, o?.estado);
+      const lucroAtual = (1 - (cfg.simples + cfg.fretePct + encargoPct(o?.estado, cfg)) / 100) - custoAtual / it.preco; // fração do preço que sobra como lucro hoje
       const variacao = custoProp > 0 ? (custoAtual - custoProp) / custoProp * 100 : null;
       const semData = custoVencido(prod);
       const gatilhoLucro = lucroAtual * 100 < lucroMinReq, gatilhoAlta = variacao !== null && variacao > altaReq;

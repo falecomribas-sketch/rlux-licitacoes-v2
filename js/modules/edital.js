@@ -1,23 +1,23 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261116-182627";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261116-182627";
-import { EMPRESA } from "../core/pdf.js?v=20261116-182627";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261116-182627";
-import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg } from "../core/preco.js?v=20261116-182627";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261116-182627";
-import { store } from "../core/store.js?v=20261116-182627";
-import { ssel } from "../core/ssel.js?v=20261116-182627";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261116-182627";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261116-182627";
-import { newId } from "../core/store.js?v=20261116-182627";
-import { navigate } from "../core/router.js?v=20261116-182627";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261116-182627";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261116-182627";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261116-182627";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261116-182627";
-import { copiarTexto } from "../core/regua.js?v=20261116-182627";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261117-014052";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261117-014052";
+import { EMPRESA } from "../core/pdf.js?v=20261117-014052";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261117-014052";
+import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261117-014052";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261117-014052";
+import { store } from "../core/store.js?v=20261117-014052";
+import { ssel } from "../core/ssel.js?v=20261117-014052";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261117-014052";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261117-014052";
+import { newId } from "../core/store.js?v=20261117-014052";
+import { navigate } from "../core/router.js?v=20261117-014052";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261117-014052";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261117-014052";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261117-014052";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261117-014052";
+import { copiarTexto } from "../core/regua.js?v=20261117-014052";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -75,7 +75,7 @@ export default {
       if (act === "excel-corr") { const ls = linhasCorr(); const CONF = { alta: "ALTA", media: "MÉDIA", baixa: "BAIXA", nenhuma: "—" };
         exportarExcelFormatado([
           { nome: "ITENS_ENCONTRADOS", colunas: [{ chave: "item", titulo: "ITEM", largura: 7 }, { chave: "desc", titulo: "Descrição EDITAL", largura: 60 }, { chave: "qtd", titulo: "Quantidade", largura: 12 }, { chave: "ref", titulo: "Preço de Referência", largura: 18, moeda: true }, { chave: "nosso", titulo: "Nosso Item", largura: 45 }, { chave: "junto", titulo: "JUNTO", largura: 26 }, { chave: "custo", titulo: "Custo", largura: 12, moeda: true }, { chave: "piso", titulo: "Piso de venda", largura: 14, moeda: true }, { chave: "conf", titulo: "CONFIANÇA", largura: 12 }, { chave: "just", titulo: "JUSTIFICATIVA", largura: 60 }, { chave: "obs", titulo: "Observação", largura: 40 }],
-            rows: ls.filter((x) => x.p).map((x) => ({ item: x.it.item, desc: x.it.descricao, qtd: `${x.it.quantidade ?? ""} ${x.it.unidade || ""}`.trim(), ref: x.it.precoReferencia ?? "", nosso: x.p.nome, junto: `${x.p.marca || ""} / ${x.p.codigo}`, custo: x.p.custo ?? "", piso: +piso(x.p.custo).toFixed(2), conf: CONF[x.c?.confianca] || "", just: x.c?.justificativa || "", obs: x.c?.observacao || "" })) },
+            rows: ls.filter((x) => x.p).map((x) => ({ item: x.it.item, desc: x.it.descricao, qtd: `${x.it.quantidade ?? ""} ${x.it.unidade || ""}`.trim(), ref: x.it.precoReferencia ?? "", nosso: x.p.nome, junto: `${x.p.marca || ""} / ${x.p.codigo}`, custo: x.p.custo ?? "", piso: +pisoUF(x.p.custo).toFixed(2), conf: CONF[x.c?.confianca] || "", just: x.c?.justificativa || "", obs: x.c?.observacao || "" })) },
           { nome: "ITENS_NAO_LOCALIZADOS", colunas: [{ chave: "item", titulo: "ITEM", largura: 7 }, { chave: "desc", titulo: "Descrição EDITAL", largura: 60 }, { chave: "qtd", titulo: "Quantidade", largura: 12 }, { chave: "motivo", titulo: "MOTIVO", largura: 50 }],
             rows: ls.filter((x) => !x.p).map((x) => ({ item: x.it.item, desc: x.it.descricao, qtd: `${x.it.quantidade ?? ""} ${x.it.unidade || ""}`.trim(), motivo: x.c?.justificativa || "Sem candidato na família" })) },
         ], "RESULTADO_CRUZAMENTO_RLUX"); }
@@ -142,6 +142,9 @@ async function salvarAnalise(alvo = ultima) {
   const { arquivosNomes, ...dados } = alvo; // tudo é serializável (sem File)
   try { await store.setItem("analises", { ...dados, arquivosNomes: arquivosNomes || [], atualizadoEm: new Date().toISOString() }); } catch (e) { console.error(e); toast("Não consegui gravar a análise (ela continua na tela).", "erro"); }
 }
+// piso pela UF do órgão da análise aberta (encargo estadual, ex.: TO 13%)
+const ufUltima = () => ultima?.resumo?.estado || "";
+const pisoUF = (custo) => piso(custo, getCfg(), ufUltima());
 let histBusca = "", histSit = "", histOrd = "analise", histDir = "desc", histDe = "", histAte = "", histPortal = ""; // ordenação: analise | disputa | orgao | itens | corr | situacao
 const SIT_HIST = [["", "Todas"], ["proposta", "Com proposta"], ["analisado", "Só analisadas"], ["semcorr", "Sem correspondência"], ["minhas", "Minhas"]];
 function historico(el) {
@@ -210,8 +213,8 @@ function abaCorr(r) {
   const m = r.metaCorr || {};
   return `
     <div class="card"><div class="card-head"><h2>Correspondência item → produto RLUX</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-act="effecti" title="Sobe a planilha exportada da Effecti e devolve preenchida">${icon("upload")} Preencher planilha da Effecti</button><input type="file" id="effecti-file" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" data-act="disputa" title="Sobe a planilha de disputa da Effecti e devolve com o Valor limite = lance mínimo (piso)">${icon("upload")} Preencher lance mínimo (disputa)</button><input type="file" id="disputa-file" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" data-act="excel-corr">${icon("download")} Excel</button><button class="btn btn-ghost btn-sm" data-act="casar" ${casando ? "disabled" : ""}>${icon("refresh")} Refazer</button></div></div>
-    <div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Item</th><th style="min-width:260px">Descrição no edital</th><th style="min-width:300px">Nosso produto</th><th>Conf.</th><th class="num">Custo</th><th class="num">Piso</th><th class="num">Ref. edital</th><th>Histórico</th></tr></thead><tbody>
-    ${linhas.map(({ it, c, p }) => { const h = p ? historicoProduto(p.id, L.orgao) : {}; const ref = it.precoReferencia; const ps = p ? piso(p.custo) : null;
+    <div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Item</th><th style="min-width:260px">Descrição no edital</th><th style="min-width:300px">Nosso produto</th><th>Conf.</th><th class="num">Custo</th><th class="num">Piso${notaEncargo(ufUltima()) ? `<div class="muted" style="font-size:10px;font-weight:400">${esc(notaEncargo(ufUltima()))}</div>` : ""}</th><th class="num">Ref. edital</th><th>Histórico</th></tr></thead><tbody>
+    ${linhas.map(({ it, c, p }) => { const h = p ? historicoProduto(p.id, L.orgao) : {}; const ref = it.precoReferencia; const ps = p ? pisoUF(p.custo) : null;
       return `<tr data-item="${esc(it.item)}"><td>${podeEditar() ? `<input type="text" class="input input-sm" data-num-item="${esc(it.item)}" value="${esc(it.item)}" title="Número do item no portal (editável)" style="width:64px;font-weight:700;padding:2px 6px;height:28px">` : `<strong>${esc(it.item)}</strong>`}${it.quantidade != null ? `<div class="muted" style="font-size:11px">${fmtNum(it.quantidade)} ${esc(it.unidade || "")}</div>` : ""}</td>
         <td style="font-size:12.5px">${esc(it.descricao)}</td>
         <td><div class="corr-ssel" data-item="${esc(it.item)}"></div><div class="muted" style="font-size:11.5px;margin-top:3px">${esc(c?.justificativa || "")}${c?.observacao ? ` <span style="color:var(--amber-txt)">· ${esc(c.observacao)}</span>` : ""}</div></td>
@@ -334,7 +337,7 @@ function acharOrgao(L) {
   return orgs.find((x) => normTxt(x.nome) === n) || orgs.find((x) => { const m = normTxt(x.nome); return m.length > 12 && (n.includes(m) || m.includes(n)) && (!L.estado || !x.estado || x.estado === L.estado); }) || null;
 }
 function precoInicial(it, p, L) {
-  const cfg = getCfg(); const ps = p ? piso(p.custo) : 0;
+  const cfg = getCfg(); const ps = p ? pisoUF(p.custo) : 0;
   if (it.precoReferencia != null && it.precoReferencia > 0) return { preco: +(it.precoReferencia * (1 - (cfg.descontoRef || 0) / 100)).toFixed(2), origem: "referência do edital", abaixoPiso: it.precoReferencia < ps };
   const h = p ? historicoProduto(p.id, L.orgao) : {};
   if (h.orgao?.preco) return { preco: +Math.max(h.orgao.preco, ps).toFixed(2), origem: "último preço neste órgão", abaixoPiso: h.orgao.preco < ps };
@@ -363,8 +366,8 @@ function novaLicitacao(el) {
       ${r.criada?.licId && store.find("licitacoes", r.criada.licId) ? `<div class="info-box" style="border-color:var(--amber)"><div><div class="k">Licitação já existe</div>A licitação ${esc(store.find("licitacoes", r.criada.licId).numero || "")} foi criada na primeira vez; agora será gerada apenas uma nova proposta nela (os campos abaixo não a alteram).</div></div>` : ""}
       ${linha(campo("Tipo", select("tipo", TIPOS, tipoIni)), campo("Número", inputTxt("numero", numeroCurto(L.numero) || "", "required")), campo("Data da sessão", inputData("data", L.dataSessao || "")), campo("Portal", select("portalId", [["", "—"], ...portais.map((pt) => [pt.id, pt.sigla])], portalIni)))}
       <div class="form-section">Proposta inicial — ${linhas.length} item(ns) <span class="muted" style="font-weight:400">preço = referência do órgão; sem referência, histórico; sem histórico, piso + 15%. Ajuste aqui ou depois em Propostas.</span></div>
-      <div class="table-wrap"><table><thead><tr><th>Item</th><th>Produto</th><th class="num">Qtd</th><th class="num">Custo</th><th class="num">Piso</th><th style="width:130px">Preço</th><th>Origem do preço</th></tr></thead><tbody>
-        ${linhas.map(({ it, p, c }, i) => `<tr data-i="${i}"><td><strong>${esc(it.item)}</strong><div class="muted" style="font-size:11px;max-width:220px">${esc(it.descricao.slice(0, 70))}</div></td><td>${esc(p.codigo)} — ${esc(p.nome)}${c?.observacao ? `<div style="font-size:11px;color:var(--amber-txt)">${esc(c.observacao)}</div>` : ""}</td><td class="num"><input type="number" class="input input-sm" name="qtd_${i}" value="${it.quantidade ?? 1}" step="any" style="width:90px"></td><td class="num">${fmt(p.custo)}</td><td class="num">${fmt(piso(p.custo))}</td><td><input type="number" class="input input-sm" name="preco_${i}" value="${precos[i].preco}" step="0.01" style="width:120px"></td><td class="muted" style="font-size:11.5px">${esc(precos[i].origem)}${precos[i].abaixoPiso ? ` <span style="color:var(--red)">· abaixo do piso</span>` : ""}</td></tr>`).join("")}
+      <div class="table-wrap"><table><thead><tr><th>Item</th><th>Produto</th><th class="num">Qtd</th><th class="num">Custo</th><th class="num">Piso${notaEncargo(ufUltima()) ? `<div class="muted" style="font-size:10px;font-weight:400">${esc(notaEncargo(ufUltima()))}</div>` : ""}</th><th style="width:130px">Preço</th><th>Origem do preço</th></tr></thead><tbody>
+        ${linhas.map(({ it, p, c }, i) => `<tr data-i="${i}"><td><strong>${esc(it.item)}</strong><div class="muted" style="font-size:11px;max-width:220px">${esc(it.descricao.slice(0, 70))}</div></td><td>${esc(p.codigo)} — ${esc(p.nome)}${c?.observacao ? `<div style="font-size:11px;color:var(--amber-txt)">${esc(c.observacao)}</div>` : ""}</td><td class="num"><input type="number" class="input input-sm" name="qtd_${i}" value="${it.quantidade ?? 1}" step="any" style="width:90px"></td><td class="num">${fmt(p.custo)}</td><td class="num">${fmt(pisoUF(p.custo))}</td><td><input type="number" class="input input-sm" name="preco_${i}" value="${precos[i].preco}" step="0.01" style="width:120px"></td><td class="muted" style="font-size:11.5px">${esc(precos[i].origem)}${precos[i].abaixoPiso ? ` <span style="color:var(--red)">· abaixo do piso</span>` : ""}</td></tr>`).join("")}
       </tbody></table></div>
       <p class="muted" style="font-size:12px;margin-top:8px">A proposta nasce com status "Em Andamento" e marcada como gerada por IA. Nada muda em registros existentes.</p>`,
     onAberto(form) { const host = form.querySelector("#org-ssel"); if (host) orgSel = ssel(host, { placeholder: "Buscar órgão cadastrado…", itens: opcoesOrgaos(), value: "", onSelect: () => {} }); },
@@ -446,12 +449,12 @@ async function preencherDisputa(file) {
   const cItem = col(/^(n[º°.]?\s*)?(do\s+)?item/), cDesc = col(/descri/), cLote = col(/^lote/), cLimite = col(/valor limite|lance m[ií]nimo|limite/);
   if (cItem < 0 || cLimite < 0) return toast("Esta não parece a planilha de disputa da Effecti (precisa das colunas Item e Valor limite).", "erro", 7000);
   const casados = linhasCorr().filter((x) => x.p);
-  const totalPedido = casados.reduce((a, { it, p }) => a + piso(p.custo) * (+it.quantidade || 0), 0); // estimativa do pedido (para avisar sobre o frete mínimo)
+  const totalPedido = casados.reduce((a, { it, p }) => a + pisoUF(p.custo) * (+it.quantidade || 0), 0); // estimativa do pedido (para avisar sobre o frete mínimo)
   const X = XL(); let n = 0; const faltam = [], acima = [];
   casados.forEach(({ it, p }) => {
     const ri = acharLinha(ex, cItem, cDesc, it, cLote);
     if (ri < 0) { faltam.push(it.item); return; }
-    const lance = +piso(p.custo).toFixed(2); // mesmo piso mostrado na tabela (sem rateio de frete mínimo, que distorce pedidos pequenos)
+    const lance = +pisoUF(p.custo).toFixed(2); // mesmo piso mostrado na tabela (sem rateio de frete mínimo, que distorce pedidos pequenos)
     const ref = X.utils.encode_cell({ r: ri, c: cLimite }); const atual = +ex.rows[ri][cLimite] || 0;
     ex.ws[ref] = { ...(ex.ws[ref] || {}), t: "n", v: lance, z: "#,##0.00" }; delete ex.ws[ref].w;
     if (atual && lance > atual) acima.push(`${it.item} (piso ${fmt(lance)} > limite ${fmt(atual)})`);
@@ -460,7 +463,8 @@ async function preencherDisputa(file) {
   if (!n) return toast(`Nenhum item da planilha coincide com os itens casados. Itens na planilha: ${itensDaPlanilha(ex, cItem, cLote).slice(0, 15).join(", ") || "nenhum"} · itens casados: ${casados.map((x) => x.it.item).join(", ")}.`, "erro", 12000);
   salvarWorkbook(ex.wb, `disputa_effecti_${(numeroCurto(L.numero) || "edital").replace(/[^\w]+/g, "_")}`);
   const pedMin = pedidoMinimoSemAjuste(); const freteAviso = pedMin && totalPedido < pedMin ? ` · ATENÇÃO: pedido estimado de ${fmt(totalPedido)} fica abaixo de ${fmt(pedMin)} — no piso, o frete mínimo não fica coberto; avalie se vale disputar` : "";
-  toast(`Lance mínimo preenchido em ${n} item(ns)${faltam.length ? ` · não encontrados na planilha: ${faltam.join(", ")}` : ""}${acima.length ? ` · ATENÇÃO, piso acima do valor atual: ${acima.join("; ")}` : ""}${freteAviso}.`, acima.length || freteAviso ? "aviso" : "ok", 12000);
+  const encTxt = notaEncargo(ufUltima()) ? ` · piso ${notaEncargo(ufUltima())}` : "";
+  toast(`Lance mínimo preenchido em ${n} item(ns)${encTxt}${faltam.length ? ` · não encontrados na planilha: ${faltam.join(", ")}` : ""}${acima.length ? ` · ATENÇÃO, piso acima do valor atual: ${acima.join("; ")}` : ""}${freteAviso}.`, acima.length || freteAviso ? "aviso" : "ok", 12000);
 }
 
 // ---------- Declarações exigidas no edital ----------
