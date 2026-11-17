@@ -1,18 +1,18 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261117-175756";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261117-175756";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261117-175756";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261117-175756";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261117-175756";
-import { podeEditar } from "../core/auth.js?v=20261117-175756";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261117-175756";
-import { ssel } from "../core/ssel.js?v=20261117-175756";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261117-175756";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261117-175756";
-import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261117-175756";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO } from "../core/resultados.js?v=20261117-175756";
-import { dataLocal } from "../core/utils.js?v=20261117-175756";
+import { store, newId } from "../core/store.js?v=20261117-181413";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261117-181413";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261117-181413";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261117-181413";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261117-181413";
+import { podeEditar } from "../core/auth.js?v=20261117-181413";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261117-181413";
+import { ssel } from "../core/ssel.js?v=20261117-181413";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261117-181413";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261117-181413";
+import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261117-181413";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO } from "../core/resultados.js?v=20261117-181413";
+import { dataLocal } from "../core/utils.js?v=20261117-181413";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -312,7 +312,7 @@ function lancarResultado(p) {
           casados++;
           if (ri.ganhamos) { form.elements[`perdido_${i}`].checked = false; form.elements[`final_${i}`].value = ri.nossoPreco; cel.innerHTML = `<strong style="color:var(--green)">1º lugar</strong>${ri.precoSegundo ? ` · 2º ${esc((r.lances.find((l) => l.pos === 2) || {}).empresa || "")} ${fmt(ri.precoSegundo)}` : ""}`; }
           else { form.elements[`perdido_${i}`].checked = true; form.elements[`final_${i}`].value = ri.nossoPreco; const cls = classificarPerda({ precoVencedor: ri.precoVencedor, nossoPreco: ri.nossoPreco, custo: +it.custo || 0, piso: piso(it.custo, getCfg(), o.estado) }); importado[i].classe = cls;
-            cel.innerHTML = `<div><strong>${ri.nossaPosicao}º</strong> · nosso ${fmt(ri.nossoPreco)} · 1º ${esc(ri.vencedor)} <strong>${fmt(ri.precoVencedor)}</strong> (${((ri.nossoPreco - ri.precoVencedor) / ri.precoVencedor * 100).toFixed(1)}%)</div>${cls ? `<span class="tag ${CLASSE_ROTULO[cls][1]}" title="${esc(CLASSE_ROTULO[cls][2])}">${CLASSE_ROTULO[cls][0]}</span>` : ""}`; } });
+            cel.innerHTML = `<div><strong>${ri.nossaPosicao}º</strong> · nosso ${fmt(ri.nossoPreco)} · 1º ${esc(ri.vencedor)} <strong>${fmt(ri.precoVencedor)}</strong> (${((ri.nossoPreco - ri.precoVencedor) / ri.precoVencedor * 100).toFixed(1)}%)${ri.marcaVencedor ? `<div class="muted" style="font-size:11px">marca do vencedor: ${esc(ri.marcaVencedor)}</div>` : ""}</div>${cls ? `<span class="tag ${CLASSE_ROTULO[cls][1]}" title="${esc(CLASSE_ROTULO[cls][2])}">${CLASSE_ROTULO[cls][0]}</span>` : ""}`; } });
         form.querySelectorAll(".col-conc").forEach((c) => { c.hidden = false; }); calc();
         const av = form.querySelector("#imp-res-aviso"); av.hidden = false;
         av.innerHTML = `<div><div class="k">Resultado importado: ${esc(f.name)}</div>${casados} item(ns) com lance da RLUX · ${res.length} item(ns) no arquivo${semNos.length ? ` · <strong>sem lance nosso: ${semNos.join(", ")}</strong> (marcados como perdidos)` : ""}${naoAchados.length ? ` · não constam no arquivo: ${naoAchados.join(", ")} (confira manualmente)` : ""}. Revise e clique em Aplicar resultado.</div>`;
@@ -322,7 +322,7 @@ function lancarResultado(p) {
     async onSalvar(form) {
       const v = lerForm(form); const vencidos = [], perdidos = [], hist = [];
       itens.forEach((it, i) => { const perdido = !!v[`perdido_${i}`]; const fin = +v[`final_${i}`] || 0;
-        const imp = importado[i]; const conc = imp ? { vencedor: imp.vencedor, cnpjVencedor: imp.cnpjVencedor, precoVencedor: imp.precoVencedor, marcaVencedor: imp.marcaVencedor, nossaPosicao: imp.nossaPosicao, nossoPreco: imp.nossoPreco ?? (perdido ? fin || it.preco : fin), precoSegundo: imp.precoSegundo, melhorConcorrente: imp.melhorConcorrente, precoMelhorConcorrente: imp.precoMelhorConcorrente, nLances: imp.nLances, participamos: imp.participamos, qtd: it.qtd, custo: +it.custo || 0, piso: +piso(it.custo, getCfg(), o.estado).toFixed(4), uf: o.estado || "" } : null;
+        const imp = importado[i]; const conc = imp ? { vencedor: imp.vencedor, cnpjVencedor: imp.cnpjVencedor, precoVencedor: imp.precoVencedor, marcaVencedor: imp.marcaVencedor || "", nossaMarca: imp.nossaMarca || "", nossaPosicao: imp.nossaPosicao, nossoPreco: imp.nossoPreco ?? (perdido ? fin || it.preco : fin), precoSegundo: imp.precoSegundo, melhorConcorrente: imp.melhorConcorrente, precoMelhorConcorrente: imp.precoMelhorConcorrente, nLances: imp.nLances, participamos: imp.participamos, qtd: it.qtd, custo: +it.custo || 0, piso: +piso(it.custo, getCfg(), o.estado).toFixed(4), uf: o.estado || "" } : null;
         hist.push({ num: it.num ?? i + 1, codigo: it.codigo, precoInicial: it.preco, precoFinal: perdido ? null : fin, perdido, ...(conc ? { concorrencia: conc } : {}) });
         if (perdido) perdidos.push(it); else { if (fin <= 0) throw new Error(`Informe o preço arrematado do item ${it.num ?? i + 1} ou marque como perdido.`); vencidos.push({ ...it, precoInicial: it.preco, preco: fin, total: +(fin * (it.qtd || 0)).toFixed(2) }); } });
       const abaixo = vencidos.filter((it) => it.preco < piso(it.custo, getCfg(), o.estado));

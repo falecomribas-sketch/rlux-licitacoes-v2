@@ -1,9 +1,9 @@
 // Resultados de disputa: leitura da planilha "Exportação de resultados" da Effecti, classificação da perda
 // e agregações para o painel Resultados. Os dados ficam em proposta.resultadoDisputa.itens[] (campo concorrencia).
-import { store } from "./store.js?v=20261117-175756";
-import { abrirExcel } from "./forms.js?v=20261117-175756";
-import { getLicit, getOrgao, getPortal } from "./domain.js?v=20261117-175756";
-import { piso, getCfg, deduzirFamilia, FAMILIAS_TEC } from "./preco.js?v=20261117-175756";
+import { store } from "./store.js?v=20261117-181413";
+import { abrirExcel } from "./forms.js?v=20261117-181413";
+import { getLicit, getOrgao, getPortal } from "./domain.js?v=20261117-181413";
+import { piso, getCfg, deduzirFamilia, FAMILIAS_TEC } from "./preco.js?v=20261117-181413";
 
 export const NOS_RE = /rlux/i;
 const LANCE_DESISTENCIA = 10000; // lances tipo "100.000" são desistência — ignorados na análise
@@ -17,7 +17,7 @@ export async function lerResultadosEffecti(file) {
   const hi = rows.findIndex((r) => r.some((c) => /posi[çc][ãa]o/i.test(String(c))) && r.some((c) => /^item$/i.test(String(c).trim())));
   if (hi < 0) throw new Error("Esta não parece a exportação de resultados da Effecti (precisa das colunas Posição, Item, Nome Empresa e Valor Unitário).");
   const cab = rows[hi].map(norm); const col = (re) => cab.findIndex((c) => re.test(c));
-  const cPos = col(/posi[çc][ãa]o/), cItem = col(/^item$/), cDesc = col(/descri/), cCnpj = col(/cnpj/), cEmp = col(/nome.*empresa|empresa|licitante|fornecedor/), cPorte = col(/porte/), cMarca = col(/marca/), cQtd = col(/quantidade/), cVal = col(/valor unit/), cTot = col(/valor total/);
+  const cPos = col(/posi[çc][ãa]o/), cItem = col(/^item$/), cDesc = col(/descri/), cCnpj = col(/cnpj/), cEmp = col(/nome.*empresa|empresa|licitante|fornecedor/), cPorte = col(/porte/), cMarca = col(/marca/), cModelo = col(/modelo/), cFabr = col(/fabricante/), cQtd = col(/quantidade/), cVal = col(/valor unit/), cTot = col(/valor total/);
   if (cPos < 0 || cItem < 0 || cEmp < 0 || cVal < 0) throw new Error("Planilha de resultados sem as colunas esperadas (Posição, Item, Nome Empresa, Valor Unitário).");
   const itens = []; let cur = null;
   for (const r of rows.slice(hi + 1)) {
@@ -25,7 +25,7 @@ export async function lerResultadosEffecti(file) {
     if (item) { cur = { item: item.replace(/^0+(?=\d)/, ""), itemOriginal: item, descricao: String(r[cDesc] ?? "").trim(), qtd: +r[cQtd] || null, lances: [] }; itens.push(cur); continue; }
     if (!cur || !pos || !emp) continue;
     const valor = numBR(r[cVal]);
-    cur.lances.push({ pos: parseInt(pos, 10) || cur.lances.length + 1, empresa: emp, cnpj: String(r[cCnpj] ?? "").trim(), porte: String(r[cPorte] ?? "").trim(), marca: String(r[cMarca] ?? "").trim(), valor, total: numBR(r[cTot]) });
+    cur.lances.push({ pos: parseInt(pos, 10) || cur.lances.length + 1, empresa: emp, cnpj: String(r[cCnpj] ?? "").trim(), porte: String(r[cPorte] ?? "").trim(), marca: String(r[cMarca] ?? "").trim(), modelo: cModelo >= 0 ? String(r[cModelo] ?? "").trim() : "", fabricante: cFabr >= 0 ? String(r[cFabr] ?? "").trim() : "", valor, total: numBR(r[cTot]) });
   }
   itens.forEach((it) => it.lances.sort((a, b) => a.pos - b.pos));
   return itens.filter((it) => it.lances.length);
@@ -38,7 +38,7 @@ export function resumoItem(it) {
   const outros = validos.filter((l) => !NOS_RE.test(l.empresa)); const melhorOutro = outros[0] || null;
   const segundo = validos[1] || null;
   return {
-    vencedor: venc?.empresa || "", cnpjVencedor: venc?.cnpj || "", precoVencedor: venc?.valor ?? null, marcaVencedor: venc?.marca || "",
+    vencedor: venc?.empresa || "", cnpjVencedor: venc?.cnpj || "", precoVencedor: venc?.valor ?? null, marcaVencedor: [venc?.marca, venc?.modelo].filter(Boolean).join(" ") + (venc?.fabricante && venc.fabricante !== venc.marca ? ` (${venc.fabricante})` : ""), nossaMarca: [nos?.marca, nos?.modelo].filter(Boolean).join(" "),
     nossaPosicao: nos?.pos ?? null, nossoPreco: nos?.valor ?? null, ganhamos: !!nos && NOS_RE.test(venc?.empresa || ""),
     precoSegundo: segundo?.valor ?? null, melhorConcorrente: melhorOutro?.empresa || "", precoMelhorConcorrente: melhorOutro?.valor ?? null,
     nLances: validos.length, participamos: !!nos,
