@@ -1,9 +1,9 @@
 // Resultados de disputa: leitura da planilha "Exportação de resultados" da Effecti, classificação da perda
 // e agregações para o painel Resultados. Os dados ficam em proposta.resultadoDisputa.itens[] (campo concorrencia).
-import { store } from "./store.js?v=20261117-182002";
-import { abrirExcel } from "./forms.js?v=20261117-182002";
-import { getLicit, getOrgao, getPortal } from "./domain.js?v=20261117-182002";
-import { piso, getCfg, deduzirFamilia, FAMILIAS_TEC } from "./preco.js?v=20261117-182002";
+import { store } from "./store.js?v=20261117-182755";
+import { abrirExcel } from "./forms.js?v=20261117-182755";
+import { getLicit, getOrgao, getPortal } from "./domain.js?v=20261117-182755";
+import { piso, getCfg, deduzirFamilia, FAMILIAS_TEC } from "./preco.js?v=20261117-182755";
 
 export const NOS_RE = /rlux/i;
 const LANCE_DESISTENCIA = 10000; // lances tipo "100.000" são desistência — ignorados na análise
@@ -78,7 +78,8 @@ export function linhasResultados() {
       const c = h.concorrencia || {}; const nosso = +(c.nossoPreco ?? h.precoFinal ?? h.precoInicial) || 0;
       const classe = h.perdido ? (c.precoVencedor ? classificarPerda({ precoVencedor: c.precoVencedor, nossoPreco: nosso, custo, piso: ps }) : "") : "ganho";
       const fam = prod?.familia || deduzirFamilia(`${it.nome || ""} ${it.descricao || ""}`) || "";
-      out.push({ p, l, o, uf, portal, data: rd.data || l?.data || "", num: h.num, nome: it.nome || h.codigo || "", codigo: it.codigo || h.codigo || "", qtd: +it.qtd || +c.qtd || 0, custo, piso: ps, precoInicial: +h.precoInicial || 0, nosso, perdido: !!h.perdido, classe, familia: fam, familiaNome: FAMILIAS_TEC[fam]?.nome.split(" (")[0] || (fam || "Outros"), ...c,
+      const marcaNossa = c.nossaMarca || it.marca || prod?.marca || "";
+      out.push({ p, l, o, uf, portal, marcaNossa, data: rd.data || l?.data || "", num: h.num, nome: it.nome || h.codigo || "", codigo: it.codigo || h.codigo || "", qtd: +it.qtd || +c.qtd || 0, custo, piso: ps, precoInicial: +h.precoInicial || 0, nosso, perdido: !!h.perdido, classe, familia: fam, familiaNome: FAMILIAS_TEC[fam]?.nome.split(" (")[0] || (fam || "Outros"), ...c,
         difPct: c.precoVencedor && nosso ? (nosso - c.precoVencedor) / c.precoVencedor * 100 : null, valor: (+it.qtd || +c.qtd || 0) * (h.perdido ? (c.precoVencedor || nosso) : nosso) });
     });
   });
