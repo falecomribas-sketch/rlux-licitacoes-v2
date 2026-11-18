@@ -459,3 +459,5 @@ a.btn { text-decoration: none; }
 .sp { height: 7px; border-radius: 4px; background: #eef1f6; overflow: hidden; min-width: 80px; }
 .sp i { display: block; height: 100%; background: var(--navy-2); }
 .conc-row:hover td { background: #f3f6fc; }
+.conc-nos td { background: #eef9f2; }
+.conc-nos:hover td { background: #e3f5ec !important; }

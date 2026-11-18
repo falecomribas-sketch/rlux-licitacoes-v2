@@ -1,10 +1,10 @@
 // Concorrentes: quem vence as disputas em que a RLUX participa — ranking e raio-x por empresa.
-import { store } from "../core/store.js?v=20261118-112349";
-import { icon, tag } from "../core/ui.js?v=20261118-112349";
-import { esc, fmt, fmtNum, fmtD, fmtDc, toTitleCase, cnpjFormatado } from "../core/utils.js?v=20261118-112349";
-import { exportarExcel } from "../core/forms.js?v=20261118-112349";
-import { iniciarPreco } from "../core/preco.js?v=20261118-112349";
-import { linhasResultados, participacoes, rankingConcorrentes, CLASSE_ROTULO } from "../core/resultados.js?v=20261118-112349";
+import { store } from "../core/store.js?v=20261118-114017";
+import { icon, tag } from "../core/ui.js?v=20261118-114017";
+import { esc, fmt, fmtNum, fmtD, fmtDc, toTitleCase, cnpjFormatado } from "../core/utils.js?v=20261118-114017";
+import { exportarExcel } from "../core/forms.js?v=20261118-114017";
+import { iniciarPreco } from "../core/preco.js?v=20261118-114017";
+import { linhasResultados, participacoes, rankingConcorrentes, CLASSE_ROTULO } from "../core/resultados.js?v=20261118-114017";
 
 let unsub = null, de = "", ate = "", uf = "", fam = "", portal = "", criterio = "valor", busca = "", sel = "", limite = 25;
 const CRIT = { valor: ["Valor ganho", (g) => g.valorGanho], itens: ["Itens ganhos", (g) => g.vitorias], sobre: ["Vitórias sobre a RLUX", (g) => g.sobreNos], presenca: ["Presença", (g) => g.itens] };
@@ -21,9 +21,9 @@ export default {
     const desenhar = () => {
       const todas = linhasResultados();
       const periodo = todas.filter((r) => (!de || (r.data || "") >= de) && (!ate || (r.data || "") <= ate) && (!uf || r.uf === uf) && (!fam || r.familiaNome === fam) && (!portal || r.portal === portal));
-      const parts = participacoes(periodo); const rank = rankingConcorrentes(parts);
+      const rankTodos = rankingConcorrentes(participacoes(periodo, { incluirNos: true })); const rank = rankTodos.filter((g) => !g.nos); const nosG = rankTodos.find((g) => g.nos);
       const q = busca.trim().toLowerCase(); const chaveOrd = CRIT[criterio][1];
-      const lista = rank.filter((g) => !q || g.nome.toLowerCase().includes(q) || (g.cnpj || "").includes(q)).sort((a, b) => chaveOrd(b) - chaveOrd(a) || b.valorGanho - a.valorGanho);
+      const lista = rankTodos.filter((g) => !q || g.nome.toLowerCase().includes(q) || (g.cnpj || "").includes(q) || (g.nos && "rlux".includes(q))).sort((a, b) => chaveOrd(b) - chaveOrd(a) || b.valorGanho - a.valorGanho);
       const valorConc = rank.reduce((a, g) => a + g.valorGanho, 0); const valorNos = periodo.filter((r) => !r.perdido).reduce((a, r) => a + r.valor, 0);
       const top5 = lista.slice(0, 5).reduce((a, g) => a + g.valorGanho, 0); const rival = rank.slice().sort((a, b) => b.sobreNos - a.sobreNos || b.valorGanho - a.valorGanho)[0];
       if (!lista.some((g) => g.chave === sel)) sel = lista[0]?.chave || "";
@@ -50,7 +50,7 @@ export default {
           <div class="card"><div class="card-head"><h2>Ranking de vencedores</h2><span class="muted" style="font-size:12px">${lista.length} empresa(s) · por ${CRIT[criterio][0].toLowerCase()}</span></div>
             <div class="card-body" style="padding:8px 14px"><label class="search" style="max-width:360px"><span class="search-ic">${icon("search")}</span><input type="search" class="input" id="c-busca" placeholder="Buscar empresa ou CNPJ…" value="${esc(busca)}"></label></div>
             <div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>#</th><th>Empresa</th><th class="num">Itens</th><th class="num">Valor ganho</th><th>Participação</th><th class="num" title="Itens em que ambos deram lance: vitórias deles × nossas">vs RLUX</th><th>UFs</th><th>Famílias</th></tr></thead><tbody>
-              ${lista.slice(0, limite).map((x, i) => `<tr class="conc-row ${x.chave === sel ? "row-active" : ""}" data-sel="${esc(x.chave)}" style="cursor:pointer"><td><span class="rk ${i < 3 ? "ouro" : ""}">${i + 1}</span></td><td><strong>${esc(toTitleCase(x.nome))}</strong><div class="muted" style="font-size:11px">${esc(x.porte || "")}${x.cnpj ? (x.porte ? " · " : "") + esc(cnpjFormatado(x.cnpj)) : ""}</div></td><td class="num">${x.vitorias}<div class="muted" style="font-size:11px">de ${x.itens}</div></td><td class="num"><strong>${fmt(x.valorGanho)}</strong></td><td><div class="sp"><i style="width:${Math.max(2, chaveOrd(x) / maxV * 100)}%"></i></div></td><td class="num">${placar(x)}</td><td style="font-size:12px">${esc(top(x.ufs, 4).map((p) => p[0]).join(", ") || "—")}</td><td style="font-size:12px">${esc(top(x.familias, 2).map((p) => p[0]).join(", ") || "—")}</td></tr>`).join("") || '<tr><td colspan="8" class="muted" style="text-align:center;padding:24px">Nenhum concorrente no período. Importe a exportação de resultados da Effecti no "Resultado da disputa" das propostas.</td></tr>'}
+              ${lista.slice(0, limite).map((x, i) => `<tr class="conc-row ${x.chave === sel ? "row-active" : ""} ${x.nos ? "conc-nos" : ""}" data-sel="${esc(x.chave)}" style="cursor:pointer"><td><span class="rk ${i < 3 ? "ouro" : ""}">${i + 1}</span></td><td><strong>${x.nos ? "RLUX Iluminação" : esc(toTitleCase(x.nome))}</strong>${x.nos ? ' <span class="tag tag-green">nós</span>' : ""}<div class="muted" style="font-size:11px">${esc(x.porte || "")}${x.cnpj ? (x.porte ? " · " : "") + esc(cnpjFormatado(x.cnpj)) : ""}</div></td><td class="num">${x.vitorias}<div class="muted" style="font-size:11px">de ${x.itens}</div></td><td class="num"><strong>${fmt(x.valorGanho)}</strong></td><td><div class="sp"><i style="width:${Math.max(2, chaveOrd(x) / maxV * 100)}%"></i></div></td><td class="num">${x.nos ? '<span class="muted">—</span>' : placar(x)}</td><td style="font-size:12px">${esc(top(x.ufs, 4).map((p) => p[0]).join(", ") || "—")}</td><td style="font-size:12px">${esc(top(x.familias, 2).map((p) => p[0]).join(", ") || "—")}</td></tr>`).join("") || '<tr><td colspan="8" class="muted" style="text-align:center;padding:24px">Nenhum concorrente no período. Importe a exportação de resultados da Effecti no "Resultado da disputa" das propostas.</td></tr>'}
             </tbody></table></div>${lista.length > limite ? `<div style="padding:10px;text-align:center"><button class="btn btn-ghost btn-sm" data-act="mais">Mostrar mais (${lista.length - limite} restantes)</button></div>` : ""}
             <div class="muted" style="font-size:11.5px;padding:10px 14px;border-top:1px solid var(--line)">"Itens" = vencidos / em que apareceu. "vs RLUX" = itens em que ambos deram lance: vitórias deles × nossas. Lances de desistência (≥ R$ 10.000) são ignorados.</div></div></div>
           <div class="card">${g ? raioX(g) : '<div class="card-body muted">Selecione uma empresa.</div>'}</div>
@@ -64,7 +64,7 @@ export default {
       el.querySelectorAll("[data-sel]").forEach((tr) => tr.addEventListener("click", () => { sel = tr.dataset.sel; desenhar(); el.querySelector(".conc-grid > .card:last-child")?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }));
       el.querySelector("[data-act=mais]")?.addEventListener("click", () => { limite += 50; desenhar(); });
       const bi = el.querySelector("#c-busca"); bi.addEventListener("input", () => { busca = bi.value; const pos = bi.selectionStart; desenhar(); const nb = el.querySelector("#c-busca"); nb.focus(); nb.setSelectionRange(pos, pos); });
-      el.querySelector("[data-act=excel]").addEventListener("click", () => exportarExcel(lista.map((x, i) => ({ "#": i + 1, Empresa: x.nome, CNPJ: x.cnpj ? cnpjFormatado(x.cnpj) : "", Porte: x.porte, "Itens em que apareceu": x.itens, "Itens vencidos": x.vitorias, "Valor ganho": +x.valorGanho.toFixed(2), Disputas: x.disputas, "Vitórias sobre a RLUX": x.sobreNos, "Derrotas para a RLUX": x.paraNos, "Confrontos": x.confrontos, "Posição média": x.posMedia ? +x.posMedia.toFixed(1) : "", "Fecha abaixo de nós (%)": x.difMedia !== null ? +x.difMedia.toFixed(1) : "", UFs: top(x.ufs, 10).map((p) => `${p[0]} (${fmt(p[1])})`).join("; "), Famílias: top(x.familias, 10).map((p) => `${p[0]} (${fmt(p[1])})`).join("; "), Marcas: top(x.marcas, 10).map((p) => `${p[0]} (${p[1]})`).join("; "), "Última vez": fmtD(x.ultima) })), "Concorrentes", "concorrentes"));
+      el.querySelector("[data-act=excel]").addEventListener("click", () => exportarExcel(lista.map((x, i) => ({ "#": i + 1, Empresa: x.nos ? "RLUX Iluminação (nós)" : x.nome, CNPJ: x.cnpj ? cnpjFormatado(x.cnpj) : "", Porte: x.porte, "Itens em que apareceu": x.itens, "Itens vencidos": x.vitorias, "Valor ganho": +x.valorGanho.toFixed(2), Disputas: x.disputas, "Vitórias sobre a RLUX": x.sobreNos, "Derrotas para a RLUX": x.paraNos, "Confrontos": x.confrontos, "Posição média": x.posMedia ? +x.posMedia.toFixed(1) : "", "Fecha abaixo de nós (%)": x.difMedia !== null ? +x.difMedia.toFixed(1) : "", UFs: top(x.ufs, 10).map((p) => `${p[0]} (${fmt(p[1])})`).join("; "), Famílias: top(x.familias, 10).map((p) => `${p[0]} (${fmt(p[1])})`).join("; "), Marcas: top(x.marcas, 10).map((p) => `${p[0]} (${p[1]})`).join("; "), "Última vez": fmtD(x.ultima) })), "Concorrentes", "concorrentes"));
     };
     desenhar();
     unsub = store.on("*", () => { if (!el.isConnected || document.activeElement?.id === "c-busca") return; desenhar(); });
@@ -75,16 +75,16 @@ export default {
 function raioX(g) {
   const ult = g.itensVencidos[0];
   return `<div class="card-body">
-    <h3 style="margin:0;font-size:16px">${esc(toTitleCase(g.nome))}</h3>
+    <h3 style="margin:0;font-size:16px">${g.nos ? "RLUX Iluminação (nós)" : esc(toTitleCase(g.nome))}</h3>
     <div class="muted" style="font-size:12px;margin:2px 0 12px">${esc(g.porte || "porte não informado")}${g.cnpj ? " · CNPJ " + esc(cnpjFormatado(g.cnpj)) : ""} · vista em ${g.disputas} disputa(s) · posição média ${g.posMedia ? g.posMedia.toFixed(1).replace(".", ",") + "º" : "—"}${ult ? ` · última: ${fmtD(ult.r.data)} (${esc(toTitleCase((ult.r.o?.nome || "").slice(0, 40)))})` : ""}</div>
     <div class="grid grid-4" style="margin-bottom:14px">
       <div class="kpi"><div class="kpi-label">Itens ganhos</div><div class="kpi-value">${g.vitorias}</div><div class="kpi-note">de ${g.itens} em que apareceu</div></div>
       <div class="kpi"><div class="kpi-label">Valor ganho</div><div class="kpi-value">${mil(g.valorGanho)}</div></div>
-      <div class="kpi"><div class="kpi-label">Contra a RLUX</div><div class="kpi-value" style="color:${g.sobreNos > g.paraNos ? "var(--red)" : "var(--green)"}">${g.sobreNos} × ${g.paraNos}</div><div class="kpi-note">${g.confrontos} confronto(s)</div></div>
-      <div class="kpi"><div class="kpi-label">Fecha abaixo de nós</div><div class="kpi-value">${g.difMedia !== null ? pct(g.difMedia) : "—"}</div><div class="kpi-note">média quando nos venceu</div></div>
+      ${g.nos ? "" : `<div class="kpi"><div class="kpi-label">Contra a RLUX</div><div class="kpi-value" style="color:${g.sobreNos > g.paraNos ? "var(--red)" : "var(--green)"}">${g.sobreNos} × ${g.paraNos}</div><div class="kpi-note">${g.confrontos} confronto(s)</div></div>
+      <div class="kpi"><div class="kpi-label">Fecha abaixo de nós</div><div class="kpi-value">${g.difMedia !== null ? pct(g.difMedia) : "—"}</div><div class="kpi-note">média quando nos venceu</div></div>`}
     </div>
     <div class="conc-two"><div><div class="h4">Por estado (valor ganho)</div>${barras(top(g.ufs), mil)}</div><div><div class="h4">Por família de produto</div>${barras(top(g.familias), mil, "var(--purple)")}</div></div>
-    <div class="conc-two"><div><div class="h4">Como ganha de nós</div>${barras(["abaixo_custo", "entre_custo_piso", "acima_piso", "empate"].filter((c) => g.classes[c]).map((c) => [CLASSE_ROTULO[c][0], g.classes[c]]), (v) => String(v), "var(--red)")}</div>
+    <div class="conc-two"><div>${g.nos ? "" : `<div class="h4">Como ganha de nós</div>`}${g.nos ? "" : barras(["abaixo_custo", "entre_custo_piso", "acima_piso", "empate"].filter((c) => g.classes[c]).map((c) => [CLASSE_ROTULO[c][0], g.classes[c]]), (v) => String(v), "var(--red)")}</div>
       <div><div class="h4">Marcas que oferta</div><div style="font-size:12.5px;line-height:1.9">${top(g.marcas, 8).map(([m, n]) => `<span class="tag tag-purple">${esc(m)}</span> ${n}`).join(" · ") || '<span class="muted">não informadas nos arquivos</span>'}</div>
         <div class="h4" style="margin-top:10px">Produtos em que mais ganha</div><div style="font-size:12px;line-height:1.6">${top(g.produtos, 5).map(([p, n]) => `${esc(p)} · ${n} item(ns)`).join("<br>") || "—"}</div></div></div>
     <div class="h4">Órgãos onde mais ganha</div><div style="font-size:12px;line-height:1.6;margin-bottom:12px">${top(g.orgaos, 4).map(([o, v]) => `${esc(toTitleCase(o))} · ${mil(v)}`).join("<br>") || "—"}</div>

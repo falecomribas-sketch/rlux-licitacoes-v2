@@ -1,9 +1,9 @@
 // Resultados de disputa: leitura da planilha "Exportação de resultados" da Effecti, classificação da perda
 // e agregações para o painel Resultados. Os dados ficam em proposta.resultadoDisputa.itens[] (campo concorrencia).
-import { store } from "./store.js?v=20261118-112349";
-import { abrirExcel } from "./forms.js?v=20261118-112349";
-import { getLicit, getOrgao, getPortal } from "./domain.js?v=20261118-112349";
-import { piso, getCfg, deduzirFamilia, FAMILIAS_TEC } from "./preco.js?v=20261118-112349";
+import { store } from "./store.js?v=20261118-114017";
+import { abrirExcel } from "./forms.js?v=20261118-114017";
+import { getLicit, getOrgao, getPortal } from "./domain.js?v=20261118-114017";
+import { piso, getCfg, deduzirFamilia, FAMILIAS_TEC } from "./preco.js?v=20261118-114017";
 
 export const NOS_RE = /rlux/i;
 const LANCE_DESISTENCIA = 10000; // lances tipo "100.000" são desistência — ignorados na análise
@@ -102,16 +102,24 @@ export const chaveEmpresa = (l) => { const d = String(l.cnpj || "").replace(/\D/
 export const somosNos = (l) => NOS_RE.test(l.empresa || "");
 
 // Uma linha por participação de concorrente em um item (a partir de concorrencia.lances; sem tabela, usa só o vencedor)
-export function participacoes(linhas = linhasResultados()) {
+// tabela de lances de uma linha (arquivos antigos só têm vencedor + nosso lance)
+const tabelaDe = (r) => Array.isArray(r.lances) && r.lances.length ? r.lances
+  : r.perdido && r.vencedor ? [{ pos: 1, empresa: r.vencedor, cnpj: r.cnpjVencedor || "", valor: r.precoVencedor, marca: r.marcaVencedor || "" }, ...(r.nosso ? [{ pos: r.nossaPosicao || 2, empresa: "RLUX ILUMINACAO LTDA", valor: r.nosso }] : [])]
+  : !r.perdido && r.nosso ? [{ pos: 1, empresa: "RLUX ILUMINACAO LTDA", valor: r.nosso, marca: r.marcaNossa || "" }] : [];
+
+export function participacoes(linhas = linhasResultados(), { incluirNos = false } = {}) {
   const out = [];
+  // mesma empresa com e sem CNPJ em arquivos diferentes → unifica pelo nome normalizado quando algum lance trouxe o CNPJ
+  const cnpjPorNome = {}; linhas.forEach((r) => tabelaDe(r).forEach((l) => { const d = String(l.cnpj || "").replace(/\D/g, ""); if (d.length >= 8) cnpjPorNome[normEmp(l.empresa)] = d.slice(0, 8); }));
+  const chave = (l) => { if (somosNos(l)) return "nos"; const d = String(l.cnpj || "").replace(/\D/g, ""); if (d.length >= 8) return `c:${d.slice(0, 8)}`; const n = normEmp(l.empresa); return cnpjPorNome[n] ? `c:${cnpjPorNome[n]}` : `n:${n}`; };
   linhas.forEach((r) => {
-    const tab = Array.isArray(r.lances) && r.lances.length ? r.lances : (r.perdido && r.vencedor ? [{ pos: 1, empresa: r.vencedor, cnpj: r.cnpjVencedor || "", valor: r.precoVencedor, marca: r.marcaVencedor || "" }, ...(r.nosso ? [{ pos: r.nossaPosicao || 2, empresa: "RLUX ILUMINACAO LTDA", valor: r.nosso }] : [])] : []);
+    const tab = tabelaDe(r);
     const validos = tab.filter((l) => l.valor > 0 && l.valor < LIMIAR_DESISTENCIA);
     const venc = validos[0]; const nos = tab.find(somosNos);
-    validos.forEach((l) => { if (somosNos(l)) return;
-      out.push({ r, chave: chaveEmpresa(l), empresa: l.empresa, cnpj: l.cnpj || "", porte: l.porte || "", marca: l.marca || "", valor: l.valor, pos: l.pos, nLances: validos.length,
+    validos.forEach((l) => { const eu = somosNos(l); if (eu && !incluirNos) return;
+      out.push({ r, chave: chave(l), empresa: eu ? "RLUX Iluminação (nós)" : l.empresa, nos: eu, cnpj: eu ? "" : (l.cnpj || ""), porte: l.porte || "", marca: l.marca || "", valor: l.valor, pos: l.pos, nLances: validos.length,
         venceu: venc && l === venc, valorItem: (r.qtd || 0) * l.valor, nossoLance: nos?.valor ?? r.nosso ?? null, nosParticipamos: !!nos || !!r.nosso,
-        ganhouDeNos: !!(venc && l === venc && (nos || r.nosso)), perdeuParaNos: !r.perdido && !!(nos || r.nosso) });
+        ganhouDeNos: !eu && !!(venc && l === venc && (nos || r.nosso)), perdeuParaNos: !eu && !r.perdido && !!(nos || r.nosso) });
     });
   });
   return out;
@@ -121,7 +129,7 @@ export function participacoes(linhas = linhasResultados()) {
 export function rankingConcorrentes(parts = participacoes()) {
   const m = new Map();
   parts.forEach((x) => {
-    const g = m.get(x.chave) || { chave: x.chave, nomes: {}, cnpj: "", porte: "", itens: 0, vitorias: 0, valorGanho: 0, sobreNos: 0, paraNos: 0, confrontos: 0, difs: [], ufs: {}, familias: {}, marcas: {}, produtos: {}, classes: {}, disputas: new Set(), ultima: "", orgaos: {}, posicoes: [], itensVencidos: [] };
+    const g = m.get(x.chave) || { chave: x.chave, nos: !!x.nos, nomes: {}, cnpj: "", porte: "", itens: 0, vitorias: 0, valorGanho: 0, sobreNos: 0, paraNos: 0, confrontos: 0, difs: [], ufs: {}, familias: {}, marcas: {}, produtos: {}, classes: {}, disputas: new Set(), ultima: "", orgaos: {}, posicoes: [], itensVencidos: [] };
     g.nomes[x.empresa] = (g.nomes[x.empresa] || 0) + 1; if (x.cnpj) g.cnpj = x.cnpj; if (x.porte) g.porte = x.porte;
     g.itens++; g.disputas.add(x.r.p.id); g.posicoes.push(x.pos); if ((x.r.data || "") > g.ultima) g.ultima = x.r.data || "";
     if (x.nosParticipamos) { g.confrontos++; if (x.ganhouDeNos) g.sobreNos++; if (x.perdeuParaNos) g.paraNos++; }
