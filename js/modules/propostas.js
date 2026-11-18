@@ -1,18 +1,18 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261118-115703";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261118-115703";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261118-115703";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261118-115703";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261118-115703";
-import { podeEditar } from "../core/auth.js?v=20261118-115703";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261118-115703";
-import { ssel } from "../core/ssel.js?v=20261118-115703";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261118-115703";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261118-115703";
-import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261118-115703";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261118-115703";
-import { dataLocal } from "../core/utils.js?v=20261118-115703";
+import { store, newId } from "../core/store.js?v=20261118-180342";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261118-180342";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261118-180342";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261118-180342";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261118-180342";
+import { podeEditar } from "../core/auth.js?v=20261118-180342";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261118-180342";
+import { ssel } from "../core/ssel.js?v=20261118-180342";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261118-180342";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261118-180342";
+import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261118-180342";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261118-180342";
+import { dataLocal } from "../core/utils.js?v=20261118-180342";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -127,6 +127,8 @@ function itemHtml(d = {}) {
       <span class="item-tools">
         <button type="button" class="btn btn-ghost btn-sm" data-ins title="Inserir item acima">${icon("plus")} acima</button>
         <button type="button" class="icon-btn sm" data-dup title="Duplicar">${icon("doc")}</button>
+        <button type="button" class="icon-btn sm" data-up title="Mover para cima">${icon("up")}</button>
+        <button type="button" class="icon-btn sm" data-down title="Mover para baixo">${icon("down")}</button>
         <button type="button" class="icon-btn sm danger" data-rm title="Remover">${icon("x")}</button>
       </span>
     </div>
@@ -163,7 +165,7 @@ function abrirForm(p = null) {
       linha(`<div class="field"><span>Órgão</span><div id="org-ssel"></div></div>`, `<div class="field"><span>Pregão / licitação</span><div id="lic-ssel"></div></div>`, campo("Status", select("status", STATUS, p?.status || "Em Andamento")))
       + `<div id="lic-info" class="info-box" hidden></div>
          <div id="aviso-custos" class="info-box" style="border-color:var(--amber);grid-template-columns:1fr auto;align-items:center" hidden></div>
-         <div class="form-section"><span>Itens</span><button type="button" class="btn btn-ghost btn-sm" data-add>${icon("plus")} Item</button></div>
+         <div class="form-section"><span>Itens</span><span style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" data-ordenar title="Reordenar os itens pelo número">${icon("sort")} Ordenar por nº</button><button type="button" class="btn btn-ghost btn-sm" data-add>${icon("plus")} Item</button></span></div>
          <div id="itens"></div>
          <div class="totais"><div><span class="muted">Custo total</span><strong id="t-custo">R$ 0,00</strong></div><div><span class="muted">Margem geral</span><strong id="t-margem">—</strong></div><div><span class="muted">Lucro líquido est.</span><strong id="t-lucro" title="Total − custo − Simples − frete (percentuais dos Parâmetros)">—</strong></div><div class="total-geral"><span class="muted">Total</span><strong id="t-total">R$ 0,00</strong></div></div>`,
     onAberto(form, m) {
@@ -186,6 +188,8 @@ function abrirForm(p = null) {
         node.querySelectorAll("[name=qtd],[name=custo],[name=preco]").forEach((i) => i.addEventListener("input", () => calcItem(node)));
         node.querySelector("[data-rm]").addEventListener("click", () => { node.remove(); calcTotais(); });
         node.querySelector("[data-dup]").addEventListener("click", () => addItem({ ...lerItem(node), num: "" }, node.nextElementSibling));
+        node.querySelector("[data-up]").addEventListener("click", () => { const prev = node.previousElementSibling; if (prev) { cont.insertBefore(node, prev); node.scrollIntoView({ block: "nearest", behavior: "smooth" }); } });
+        node.querySelector("[data-down]").addEventListener("click", () => { const next = node.nextElementSibling; if (next) { cont.insertBefore(next, node); node.scrollIntoView({ block: "nearest", behavior: "smooth" }); } });
         node.querySelector("[data-ins]").addEventListener("click", () => addItem({}, node));
         node.querySelector("[data-desc-edital]")?.addEventListener("click", () => { node.querySelector("[name=nome]").value = d.descricaoEdital || ""; });
         calcItem(node);
@@ -234,6 +238,8 @@ function abrirForm(p = null) {
         nodes.forEach(usarCustoAtual); toast(`${nodes.length} custo(s) atualizado(s).`); });
       form.querySelector("[name=status]").addEventListener("change", () => cont.querySelectorAll(".item").forEach(calcItem));
       form.querySelector("[data-add]").addEventListener("click", () => addItem({}));
+      form.querySelector("[data-ordenar]").addEventListener("click", () => { const nodes = [...cont.querySelectorAll(".item")]; const numDe = (n) => { const v = String(n.querySelector("[name=num]")?.value || "").trim(); const m = v.match(/\d+(?:[.,]\d+)?/); return m ? parseFloat(m[0].replace(",", ".")) : Infinity; };
+        nodes.sort((a, b) => numDe(a) - numDe(b) || 0).forEach((n) => cont.appendChild(n)); toast("Itens ordenados pelo número."); });
       (p?.itens?.length ? p.itens : [{}]).forEach((d) => addItem(d));
       m.querySelector("[data-pdf]")?.addEventListener("click", () => opcoesPdf(p));
     },

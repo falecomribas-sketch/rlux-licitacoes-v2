@@ -4,7 +4,7 @@
 //   placeholder, itens: [{ id, label, sub?, extra? }], value?, onSelect(id, item), disabled?
 // });
 // s.setItens(itens); s.setValue(id); s.value; s.disable(); s.enable()
-import { esc } from "./utils.js?v=20261118-115703";
+import { esc } from "./utils.js?v=20261118-180342";
 
 export function ssel(host, cfg) {
   let itens = cfg.itens || [];

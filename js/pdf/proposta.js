@@ -1,9 +1,9 @@
 // PDF da proposta comercial — portado do legado (gerarPDF), mesmo layout.
-import { novoDoc, cabecalho, tituloSecao, assinatura, tabelaPadrao, EMPRESA, AZUL } from "../core/pdf.js?v=20261118-115703";
-import { store } from "../core/store.js?v=20261118-115703";
-import { fmt, fmtD, toTitleCase } from "../core/utils.js?v=20261118-115703";
-import { getLicit, getOrgao, getPortal, propTotal } from "../core/domain.js?v=20261118-115703";
-import { toast } from "../core/ui.js?v=20261118-115703";
+import { novoDoc, cabecalho, tituloSecao, assinatura, tabelaPadrao, EMPRESA, AZUL } from "../core/pdf.js?v=20261118-180342";
+import { store } from "../core/store.js?v=20261118-180342";
+import { fmt, fmtD, toTitleCase } from "../core/utils.js?v=20261118-180342";
+import { getLicit, getOrgao, getPortal, propTotal } from "../core/domain.js?v=20261118-180342";
+import { toast } from "../core/ui.js?v=20261118-180342";
 
 function numPorExtenso(n) {
   const u = ["", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];

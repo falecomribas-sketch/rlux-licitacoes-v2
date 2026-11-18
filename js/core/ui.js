@@ -1,5 +1,5 @@
 // Componentes de interface compartilhados: toast, modal, confirmação, ícones.
-import { $, esc, raw, h } from "./utils.js?v=20261118-115703";
+import { $, esc, raw, h } from "./utils.js?v=20261118-180342";
 
 // ---------- toasts ----------
 export function toast(msg, tipo = "ok", ms = 3200) {
@@ -98,6 +98,9 @@ const ICONS = {
   bulb: '<path d="M9 18h6M10 21h4M8.5 14.5A6 6 0 1 1 15.5 14.5c-.9.8-1.5 1.5-1.5 2.5h-4c0-1-.6-1.7-1.5-2.5Z"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  down: '<path d="M12 5v14M19 12l-7 7-7-7"/>',
+  sort: '<path d="M4 6h16M7 12h10M10 18h4"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',
   edit: '<path d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16v4Z"/><path d="m13 7 4 4"/>',

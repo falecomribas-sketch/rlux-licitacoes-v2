@@ -1,9 +1,9 @@
 // Nota de Empenho (proposta) e Empenho de Adesão — portados de gerarPDFEmp.
-import { novoDoc, cabecalho, rodape, tabelaPadrao, AZUL, ROXO, VERDE } from "../core/pdf.js?v=20261118-115703";
-import { store } from "../core/store.js?v=20261118-115703";
-import { fmt, fmtD } from "../core/utils.js?v=20261118-115703";
-import { getLicit, getOrgao, getProp, getPortal, getAta, propTotal } from "../core/domain.js?v=20261118-115703";
-import { toast } from "../core/ui.js?v=20261118-115703";
+import { novoDoc, cabecalho, rodape, tabelaPadrao, AZUL, ROXO, VERDE } from "../core/pdf.js?v=20261118-180342";
+import { store } from "../core/store.js?v=20261118-180342";
+import { fmt, fmtD } from "../core/utils.js?v=20261118-180342";
+import { getLicit, getOrgao, getProp, getPortal, getAta, propTotal } from "../core/domain.js?v=20261118-180342";
+import { toast } from "../core/ui.js?v=20261118-180342";
 
 export async function gerarPdfEmpenho(e) {
   const doc = await novoDoc("landscape");
