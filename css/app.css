@@ -199,6 +199,8 @@ a { color: var(--navy-2); }
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .grid-6 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1200px) { .grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .chart-box { position: relative; height: 240px; }
 
 /* KPI */
@@ -441,3 +443,19 @@ a.btn { text-decoration: none; }
 .andamento-sub { font-size: 13px; color: var(--text-2); min-height: 18px; }
 .andamento-bar { height: 6px; border-radius: 999px; background: #e3e8f0; overflow: hidden; }
 .andamento-bar i { display: block; height: 100%; background: var(--blue); transition: width 1s linear; }
+
+/* concorrentes */
+.conc-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1200px) { .conc-grid { grid-template-columns: 1fr; } }
+.conc-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px; }
+.h4 { font-size: 12px; color: var(--text-2); font-weight: 600; margin: 0 0 6px; }
+.cbar { display: grid; grid-template-columns: 92px 1fr 64px; gap: 8px; align-items: center; font-size: 12px; margin: 4px 0; }
+.cbar span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cbar div { height: 12px; background: #eef1f6; border-radius: 3px; overflow: hidden; }
+.cbar i { display: block; height: 100%; border-radius: 3px; }
+.cbar b { text-align: right; font-weight: 600; font-size: 11.5px; white-space: nowrap; }
+.rk { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #eef1f6; font-weight: 700; font-size: 11px; color: var(--text-2); }
+.rk.ouro { background: var(--amber-soft); color: var(--amber-txt); }
+.sp { height: 7px; border-radius: 4px; background: #eef1f6; overflow: hidden; min-width: 80px; }
+.sp i { display: block; height: 100%; background: var(--navy-2); }
+.conc-row:hover td { background: #f3f6fc; }

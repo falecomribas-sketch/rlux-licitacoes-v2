@@ -1,18 +1,18 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261118-093434";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261118-093434";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261118-093434";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261118-093434";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261118-093434";
-import { podeEditar } from "../core/auth.js?v=20261118-093434";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261118-093434";
-import { ssel } from "../core/ssel.js?v=20261118-093434";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261118-093434";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261118-093434";
-import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261118-093434";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261118-093434";
-import { dataLocal } from "../core/utils.js?v=20261118-093434";
+import { store, newId } from "../core/store.js?v=20261118-112349";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261118-112349";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261118-112349";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261118-112349";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261118-112349";
+import { podeEditar } from "../core/auth.js?v=20261118-112349";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261118-112349";
+import { ssel } from "../core/ssel.js?v=20261118-112349";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261118-112349";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261118-112349";
+import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo } from "../core/preco.js?v=20261118-112349";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261118-112349";
+import { dataLocal } from "../core/utils.js?v=20261118-112349";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -315,7 +315,7 @@ function lancarResultado(p) {
           const tr = form.querySelector(`tr[data-i="${i}"]`); const cel = tr.querySelector(".conc"); const n = numItem(it.num ?? i + 1);
           if (!r) { importado[i] = null; const livres = res.filter((x) => !usados.has(x));
             cel.innerHTML = `<span class="muted">não consta no arquivo</span>${livres.length ? `<div style="margin-top:4px"><select class="input input-sm" data-manual="${i}" style="font-size:11.5px;height:26px;max-width:230px"><option value="">é outro item do portal?</option>${livres.map((x) => `<option value="${esc(x.item)}">item ${esc(x.item)} · ${(x.lances.find((l) => /rlux/i.test(l.empresa)) ? "nosso " + fmt(nossoLance(x)) : "sem lance nosso")} · 1º ${fmt(x.lances[0]?.valor)}${x.qtd ? ` · ${fmtNum(x.qtd)} un` : ""}</option>`).join("")}</select></div>` : ""}`; return; }
-          const ri = resumoItem(r); importado[i] = { ...ri, qtd: r.qtd, lances: r.lances.length, itemPortal: r.item };
+          const ri = resumoItem(r); importado[i] = { ...ri, qtd: r.qtd, lances: r.lances.length, itemPortal: r.item, tabela: r.lances.map((l) => ({ pos: l.pos, empresa: l.empresa, cnpj: l.cnpj || "", porte: l.porte || "", marca: [l.marca, l.modelo].filter(Boolean).join(" "), valor: l.valor })) };
           const nota = r.item !== n ? `<div class="muted" style="font-size:11px">item ${esc(r.item)} no portal</div>` : "";
           if (!ri.participamos) { semNos.push(n); form.elements[`perdido_${i}`].checked = true; cel.innerHTML = `<span class="muted">RLUX não aparece nos lances</span><div>1º ${esc(ri.vencedor)} · ${fmt(ri.precoVencedor)}</div>${nota}`; return; }
           casados++;
@@ -334,7 +334,7 @@ function lancarResultado(p) {
     async onSalvar(form) {
       const v = lerForm(form); const vencidos = [], perdidos = [], hist = [];
       itens.forEach((it, i) => { const perdido = !!v[`perdido_${i}`]; const fin = +v[`final_${i}`] || 0;
-        const imp = importado[i]; const conc = imp ? { vencedor: imp.vencedor, cnpjVencedor: imp.cnpjVencedor, precoVencedor: imp.precoVencedor, marcaVencedor: imp.marcaVencedor || "", nossaMarca: imp.nossaMarca || "", nossaPosicao: imp.nossaPosicao, nossoPreco: imp.nossoPreco ?? (perdido ? fin || it.preco : fin), precoSegundo: imp.precoSegundo, melhorConcorrente: imp.melhorConcorrente, precoMelhorConcorrente: imp.precoMelhorConcorrente, nLances: imp.nLances, participamos: imp.participamos, itemPortal: imp.itemPortal || "", qtd: it.qtd, custo: +it.custo || 0, piso: +piso(it.custo, getCfg(), o.estado).toFixed(4), uf: o.estado || "" } : null;
+        const imp = importado[i]; const conc = imp ? { vencedor: imp.vencedor, cnpjVencedor: imp.cnpjVencedor, precoVencedor: imp.precoVencedor, marcaVencedor: imp.marcaVencedor || "", nossaMarca: imp.nossaMarca || "", nossaPosicao: imp.nossaPosicao, nossoPreco: imp.nossoPreco ?? (perdido ? fin || it.preco : fin), precoSegundo: imp.precoSegundo, melhorConcorrente: imp.melhorConcorrente, precoMelhorConcorrente: imp.precoMelhorConcorrente, nLances: imp.nLances, participamos: imp.participamos, itemPortal: imp.itemPortal || "", lances: imp.tabela || [], qtd: it.qtd, custo: +it.custo || 0, piso: +piso(it.custo, getCfg(), o.estado).toFixed(4), uf: o.estado || "" } : null;
         hist.push({ num: it.num ?? i + 1, codigo: it.codigo, precoInicial: it.preco, precoFinal: perdido ? null : fin, perdido, ...(conc ? { concorrencia: conc } : {}) });
         if (perdido) perdidos.push(it); else { if (fin <= 0) throw new Error(`Informe o preço arrematado do item ${it.num ?? i + 1} ou marque como perdido.`); vencidos.push({ ...it, precoInicial: it.preco, preco: fin, total: +(fin * (it.qtd || 0)).toFixed(2) }); } });
       const abaixo = vencidos.filter((it) => it.preco < piso(it.custo, getCfg(), o.estado));

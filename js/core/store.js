@@ -9,7 +9,7 @@
 // Escritas vão direto no Firestore (setItem/remove); o listener traz a
 // alteração de volta e dispara os eventos. Não há mais cache manual em
 // localStorage nem botão de sincronizar.
-import { db } from "./firebase.js?v=20261118-093434";
+import { db } from "./firebase.js?v=20261118-112349";
 import {
   collection, onSnapshot, doc, setDoc, deleteDoc, getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
