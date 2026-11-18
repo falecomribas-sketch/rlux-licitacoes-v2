@@ -1,24 +1,24 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261118-003111";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261118-003111";
-import { EMPRESA } from "../core/pdf.js?v=20261118-003111";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261118-003111";
-import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261118-003111";
-import { lanceDesempate } from "../core/resultados.js?v=20261118-003111";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261118-003111";
-import { store } from "../core/store.js?v=20261118-003111";
-import { ssel } from "../core/ssel.js?v=20261118-003111";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261118-003111";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261118-003111";
-import { newId } from "../core/store.js?v=20261118-003111";
-import { navigate } from "../core/router.js?v=20261118-003111";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261118-003111";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261118-003111";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261118-003111";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261118-003111";
-import { copiarTexto } from "../core/regua.js?v=20261118-003111";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261118-092918";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261118-092918";
+import { EMPRESA } from "../core/pdf.js?v=20261118-092918";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261118-092918";
+import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261118-092918";
+import { lanceDesempate } from "../core/resultados.js?v=20261118-092918";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261118-092918";
+import { store } from "../core/store.js?v=20261118-092918";
+import { ssel } from "../core/ssel.js?v=20261118-092918";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261118-092918";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261118-092918";
+import { newId } from "../core/store.js?v=20261118-092918";
+import { navigate } from "../core/router.js?v=20261118-092918";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261118-092918";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261118-092918";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261118-092918";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261118-092918";
+import { copiarTexto } from "../core/regua.js?v=20261118-092918";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -359,7 +359,9 @@ function novaLicitacao(el) {
     titulo: "Nova licitação a partir da análise", largura: "xl", salvarTexto: "Criar licitação e proposta",
     corpo: `
       <div class="form-section">Órgão</div>
-      ${orgaoEx ? `<div class="info-box"><div><div class="k">Órgão já cadastrado</div><strong>${esc(toTitleCase(orgaoEx.nome))}</strong>${orgaoEx.uasg ? " · UASG " + esc(orgaoEx.uasg) : ""}${orgaoEx.municipio ? " · " + esc(orgaoEx.municipio) + "/" + esc(orgaoEx.estado || "") : ""}</div></div><input type="hidden" name="orgaoId" value="${esc(orgaoEx.id)}">`
+      ${orgaoEx ? `<div class="info-box"><div><div class="k">Órgão já cadastrado</div><strong>${esc(toTitleCase(orgaoEx.nome))}</strong>${orgaoEx.uasg ? " · UASG " + esc(orgaoEx.uasg) : ""}${orgaoEx.municipio ? " · " + esc(orgaoEx.municipio) + "/" + esc(orgaoEx.estado || "") : ""}<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-ghost btn-sm" data-org-renomear>Corrigir nome</button><button type="button" class="btn btn-ghost btn-sm" data-org-trocar>Usar outro órgão</button></div></div></div><input type="hidden" name="orgaoId" value="${esc(orgaoEx.id)}">
+           <div id="org-renomear" hidden>${linha(campo("Novo nome do órgão (altera o cadastro em Órgãos)", inputTxt("orgaoNomeNovo", orgaoEx.nome || "")))}</div>
+           <div id="org-trocar" hidden>${linha(`<div class="field"><span>Órgão a usar no lugar</span><div id="org-ssel"></div></div>`)}</div>`
         : `<div class="info-box" style="border-color:var(--amber)"><div><div class="k">Órgão não encontrado no cadastro</div>Será criado com os dados abaixo — ou escolha um existente.</div></div>
            ${linha(`<div class="field"><span>Usar órgão existente (opcional)</span><div id="org-ssel"></div></div>`)}
            ${linha(campo("Nome do órgão", inputTxt("orgaoNome", L.orgao || "")), campo("UASG", inputTxt("orgaoUasg", NAO_LOC.test(L.uasg || "") ? "" : L.uasg || "")), campo("Município", inputTxt("orgaoMunicipio", L.municipio || "")), campo("UF", select("orgaoEstado", [["", "—"], ...UFS.map((u) => [u, u])], L.estado || "")))}
@@ -373,10 +375,13 @@ function novaLicitacao(el) {
         ${linhas.map(({ it, p, c }, i) => `<tr data-i="${i}"><td><strong>${esc(it.item)}</strong><div class="muted" style="font-size:11px;max-width:220px">${esc(it.descricao.slice(0, 70))}</div></td><td>${esc(p.codigo)} — ${esc(p.nome)}${c?.observacao ? `<div style="font-size:11px;color:var(--amber-txt)">${esc(c.observacao)}</div>` : ""}</td><td class="num"><input type="number" class="input input-sm" name="qtd_${i}" value="${it.quantidade ?? 1}" step="any" style="width:90px"></td><td class="num">${fmt(p.custo)}</td><td class="num">${fmt(pisoUF(p.custo))}</td><td><input type="number" class="input input-sm" name="preco_${i}" value="${precos[i].preco}" step="0.01" style="width:120px"></td><td class="muted" style="font-size:11.5px">${esc(precos[i].origem)}${precos[i].abaixoPiso ? ` <span style="color:var(--red)">· abaixo do piso</span>` : ""}</td></tr>`).join("")}
       </tbody></table></div>
       <p class="muted" style="font-size:12px;margin-top:8px">A proposta nasce com status "Em Andamento" e marcada como gerada por IA. Nada muda em registros existentes.</p>`,
-    onAberto(form) { const host = form.querySelector("#org-ssel"); if (host) orgSel = ssel(host, { placeholder: "Buscar órgão cadastrado…", itens: opcoesOrgaos(), value: "", onSelect: () => {} }); },
+    onAberto(form) { const host = form.querySelector("#org-ssel"); if (host) orgSel = ssel(host, { placeholder: "Buscar órgão cadastrado…", itens: opcoesOrgaos(), value: "", onSelect: () => {} });
+      form.querySelector("[data-org-renomear]")?.addEventListener("click", () => { const b = form.querySelector("#org-renomear"); b.hidden = !b.hidden; if (!b.hidden) { form.querySelector("#org-trocar").hidden = true; orgSel?.setValue(""); form.elements.orgaoNomeNovo.focus(); } });
+      form.querySelector("[data-org-trocar]")?.addEventListener("click", () => { const b = form.querySelector("#org-trocar"); b.hidden = !b.hidden; if (!b.hidden) { form.querySelector("#org-renomear").hidden = true; orgSel?.focus(); } else orgSel?.setValue(""); }); },
     async onSalvar(form) {
       const v = lerForm(form); if (!v.numero.trim()) throw new Error("Informe o número da licitação.");
-      let orgaoId = v.orgaoId || orgSel?.value || "";
+      let orgaoId = (orgaoEx && !form.querySelector("#org-trocar")?.hidden && orgSel?.value) ? orgSel.value : (v.orgaoId || orgSel?.value || "");
+      if (orgaoEx && orgaoId === orgaoEx.id && !form.querySelector("#org-renomear")?.hidden) { const novo = (v.orgaoNomeNovo || "").trim(); if (novo && novo !== orgaoEx.nome) { await store.setItem("orgaos", { ...store.find("orgaos", orgaoEx.id), nome: novo }); toast(`Órgão renomeado para "${novo}".`); } }
       if (!orgaoId) { if (!v.orgaoNome?.trim()) throw new Error("Informe o nome do órgão ou escolha um existente.");
         const dig = cnpjDigitos(v.orgaoCnpj); const dup = dig ? store.get("orgaos").find((x) => cnpjDigitos(x.cnpj) === dig) : null;
         if (dup) { orgaoId = dup.id; await complementarOrgao(orgaoId, L); toast(`Órgão já cadastrado com este CNPJ (${dup.nome}) — usado o existente.`, "aviso", 7000); } }

@@ -1,6 +1,6 @@
 // Regras de negócio compartilhadas entre módulos.
 // Portadas 1:1 da versão atual — os números têm que bater durante a convivência.
-import { store } from "./store.js?v=20261118-003111";
+import { store } from "./store.js?v=20261118-092918";
 
 // ---------- lookups ----------
 export const getOrgao = (id) => store.find("orgaos", id) || {};
