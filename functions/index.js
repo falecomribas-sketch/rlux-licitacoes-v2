@@ -117,7 +117,7 @@ async function analisar(req) {
   let resp;
   try {
     resp = await client.messages.stream({
-      model: modelo, max_tokens: 24000, system: systemPrompt(fams, prompt),
+      model: modelo, max_tokens: 48000, system: systemPrompt(fams, prompt),
       tools: [TOOL], tool_choice: { type: "auto" },
       messages: [{ role: "user", content }],
     }).finalMessage();
@@ -127,23 +127,36 @@ async function analisar(req) {
   }
   const uso = resp.usage || {};
   const textoLivre = (resp.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
-  console.log("analisar: blocos", (resp.content || []).map((c) => c.type).join(","), "textoLivre", textoLivre.length, "stop", resp.stop_reason, "saida", uso.output_tokens);
+  const thinkingChars = (resp.content || []).filter((c) => c.type === "thinking").reduce((a, c) => a + (c.thinking || "").length, 0);
+  console.log("analisar: blocos", (resp.content || []).map((c) => c.type).join(","), "thinkingChars", thinkingChars, "textoLivre", textoLivre.length, "stop", resp.stop_reason, "saida", uso.output_tokens, "itens", ((resp.content || []).find((c) => c.type === "tool_use")?.input?.itens || []).length);
   const bloco = (resp.content || []).find((c) => c.type === "tool_use");
   let r = bloco?.input;
   if (!r) { // modelo respondeu em texto: tenta extrair o JSON
     const m = textoLivre.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch { r = null; }
     if (!r) throw new HttpsError("internal", "A IA não devolveu a análise estruturada. Início da resposta: " + textoLivre.slice(0, 300));
   }
-  let complemento = null;
-  // Resposta cortada no limite antes de chegar ao resumo (itens vêm primeiro): pede só o resumo numa 2ª chamada curta
-  if (resp.stop_reason === "max_tokens" && !(r.resumo && r.resumo.orgao)) {
-    try {
-      const content2 = content.slice(0, -1).concat([{ type: "text", text: "Os itens já foram extraídos em outra etapa. Agora registre com a ferramenta registrar_analise APENAS: o resumo (PARTE 1), a documentação especial (PARTE 2) e as observações. Envie \"itens\" como lista vazia []." }]);
-      const resp2 = await client.messages.stream({ model: modelo, max_tokens: 6000, system: systemPrompt(fams, prompt), tools: [TOOL], tool_choice: { type: "auto" }, messages: [{ role: "user", content: content2 }] }).finalMessage();
-      const b2 = (resp2.content || []).find((c) => c.type === "tool_use"); const r2 = b2?.input;
-      if (r2) { r.resumo = r2.resumo || r.resumo; r.documentacaoEspecial = r2.documentacaoEspecial || r.documentacaoEspecial; r.observacoes = [r.observacoes, r2.observacoes].filter(Boolean).join(" "); }
-      complemento = resp2.usage || {};
-    } catch (e) { console.warn("complemento do resumo falhou", e.message); }
+  let complemento = null; let continuacoes = 0;
+  // Resposta cortada no limite (itens vêm primeiro): continua a lista de onde parou e/ou pede o resumo em chamadas seguintes
+  if (resp.stop_reason === "max_tokens") {
+    r.itens = (r.itens || []).filter((i) => i && i.descricao); // o último item pode ter vindo pela metade
+    let stop = "max_tokens";
+    for (let k = 0; k < 3 && stop === "max_tokens"; k++) {
+      const ult = r.itens[r.itens.length - 1]; const temResumo = !!(r.resumo && r.resumo.orgao);
+      const pedido = ult
+        ? `A resposta anterior foi cortada no limite. Já estão registrados ${r.itens.length} itens — o último foi o item "${ult.item}" (página ${ult.pagina || "?"}): ${String(ult.descricao || "").slice(0, 80)}. Continue a PARTE 3 APENAS com os itens que vêm DEPOIS desse na lista do edital (não repita nenhum já registrado)${temResumo ? ", e envie o resumo como objeto vazio {}" : ", e registre também o resumo (PARTE 1), a documentação especial (PARTE 2) e as observações"}. Seja econômico: descrições com no máximo 120 caracteres.`
+        : "A resposta anterior foi cortada no limite antes de registrar itens. Registre a PARTE 3 (itens) de forma econômica — descrições com no máximo 120 caracteres — e depois o resumo (PARTE 1), a documentação especial (PARTE 2) e as observações.";
+      try {
+        const content2 = content.slice(0, -1).concat([{ type: "text", text: pedido + " Use a ferramenta registrar_analise." }]);
+        const resp2 = await client.messages.stream({ model: modelo, max_tokens: 32000, system: systemPrompt(fams, prompt), tools: [TOOL], tool_choice: { type: "auto" }, messages: [{ role: "user", content: content2 }] }).finalMessage();
+        continuacoes++; stop = resp2.stop_reason; const u2 = resp2.usage || {}; complemento = complemento ? { input_tokens: (complemento.input_tokens || 0) + (u2.input_tokens || 0), output_tokens: (complemento.output_tokens || 0) + (u2.output_tokens || 0) } : u2;
+        const r2 = (resp2.content || []).find((c) => c.type === "tool_use")?.input; if (!r2) break;
+        const vistos = new Set(r.itens.map((i) => String(i.item))); const novos = (r2.itens || []).filter((i) => i && i.descricao && !vistos.has(String(i.item)));
+        console.log("analisar: continuação", k + 1, "stop", stop, "novos itens", novos.length, "saida", u2.output_tokens);
+        r.itens = r.itens.concat(stop === "max_tokens" ? novos.slice(0, -1) : novos);
+        if (r2.resumo && r2.resumo.orgao) r.resumo = r2.resumo; if (r2.documentacaoEspecial && r2.documentacaoEspecial.length) r.documentacaoEspecial = r2.documentacaoEspecial; if (r2.observacoes) r.observacoes = [r.observacoes, r2.observacoes].filter(Boolean).join(" ");
+        if (!novos.length && (r.resumo && r.resumo.orgao)) break;
+      } catch (e) { console.warn("continuação falhou", e.message); break; }
+    }
   }
 
   r.resumo = r.resumo || {};
@@ -152,7 +165,7 @@ async function analisar(req) {
   r.auditoria = auditoria(todasPaginas, r.itens, fams);
   r.documentos = semTexto;
   const c2 = complemento || {};
-  r.meta = { modelo: resp.model, tokensEntrada: (uso.input_tokens || 0) + (c2.input_tokens || 0), tokensSaida: (uso.output_tokens || 0) + (c2.output_tokens || 0), tokensCache: (uso.cache_read_input_tokens || 0) + (uso.cache_creation_input_tokens || 0) + (c2.cache_read_input_tokens || 0) + (c2.cache_creation_input_tokens || 0), segundos: Math.round((Date.now() - t0) / 1000), paginas: todasPaginas.length, stopReason: resp.stop_reason, complementoResumo: !!complemento, textoLivre: textoLivre.length };
+  r.meta = { modelo: resp.model, tokensEntrada: (uso.input_tokens || 0) + (c2.input_tokens || 0), tokensSaida: (uso.output_tokens || 0) + (c2.output_tokens || 0), tokensCache: (uso.cache_read_input_tokens || 0) + (uso.cache_creation_input_tokens || 0) + (c2.cache_read_input_tokens || 0) + (c2.cache_creation_input_tokens || 0), segundos: Math.round((Date.now() - t0) / 1000), paginas: todasPaginas.length, stopReason: resp.stop_reason, complementoResumo: !!complemento, continuacoes, textoLivre: textoLivre.length };
   return r;
 }
 
