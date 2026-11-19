@@ -1,20 +1,20 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261118-180342";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261118-180342";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261118-180342";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261118-180342";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261118-180342";
-import { podeEditar } from "../core/auth.js?v=20261118-180342";
-import { itensEmRisco } from "../core/risco.js?v=20261118-180342";
-import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261118-180342";
-import { EMPRESA } from "../core/pdf.js?v=20261118-180342";
-import { dataLocal } from "../core/utils.js?v=20261118-180342";
-import { getCfg, encargoUF } from "../core/preco.js?v=20261118-180342";
-import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261118-180342";
-import { ssel } from "../core/ssel.js?v=20261118-180342";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261118-180342";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261118-180342";
+import { store, newId } from "../core/store.js?v=20261119-172516";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261119-172516";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261119-172516";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261119-172516";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261119-172516";
+import { podeEditar } from "../core/auth.js?v=20261119-172516";
+import { itensEmRisco } from "../core/risco.js?v=20261119-172516";
+import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261119-172516";
+import { EMPRESA } from "../core/pdf.js?v=20261119-172516";
+import { dataLocal } from "../core/utils.js?v=20261119-172516";
+import { getCfg, encargoUF } from "../core/preco.js?v=20261119-172516";
+import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261119-172516";
+import { ssel } from "../core/ssel.js?v=20261119-172516";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261119-172516";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261119-172516";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -274,11 +274,16 @@ function avisarOrgao(x) {
   const m = openModal({ titulo: `Avisar órgão — reequilíbrio · ATA ${x.ata.numero || ""}`, largura: "lg",
     corpo: `<div class="info-box" style="margin-bottom:12px"><div><div class="k">Órgão</div>${esc(toTitleCase(o.nome || "—"))}</div><div><div class="k">Pregão</div>${esc(l.tipo || "Pregão Eletrônico")} nº ${esc(l.numero || "—")}</div><div><div class="k">ATA</div>${esc(x.ata.numero || "—")}${x.ata.vencimento ? ` · vigente até ${fmtD(x.ata.vencimento)}` : ""}</div><div><div class="k">Itens em risco</div>${itensRisco.length} · impacto ${fmt(itensRisco.reduce((s, y) => s + y.impacto, 0))} <span class="muted">(não citados neste e-mail)</span></div></div>
       <div class="field" style="margin-bottom:10px"><span style="display:flex;justify-content:space-between"><span>Para — contatos cadastrados do órgão</span><a href="#orgaos" style="font-weight:400;font-size:12px">+ cadastrar contato em Órgãos</a></span>
-        ${contatos.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${contatos.map((c, i) => `<label style="display:flex;align-items:center;gap:8px;border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;background:var(--surface-2)"><input type="checkbox" data-dest="${i}" ${contatos.length === 1 || pre(c) || !contatos.some(pre) ? "checked" : ""} style="margin:0"> <strong>${esc(c.nome || c.email)}</strong> <span class="muted">${esc([c.cargo, c.email].filter(Boolean).join(" · "))}</span></label>`).join("")}</div>` : `<div class="info-box" style="border-color:var(--amber)"><div>Este órgão não tem contato com e-mail cadastrado. Cadastre em <a href="#orgaos">Órgãos</a> ou digite o e-mail abaixo.</div></div>`}
+        ${contatos.length ? `<div class="dest-lista">
+          <div class="dest-cab"><label><input type="checkbox" data-dest-todos> todos</label><span>Nome</span><span>Cargo / setor</span><span>E-mail</span></div>
+          ${contatos.map((c, i) => { const nome = /^(n\/?a|-+|—)$/i.test(String(c.nome || "").trim()) ? "" : (c.nome || ""); return `<label class="dest-row ${pre(c) ? "dest-pre" : ""}"><input type="checkbox" data-dest="${i}" ${contatos.length === 1 || pre(c) || !contatos.some(pre) ? "checked" : ""}><span>${nome ? `<strong>${esc(nome)}</strong>` : '<span class="muted">sem nome</span>'}</span><span class="muted">${esc(c.cargo || "—")}${pre(c) ? ' <span class="tag tag-blue" style="margin-left:4px">licitação</span>' : ""}</span><span class="dest-mail" title="${esc(c.email)}">${esc(c.email)}</span></label>`; }).join("")}
+        </div>` : `<div class="info-box" style="border-color:var(--amber)"><div>Este órgão não tem contato com e-mail cadastrado. Cadastre em <a href="#orgaos">Órgãos</a> ou digite o e-mail abaixo.</div></div>`}
         <input type="text" class="input" id="av-extra" placeholder="Outros e-mails (separe por ;)" style="margin-top:8px"><div class="muted" style="font-size:12px;margin-top:4px">Fonte ao copiar: Aptos Narrow 11</div></div>
       <label class="field" style="margin-bottom:10px"><span>Assunto</span><input type="text" class="input" id="av-assunto" value="${esc(assunto)}"></label>
       <label class="field"><span>Mensagem <span class="muted" style="font-weight:400">(editável)</span></span><textarea class="input" id="av-corpo" rows="13" style="font-size:13px;line-height:1.5">${esc(textoAviso(x))}</textarea></label>`,
     rodape: `<span class="muted" style="font-size:12px;margin-right:auto">Ao copiar ou abrir, fica registrado no histórico da ATA.</span><button class="btn btn-ghost" data-close>Fechar</button><button class="btn btn-ghost" data-av="copiar">${icon("file")} Copiar e registrar</button><button class="btn btn-primary" data-av="enviar">${icon("mail")} Abrir no e-mail e registrar</button>` });
+  const todosCb = m.querySelector("[data-dest-todos]"); const syncTodos = () => { if (!todosCb) return; const cbs = [...m.querySelectorAll("[data-dest]")]; todosCb.checked = cbs.length > 0 && cbs.every((c) => c.checked); todosCb.indeterminate = cbs.some((c) => c.checked) && !todosCb.checked; };
+  todosCb?.addEventListener("change", () => { m.querySelectorAll("[data-dest]").forEach((c) => { c.checked = todosCb.checked; }); }); m.querySelectorAll("[data-dest]").forEach((c) => c.addEventListener("change", syncTodos)); syncTodos();
   m.addEventListener("click", async (e) => { const b = e.target.closest("[data-av]"); if (!b) return;
     const sel = [...m.querySelectorAll("[data-dest]:checked")].map((c) => contatos[+c.dataset.dest].email); const extra = m.querySelector("#av-extra").value.split(/[;,]/).map((t) => t.trim()).filter(Boolean);
     const para = [...new Set([...sel, ...extra])]; if (!para.length) return toast("Selecione ou digite ao menos um e-mail.", "erro");
