@@ -1,6 +1,6 @@
 // Formulários em modal + exportação Excel.
-import { openModal, closeModal, toast } from "./ui.js?v=20261120-122713";
-import { esc } from "./utils.js?v=20261120-122713";
+import { openModal, closeModal, toast } from "./ui.js?v=20261120-123309";
+import { esc } from "./utils.js?v=20261120-123309";
 
 // formModal({ titulo, corpo (html de um <form>), largura, salvarTexto, onSalvar(form, modal) })
 // Mostra o modal, liga o submit e cuida de erro/feedback. onSalvar pode lançar Error(msg).
@@ -82,7 +82,8 @@ export async function exportarExcelFormatado(abas, nome) {
     for (let R = range.s.r; R <= range.e.r; R++) for (let C = range.s.c; C <= range.e.c; C++) {
       const ref = XLSX.utils.encode_cell({ r: R, c: C }); const cell = ws[ref]; if (!cell) continue;
       if (a.titulo && R === 0) { cell.s = titS; continue; } if (R < off) continue;
-      if (R === off) cell.s = cab; else { const row = a.rows[R - off - 1]; cell.s = row && row._sub ? subS : cel; if (a.colunas[C].moeda && typeof cell.v === "number") cell.z = '"R$" #,##0.00'; if (a.colunas[C].data && cell.v instanceof Date) { cell.t = "d"; cell.z = "dd/mm/yyyy"; } }
+      if (R === off) cell.s = { ...cab }; else { const row = a.rows[R - off - 1]; cell.s = { ...(row && row._sub ? subS : cel) }; // objeto próprio por célula: a biblioteca associa o formato numérico ao estilo
+        if (a.colunas[C].moeda && typeof cell.v === "number") { cell.z = '"R$" #,##0.00'; cell.s.numFmt = cell.z; } else if (a.colunas[C].data && cell.v instanceof Date) { cell.t = "d"; cell.z = "dd/mm/yyyy"; cell.s.numFmt = cell.z; } else if (typeof cell.v === "number") { cell.z = "General"; cell.s.numFmt = "General"; } }
     }
     XLSX.utils.book_append_sheet(wb, ws, a.nome.slice(0, 31));
   });
