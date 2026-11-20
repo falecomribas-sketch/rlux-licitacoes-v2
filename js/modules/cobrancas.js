@@ -1,17 +1,17 @@
 // Cobrança financeira (notas fiscais a receber). Campos (iguais ao legado):
 // id, empenhoId | avulsa + avEmpenho/avOrgao/avOrgaoId/avPregao/avUasg, nf, emissao, valor,
 // vencimento, status, pagamento, obs, ultimaCobranca, qtdCobrancas, _atualizado
-import { store, newId } from "../core/store.js?v=20261120-120709";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-120709";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, textarea, select, linha, exportarExcel } from "../core/forms.js?v=20261120-120709";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261120-120709";
-import { esc, fmt, fmtD, hojeIso, toTitleCase } from "../core/utils.js?v=20261120-120709";
-import { podeEditar } from "../core/auth.js?v=20261120-120709";
-import { getLicit, getOrgao, getProp, getAta, deduzirPapel, papelNome } from "../core/domain.js?v=20261120-120709";
-import { ssel } from "../core/ssel.js?v=20261120-120709";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261120-120709";
-import { abrirClienteEmail, copiarTextoFormatado } from "../core/regua.js?v=20261120-120709";
-import { EMPRESA } from "../core/pdf.js?v=20261120-120709";
+import { store, newId } from "../core/store.js?v=20261120-122713";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-122713";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, textarea, select, linha, exportarExcel, exportarExcelFormatado } from "../core/forms.js?v=20261120-122713";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261120-122713";
+import { esc, fmt, fmtD, hojeIso, toTitleCase } from "../core/utils.js?v=20261120-122713";
+import { podeEditar } from "../core/auth.js?v=20261120-122713";
+import { getLicit, getOrgao, getProp, getAta, deduzirPapel, papelNome } from "../core/domain.js?v=20261120-122713";
+import { ssel } from "../core/ssel.js?v=20261120-122713";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261120-122713";
+import { abrirClienteEmail, copiarTextoFormatado } from "../core/regua.js?v=20261120-122713";
+import { EMPRESA } from "../core/pdf.js?v=20261120-122713";
 
 export const STATUS_COB = ["Aguardando NF", "NF Emitida", "Material Enviado", "Aguardando Pagamento", "Pago", "Inadimplente"];
 const ST_CLS = { "Aguardando NF": "tag-gray", "NF Emitida": "tag-teal", "Material Enviado": "tag-purple", "Aguardando Pagamento": "tag-amber", Pago: "tag-green", Inadimplente: "tag-red" };
@@ -42,7 +42,7 @@ export default {
   render(el) {
     el.innerHTML = `
       <div class="grid grid-4" id="kpis" style="margin-bottom:16px"></div>
-      <div class="page-head"><h2>Cobrança Financeira</h2><div class="actions"><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel</button>
+      <div class="page-head"><h2>Cobrança Financeira</h2><div class="actions"><button class="btn btn-ghost" data-act="relatorio" title="Em aberto, por órgão, com subtotais — respeita o filtro de status">${icon("download")} Relatório de cobrança</button><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel</button>
         ${podeEditar() ? `<button class="btn btn-primary" data-act="novo">${icon("plus")} Nova cobrança</button>` : ""}</div></div>
       <div class="card"><div class="chip-filters" id="chips"></div><div class="card-body flush" id="tbl"></div></div>`;
     const todas = () => store.get("cobrancas");
@@ -73,6 +73,7 @@ export default {
     });
     onAction(el, {
       filtro: (id) => { filtro = id; chips(); tabela.refresh(); },
+      relatorio: () => relatorioCobranca(todas().filter((c) => filtro ? c.status === filtro : c.status !== "Pago")),
       novo: () => abrirForm(), editar: (id) => abrirForm(store.find("cobrancas", id)),
       excluir: async (id) => { if (!await confirmar("Excluir esta cobrança?", { ok: "Excluir", perigo: true })) return; await store.remove("cobrancas", id); toast("Cobrança excluída."); },
       pago: async (id) => { const c = store.find("cobrancas", id); if (!c || !await confirmar(`Confirmar recebimento de ${fmt(c.valor)}?`, { ok: "Recebido" })) return; await store.setItem("cobrancas", { ...c, status: "Pago", pagamento: hojeIso(), _atualizado: new Date().toISOString() }); toast("Pagamento registrado."); },
@@ -177,4 +178,18 @@ function abrirDestinatarios({ c, x, assunto, corpo, nCob }) {
     if (b.dataset.cob === "copiar") { await copiarTextoFormatado(`Para: ${para.join("; ")}\nAssunto: ${email.assunto}\n\n${email.corpo}`); toast("Cobrança copiada e registrada."); }
     else { const inteiro = abrirClienteEmail(email, [...para.slice(1), "financeiro@rlux.com.br"]); toast(inteiro ? `E-mail de cobrança aberto para ${para.length} destinatário(s).` : "Texto longo: corpo copiado — cole com Ctrl+V no e-mail que abriu.", inteiro ? "ok" : "info", 6000); }
     await store.setItem("cobrancas", { ...c, ultimaCobranca: hojeIso(), qtdCobrancas: nCob, ultimosDestinatarios: para, _atualizado: new Date().toISOString() }); closeModal(); });
+}
+
+// Relatório de cobrança: Órgão · Empenho · Pregão · NF · Vencimento · Valor · Dias · Qtde. cobranças, por órgão com subtotais
+async function relatorioCobranca(lista) {
+  if (!lista.length) return toast("Nenhuma cobrança para o relatório com o filtro atual.", "aviso");
+  const linhas = lista.map((c) => { const x = cobCtx(c); return { orgao: toTitleCase(x.orgaoNome || "—"), empenho: x.empNumero && x.empNumero !== "—" ? x.empNumero : "", pregao: x.pregao !== "—" ? x.pregao : "", nf: c.nf || "", venc: c.vencimento || "", valor: +c.valor || 0, dias: c.status === "Pago" ? 0 : (cobAtraso(c) || 0), cobr: c.qtdCobrancas || 0, status: c.status || "" }; })
+    .sort((a, b) => a.orgao.localeCompare(b.orgao, "pt-BR") || String(a.venc).localeCompare(String(b.venc)));
+  const dataXl = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || "")); return m ? new Date(+m[1], +m[2] - 1, +m[3], 12) : (iso || ""); }; // meio-dia evita deslocar o dia ao gravar no Excel
+  const rows = []; let orgAtual = null, sub = 0, total = 0;
+  const fechaSub = () => { if (orgAtual !== null) rows.push({ orgao: `Subtotal ${orgAtual}`, valor: +sub.toFixed(2), _sub: true }); };
+  linhas.forEach((l) => { if (l.orgao !== orgAtual) { fechaSub(); orgAtual = l.orgao; sub = 0; } rows.push({ ...l, venc: dataXl(l.venc) }); sub += l.valor; total += l.valor; });
+  fechaSub(); rows.push({ orgao: "TOTAL GERAL", valor: +total.toFixed(2), _sub: true, cobr: "", dias: "" });
+  const colunas = [{ chave: "orgao", titulo: "Nome do Órgão", largura: 42 }, { chave: "empenho", titulo: "Nota de Empenho", largura: 18 }, { chave: "pregao", titulo: "Pregão", largura: 14 }, { chave: "nf", titulo: "Nota Fiscal", largura: 12 }, { chave: "venc", titulo: "Data Vencimento", largura: 16, data: true }, { chave: "valor", titulo: "Valor", largura: 14, moeda: true }, { chave: "dias", titulo: "Qtde. Dias", largura: 11 }, { chave: "cobr", titulo: "Qtde. de Cobrança", largura: 17 }];
+  await exportarExcelFormatado([{ nome: "Cobrança", colunas, rows, titulo: `Relatório de cobrança — ${filtro || "em aberto"} — emitido em ${fmtD(hojeIso())}`, subtotais: true }], `relatorio_cobranca_${hojeIso()}`);
 }

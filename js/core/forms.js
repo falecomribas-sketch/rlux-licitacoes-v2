@@ -1,6 +1,6 @@
 // Formulários em modal + exportação Excel.
-import { openModal, closeModal, toast } from "./ui.js?v=20261120-120709";
-import { esc } from "./utils.js?v=20261120-120709";
+import { openModal, closeModal, toast } from "./ui.js?v=20261120-122713";
+import { esc } from "./utils.js?v=20261120-122713";
 
 // formModal({ titulo, corpo (html de um <form>), largura, salvarTexto, onSalvar(form, modal) })
 // Mostra o modal, liga o submit e cuida de erro/feedback. onSalvar pode lançar Error(msg).
@@ -69,15 +69,20 @@ export async function exportarExcelFormatado(abas, nome) {
   const wb = XLSX.utils.book_new();
   const cab = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { patternType: "solid", fgColor: { rgb: "1F4E78" } }, alignment: { wrapText: true, vertical: "center" } };
   const cel = { alignment: { wrapText: true, vertical: "top" } };
+  const subS = { font: { bold: true }, fill: { patternType: "solid", fgColor: { rgb: "E7EEF8" } } };
+  const titS = { font: { bold: true, sz: 13, color: { rgb: "1F4E78" } } };
   abas.forEach((a) => {
-    const dados = [a.colunas.map((c) => c.titulo), ...a.rows.map((r) => a.colunas.map((c) => r[c.chave] ?? ""))];
-    const ws = XLSX.utils.aoa_to_sheet(dados);
+    const off = a.titulo ? 2 : 0; // linha de título + linha em branco
+    const dados = [...(a.titulo ? [[a.titulo], []] : []), a.colunas.map((c) => c.titulo), ...a.rows.map((r) => a.colunas.map((c) => r[c.chave] ?? ""))];
+    const ws = XLSX.utils.aoa_to_sheet(dados, { cellDates: true });
     ws["!cols"] = a.colunas.map((c) => ({ wch: c.largura || 14 }));
-    ws["!freeze"] = { xSplit: 0, ySplit: 1 }; ws["!views"] = [{ state: "frozen", ySplit: 1 }];
+    ws["!freeze"] = { xSplit: 0, ySplit: off + 1 }; ws["!views"] = [{ state: "frozen", ySplit: off + 1 }];
+    if (a.titulo) ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(0, a.colunas.length - 1) } }];
     const range = XLSX.utils.decode_range(ws["!ref"]);
     for (let R = range.s.r; R <= range.e.r; R++) for (let C = range.s.c; C <= range.e.c; C++) {
       const ref = XLSX.utils.encode_cell({ r: R, c: C }); const cell = ws[ref]; if (!cell) continue;
-      if (R === 0) cell.s = cab; else { cell.s = cel; if (a.colunas[C].moeda && typeof cell.v === "number") cell.z = '"R$" #,##0.00'; }
+      if (a.titulo && R === 0) { cell.s = titS; continue; } if (R < off) continue;
+      if (R === off) cell.s = cab; else { const row = a.rows[R - off - 1]; cell.s = row && row._sub ? subS : cel; if (a.colunas[C].moeda && typeof cell.v === "number") cell.z = '"R$" #,##0.00'; if (a.colunas[C].data && cell.v instanceof Date) { cell.t = "d"; cell.z = "dd/mm/yyyy"; } }
     }
     XLSX.utils.book_append_sheet(wb, ws, a.nome.slice(0, 31));
   });
