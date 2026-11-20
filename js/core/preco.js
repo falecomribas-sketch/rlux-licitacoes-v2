@@ -1,7 +1,7 @@
 // Precificação e famílias técnicas dos produtos.
 // Configuração em Firestore: config/precificacao { simples, fretePct, freteMin, lucroMin, descontoRef, custoValidadeDias }
-import { store } from "./store.js?v=20261120-095058";
-import { hojeIso } from "./utils.js?v=20261120-095058";
+import { store } from "./store.js?v=20261120-103420";
+import { hojeIso } from "./utils.js?v=20261120-103420";
 
 export const CFG_PADRAO = { simples: 11.35, fretePct: 6, freteMin: 50, lucroMin: 7, descontoRef: 0, custoValidadeDias: 90, lucroMinReq: 7, altaCustoReq: 10, folgaDesempate: 3, encargosUF: [{ uf: "TO", pct: 13, obs: "ICMS cobrado na entrada do estado (sobre o valor da nota)" }] };
 let cfg = { ...CFG_PADRAO }; let iniciado = false; const ouvintes = new Set();
@@ -27,6 +27,10 @@ export function pisoComFreteMin(custo, totalPedido, c = cfg, uf) {
 }
 // Lucro líquido estimado: venda − custo − (Simples + frete + encargo UF) sobre a venda
 export const lucroLiquido = (venda, custo, uf, c = cfg) => venda - custo - venda * ((+c.simples || 0) + (+c.fretePct || 0) + encargoPct(uf, c)) / 100;
+// Frete estimado do pedido: o maior entre frete % × total e o frete mínimo
+export const freteEstimado = (venda, c = cfg) => { const pct = (venda || 0) * (+c.fretePct || 0) / 100; return { valor: Math.max(pct, +c.freteMin || 0), minimo: pct < (+c.freteMin || 0) && venda > 0 }; };
+// Lucro líquido do pedido considerando o frete mínimo quando ele prevalece
+export const lucroLiquidoPedido = (venda, custo, uf, c = cfg) => venda - custo - venda * ((+c.simples || 0) + encargoPct(uf, c)) / 100 - freteEstimado(venda, c).valor;
 // Texto curto para avisar que o piso inclui encargo estadual
 export const notaEncargo = (uf, c = cfg) => { const e = encargoUF(uf, c); return e ? `inclui encargo ${e.uf} ${e.pct}%` : ""; };
 export const pedidoMinimoSemAjuste = (c = cfg) => c.fretePct > 0 ? c.freteMin / (c.fretePct / 100) : 0;

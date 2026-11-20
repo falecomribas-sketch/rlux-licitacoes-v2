@@ -1,18 +1,18 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261120-095058";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-095058";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261120-095058";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261120-095058";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261120-095058";
-import { podeEditar } from "../core/auth.js?v=20261120-095058";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261120-095058";
-import { ssel } from "../core/ssel.js?v=20261120-095058";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261120-095058";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261120-095058";
-import { iniciarPreco, piso, getCfg, lucroLiquido, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261120-095058";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261120-095058";
-import { dataLocal } from "../core/utils.js?v=20261120-095058";
+import { store, newId } from "../core/store.js?v=20261120-103420";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-103420";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261120-103420";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261120-103420";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261120-103420";
+import { podeEditar } from "../core/auth.js?v=20261120-103420";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261120-103420";
+import { ssel } from "../core/ssel.js?v=20261120-103420";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261120-103420";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261120-103420";
+import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261120-103420";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261120-103420";
+import { dataLocal } from "../core/utils.js?v=20261120-103420";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -182,7 +182,7 @@ function abrirForm(p = null) {
          <div id="aviso-custos" class="info-box" style="border-color:var(--amber);grid-template-columns:1fr auto;align-items:center" hidden></div>
          <div class="form-section"><span>Itens</span><span style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" data-ordenar title="Reordenar os itens pelo número">${icon("sort")} Ordenar por nº</button><button type="button" class="btn btn-ghost btn-sm" data-add>${icon("plus")} Item</button></span></div>
          <div id="itens"></div>
-         <div class="totais"><div><span class="muted">Custo total</span><strong id="t-custo">R$ 0,00</strong></div><div><span class="muted">Margem geral</span><strong id="t-margem">—</strong></div><div><span class="muted">Lucro líquido est.</span><strong id="t-lucro" title="Total − custo − Simples − frete (percentuais dos Parâmetros)">—</strong></div><div class="total-geral"><span class="muted">Total</span><strong id="t-total">R$ 0,00</strong></div></div>`,
+         <div class="totais"><div><span class="muted">Custo total</span><strong id="t-custo">R$ 0,00</strong></div><div><span class="muted">Margem geral</span><strong id="t-margem">—</strong></div><div><span class="muted">Frete estimado</span><strong id="t-frete" title="Maior valor entre o frete % e o frete mínimo dos Parâmetros">—</strong></div><div><span class="muted">Lucro líquido est.</span><strong id="t-lucro" title="Total − custo − Simples − frete (percentuais dos Parâmetros)">—</strong></div><div class="total-geral"><span class="muted">Total</span><strong id="t-total">R$ 0,00</strong></div></div>`,
     onAberto(form, m) {
       orgSel = ssel(form.querySelector("#org-ssel"), { placeholder: "Nome, UASG, CNPJ ou e-mail do órgão…", itens: opcoesOrgaos(), value: lOld?.orgaoId || "",
         onSelect: (id) => { licSel.setItens(opcoesLicitacoes(id)); licSel.setValue(""); id ? licSel.enable("Selecione o pregão…") : licSel.disable("Selecione um órgão primeiro…"); infoLic(""); } });
@@ -238,7 +238,8 @@ function abrirForm(p = null) {
         let venda = 0, custo = 0, custoReal = 0, defasados = 0;
         cont.querySelectorAll(".item").forEach((n) => { const q = +n.querySelector("[name=qtd]").value || 0, c = +n.querySelector("[name=custo]").value || 0; venda += q * (+n.querySelector("[name=preco]").value || 0); custo += q * c; const pr = custoAtualDe(n); const cr = pr ? pr.custo : c; custoReal += q * cr; if (pr && c > 0 && difCusto(c, pr.custo)) defasados++; });
         form.querySelector("#t-total").textContent = fmt(venda); form.querySelector("#t-custo").innerHTML = fmt(custo) + (difCusto(custo, custoReal) ? ` <span class="muted" style="font-weight:400;font-size:12px">· real ${fmt(custoReal)}</span>` : "");
-        const tl = form.querySelector("#t-lucro"); if (tl) { if (custo > 0) { const cfg = getCfg(), uf = ufForm(); const liq = lucroLiquido(venda, custo, uf, cfg); tl.innerHTML = fmt(liq) + (difCusto(custo, custoReal) && custoReal > 0 ? ` <span class="muted" style="font-weight:400;font-size:12px">· real ${fmt(lucroLiquido(venda, custoReal, uf, cfg))}</span>` : "") + (notaEncargo(uf) ? ` <span class="muted" style="font-weight:400;font-size:11px">· ${esc(notaEncargo(uf))}</span>` : ""); tl.style.color = liq >= 0 ? "var(--green)" : "var(--red)"; } else { tl.textContent = "—"; tl.style.color = ""; } }
+        const tf = form.querySelector("#t-frete"); if (tf) { if (venda > 0) { const fe = freteEstimado(venda, getCfg()); tf.textContent = fmt(fe.valor); tf.style.color = fe.minimo ? "var(--amber-txt)" : ""; tf.title = fe.minimo ? "Pedido pequeno: prevalece o frete mínimo dos Parâmetros" : "Frete % sobre o total (Parâmetros)"; } else { tf.textContent = "—"; tf.style.color = ""; } }
+        const tl = form.querySelector("#t-lucro"); if (tl) { if (custo > 0) { const cfg = getCfg(), uf = ufForm(); const liq = lucroLiquidoPedido(venda, custo, uf, cfg); tl.innerHTML = fmt(liq) + (difCusto(custo, custoReal) && custoReal > 0 ? ` <span class="muted" style="font-weight:400;font-size:12px">· real ${fmt(lucroLiquidoPedido(venda, custoReal, uf, cfg))}</span>` : "") + (notaEncargo(uf) ? ` <span class="muted" style="font-weight:400;font-size:11px">· ${esc(notaEncargo(uf))}</span>` : ""); tl.style.color = liq >= 0 ? "var(--green)" : "var(--red)"; } else { tl.textContent = "—"; tl.style.color = ""; } }
         const m = form.querySelector("#t-margem"); if (custo > 0) { const pct = (venda / custo - 1) * 100; let t = pctTxt(pct); if (difCusto(custo, custoReal) && custoReal > 0) { const r = (venda / custoReal - 1) * 100; t += ` <span style="font-weight:400;font-size:12px">· real ${pctTxt(r)}</span>`; } m.innerHTML = t; m.style.color = (custoReal > 0 ? venda / custoReal - 1 : pct) >= 0 ? "var(--green)" : "var(--red)"; } else { m.textContent = "—"; m.style.color = ""; }
         // aviso no topo
         const av = form.querySelector("#aviso-custos"); const dias = p ? diasDesde(p.criadoEm) : null;
