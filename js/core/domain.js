@@ -1,6 +1,6 @@
 // Regras de negócio compartilhadas entre módulos.
 // Portadas 1:1 da versão atual — os números têm que bater durante a convivência.
-import { store } from "./store.js?v=20261120-103420";
+import { store } from "./store.js?v=20261120-110800";
 
 // ---------- lookups ----------
 export const getOrgao = (id) => store.find("orgaos", id) || {};
@@ -84,8 +84,11 @@ export function propSaldoDetalhado(p) {
 }
 
 // ---------- status visual ----------
+// Status exibido: proposta-espelho de renovação de ATA aparece como "Renovada" (por dentro continua "Vencida")
+export const statusExibido = (p) => (isEspelho(p) && (p?.status === "Vencida") ? "Renovada" : (p?.status || "Em Andamento"));
+export const propostaRenovada = (p) => { const a = ataDaProposta(p?.id); return a ? store.get("atas").find((x) => x.ataOrigemId === a.id) || null : null; };
 export const STATUS_CLASS = {
-  "Vencida": "tag-green", "Perdida": "tag-red", "Faturado Total": "tag-teal",
+  "Renovada": "tag-teal", "Vencida": "tag-green", "Perdida": "tag-red", "Faturado Total": "tag-teal",
   "Faturado Parcial": "tag-orange", "Enviei Docs": "tag-purple",
   "Ag. Solic. Docs": "tag-amber", "Em Andamento": "tag-blue",
 };

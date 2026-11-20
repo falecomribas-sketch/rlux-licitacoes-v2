@@ -1,18 +1,18 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261120-103420";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-103420";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261120-103420";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261120-103420";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261120-103420";
-import { podeEditar } from "../core/auth.js?v=20261120-103420";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO } from "../core/domain.js?v=20261120-103420";
-import { ssel } from "../core/ssel.js?v=20261120-103420";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261120-103420";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261120-103420";
-import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261120-103420";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261120-103420";
-import { dataLocal } from "../core/utils.js?v=20261120-103420";
+import { store, newId } from "../core/store.js?v=20261120-110800";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-110800";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261120-110800";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261120-110800";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261120-110800";
+import { podeEditar } from "../core/auth.js?v=20261120-110800";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261120-110800";
+import { ssel } from "../core/ssel.js?v=20261120-110800";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261120-110800";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261120-110800";
+import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261120-110800";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261120-110800";
+import { dataLocal } from "../core/utils.js?v=20261120-110800";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -38,13 +38,13 @@ export default {
         <div class="chip-filters">
           <span class="muted">Status:</span>
           <button class="chip ${!stFiltro ? "active" : ""}" data-act="st" data-id="">Todos</button>
-          ${STATUS.map((s) => `<button class="chip ${stFiltro === s ? "active" : ""}" data-act="st" data-id="${s}">${s}</button>`).join("")}
+          ${[...STATUS.slice(0, 6), "Renovada", STATUS[6]].map((s) => `<button class="chip ${stFiltro === s ? "active" : ""}" data-act="st" data-id="${s}">${s}</button>`).join("")}
           <label class="switch" style="margin-left:auto"><input type="checkbox" id="chk-esp" ${verEspelhos ? "checked" : ""}> Mostrar renovações de ATA</label>
         </div>
         <div class="card-body flush" id="tbl"></div></div>`;
 
     const hoje = new Date();
-    const linhas = () => store.get("propostas").filter((p) => (verEspelhos || !isEspelho(p)) && (!stFiltro || (p.status || "Em Andamento") === stFiltro));
+    const linhas = () => store.get("propostas").filter((p) => (verEspelhos || stFiltro === "Renovada" || !isEspelho(p)) && (!stFiltro || statusExibido(p) === stFiltro));
 
     const kpis = () => {
       const data = linhas();
@@ -78,9 +78,10 @@ export default {
         { key: "margemAtual", label: "Margem atual", num: true, sort: (p) => margemAtual(p)?.pct ?? -Infinity, render: (p) => { const a = margemAtual(p); if (!a) return '<span class="muted">—</span>';
           const cor = a.abaixoPiso ? "var(--red)" : a.abaixoLucroMin ? "var(--amber-txt)" : "var(--green)"; const tit = a.abaixoPiso ? "Com o custo atual, há item com preço abaixo do piso" : a.abaixoLucroMin ? "Com o custo atual, a margem ficou abaixo do lucro mínimo" : "Margem recalculada com o custo atual do cadastro";
           return `<strong style="color:${cor}" title="${tit}">${a.pct.toFixed(1)}%</strong><div class="muted" style="font-size:11px">${a.varCusto === null ? "custos conferem" : `custo ${a.varCusto > 0 ? "+" : ""}${a.varCusto.toFixed(1)}%`}</div>`; } },
-        { key: "venc", label: "Venc. ATA", sort: (p) => ataDaProposta(p.id)?.vencimento || "", render: (p) => { const a = ataDaProposta(p.id); if (!a?.vencimento) return '<span class="muted">—</span>'; const d = diasAte(a.vencimento);
+        { key: "venc", label: "Venc. ATA", sort: (p) => ataDaProposta(p.id)?.vencimento || "", render: (p) => { const a = ataDaProposta(p.id); if (!a?.vencimento) return '<span class="muted">—</span>'; if (!isEspelho(p) && propostaRenovada(p)) return tag(`${fmtD(a.vencimento)} · renovada`, "tag-gray"); const d = diasAte(a.vencimento);
           return tag(`${fmtD(a.vencimento)} (${d}d)`, d < 0 ? "tag-red" : d <= 30 ? "tag-orange" : d <= 60 ? "tag-amber" : "tag-green"); } },
-        { key: "status", label: "Status", render: (p) => tag(p.status || "Em Andamento", STATUS_CLASS[p.status || "Em Andamento"] || "tag-gray") + ((p.convocacoes || []).length ? ` <span class="tag tag-teal" title="Itens ganhos por convocação do remanescente">convocação</span>` : "") },
+        { key: "status", label: "Status", sort: (p) => statusExibido(p), render: (p) => { const st = statusExibido(p); const ren = !isEspelho(p) ? propostaRenovada(p) : null; const orig = isEspelho(p) ? store.get("propostas").find((x) => x.id === store.find("atas", p.espelhoDeAtaId)?.propostaId) : null;
+          return tag(st, STATUS_CLASS[st] || "tag-gray") + ((p.convocacoes || []).length ? ` <span class="tag tag-teal" title="Itens ganhos por convocação do remanescente">convocação</span>` : "") + (st === "Renovada" ? `<div class="muted" style="font-size:11px">ATA ${p.geracao || 2}ª vigência${orig ? ` · origem #${esc(String(orig.num))}` : ""}</div>` : ren ? `<div class="muted" style="font-size:11px">renovada → ${(store.get("propostas").find((x) => x.espelhoDeAtaId === ataDaProposta(p.id)?.id)?.geracao) || 2}ª vig.</div>` : ""); } },
         { key: "acoes", label: "", sort: false, width: "120px", render: (p) => acoes(
           `<button class="icon-btn sm" data-act="pdf" data-id="${esc(p.id)}" title="Gerar PDF">${icon("print")}</button>`,
           ...(podeEditar() && !isEspelho(p) && ["Em Andamento", "Ag. Solic. Docs"].includes(p.status || "Em Andamento") ? [`<button class="icon-btn sm" data-act="resultado" data-id="${esc(p.id)}" title="Lançar resultado da disputa" style="color:var(--amber-txt)">${icon("trending")}</button>`] : []),
@@ -102,7 +103,7 @@ export default {
         await store.remove("propostas", id); toast("Proposta excluída.");
       },
       excel: () => exportarExcel(store.get("propostas").filter((p) => !isEspelho(p)).map((p) => { const l = getLicit(p.licitacaoId), o = getOrgao(l.orgaoId), a = ataDaProposta(p.id);
-        return { "Nº": p.num || "", "Data licitação": fmtD(l.data), "Pregão/Nº": l.numero || "", Tipo: l.tipo || "", UASG: o.uasg || "", Órgão: o.nome || "", Itens: (p.itens || []).length, Total: propTotal(p), Empenhado: propEmpenhado(p.id), "Margem %": propMargem(p)?.toFixed(1) || "", "Margem atual %": margemAtual(p)?.pct.toFixed(1) || "", "Venc. ATA": a?.vencimento ? fmtD(a.vencimento) : "", Status: p.status || "Em Andamento" }; }), "Propostas", "propostas"),
+        return { "Nº": p.num || "", "Data licitação": fmtD(l.data), "Pregão/Nº": l.numero || "", Tipo: l.tipo || "", UASG: o.uasg || "", Órgão: o.nome || "", Itens: (p.itens || []).length, Total: propTotal(p), Empenhado: propEmpenhado(p.id), "Margem %": propMargem(p)?.toFixed(1) || "", "Margem atual %": margemAtual(p)?.pct.toFixed(1) || "", "Venc. ATA": a?.vencimento ? fmtD(a.vencimento) : "", Status: statusExibido(p) }; }), "Propostas", "propostas"),
     });
 
     kpis();
