@@ -1,12 +1,12 @@
 // Órgãos públicos. Campos: id, uasg, nome, cnpj, municipio, estado, contatos[{nome,cargo,email,telefone}]
-import { store, newId } from "../core/store.js?v=20261120-111501";
-import { dataTable, acoes, btnEditar, btnExcluir, btnVer, onAction } from "../core/table.js?v=20261120-111501";
-import { formModal, lerForm, campo, inputTxt, select, linha, exportarExcel, UFS, mascaraCnpj } from "../core/forms.js?v=20261120-111501";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261120-111501";
-import { esc, h, raw, toTitleCase, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261120-111501";
-import { podeEditar } from "../core/auth.js?v=20261120-111501";
-import { getPortal } from "../core/domain.js?v=20261120-111501";
-import { popover } from "../core/popover.js?v=20261120-111501";
+import { store, newId } from "../core/store.js?v=20261120-120709";
+import { dataTable, acoes, btnEditar, btnExcluir, btnVer, onAction } from "../core/table.js?v=20261120-120709";
+import { formModal, lerForm, campo, inputTxt, select, linha, exportarExcel, UFS, mascaraCnpj } from "../core/forms.js?v=20261120-120709";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261120-120709";
+import { esc, h, raw, toTitleCase, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261120-120709";
+import { podeEditar } from "../core/auth.js?v=20261120-120709";
+import { getPortal, PAPEIS, papelNome, deduzirPapel, PAPEL_CLASS } from "../core/domain.js?v=20261120-120709";
+import { popover } from "../core/popover.js?v=20261120-120709";
 
 const REGIAO = {
   PR: "Sul", SC: "Sul", RS: "Sul", SP: "Sudeste", RJ: "Sudeste", MG: "Sudeste", ES: "Sudeste",
@@ -94,7 +94,7 @@ export default {
           const base = { UASG: o.uasg || "", Nome: o.nome, CNPJ: o.cnpj || "", Município: o.municipio || "", Estado: o.estado || "" };
           const cs = o.contatos || [];
           if (!cs.length) rows.push({ ...base, Contato: "", Cargo: "", Email: "", Telefone: "" });
-          else cs.forEach((c) => rows.push({ ...base, Contato: c.nome || "", Cargo: c.cargo || "", Email: c.email || "", Telefone: c.telefone || "" }));
+          else cs.forEach((c) => rows.push({ ...base, Contato: c.nome || "", Cargo: c.cargo || "", Papel: papelNome(deduzirPapel(c)) || "", Email: c.email || "", Telefone: c.telefone || "" }));
         });
         exportarExcel(rows, "Órgãos", "orgaos");
       },
@@ -115,7 +115,7 @@ function contatoHtml(c = {}) {
       <button type="button" class="icon-btn sm" data-desce title="Mover para baixo" aria-label="Mover para baixo">↓</button>
       <button type="button" class="icon-btn sm danger" data-remove aria-label="Remover contato">${icon("x")}</button>
     </div>
-    ${linha(campo("Nome", inputTxt("c_nome", c.nome || "")), campo("Cargo", inputTxt("c_cargo", c.cargo || "")))}
+    ${linha(campo("Nome", inputTxt("c_nome", c.nome || "")), campo("Cargo", inputTxt("c_cargo", c.cargo || "")), campo("Papel", select("c_papel", [["", "— (deduzir pelo cargo)"], ...PAPEIS], c.papel || "")))}
     ${linha(campo("E-mail", `<input type="email" name="c_email" value="${esc(c.email || "")}">`), campo("Telefone", inputTxt("c_tel", c.telefone || "")))}
   </div>`;
 }
@@ -151,7 +151,7 @@ function abrirForm(o = null) {
       const cnpj = cnpjFormatado(v.cnpj); const dig = cnpjDigitos(cnpj);
       if (dig) { const dup = store.get("orgaos").find((x) => cnpjDigitos(x.cnpj) === dig && x.id !== o?.id); if (dup) throw new Error(`Já existe um órgão com este CNPJ: ${dup.nome}.`); }
       const contatos = [...form.querySelectorAll(".contato")].map((c) => ({
-        nome: c.querySelector("[name=c_nome]").value.trim(), cargo: c.querySelector("[name=c_cargo]").value.trim(),
+        nome: c.querySelector("[name=c_nome]").value.trim(), cargo: c.querySelector("[name=c_cargo]").value.trim(), papel: c.querySelector("[name=c_papel]")?.value || "",
         email: c.querySelector("[name=c_email]").value.trim(), telefone: c.querySelector("[name=c_tel]").value.trim(),
       })).filter((c) => c.nome || c.email || c.telefone);
       await store.setItem("orgaos", { id: o?.id || newId(), uasg: v.uasg.trim(), nome, cnpj, municipio: v.municipio.trim(), estado: v.estado, contatos });
@@ -172,7 +172,7 @@ function verOrgao(o) {
         <div><div class="muted" style="font-size:12px">Região</div><strong>${esc(REGIAO[o.estado] || "—")}</strong></div>
       </div>
       <div class="form-section">Contatos</div>
-      ${(o.contatos || []).length ? (o.contatos || []).map((c) => h`<div class="list-item"><div class="list-main"><div class="list-title">${c.nome || "—"}${c.cargo ? raw(` <span class="muted">· ${esc(c.cargo)}</span>`) : ""}</div><div class="list-sub">${c.email || "—"} · ${c.telefone || "—"}</div></div></div>`).join("")
+      ${(o.contatos || []).length ? (o.contatos || []).map((c) => h`<div class="list-item"><div class="list-main"><div class="list-title">${c.nome || "—"}${c.cargo ? raw(` <span class="muted">· ${esc(c.cargo)}</span>`) : ""}${deduzirPapel(c) ? raw(` <span class="tag ${PAPEL_CLASS[deduzirPapel(c)] || "tag-gray"}" style="margin-left:4px">${esc(papelNome(deduzirPapel(c)))}${c.papel ? "" : " (deduzido)"}</span>`) : ""}</div><div class="list-sub">${c.email || "—"} · ${c.telefone || "—"}</div></div></div>`).join("")
         : '<p class="muted" style="padding:10px 0">Nenhum contato cadastrado.</p>'}`,
     rodape: `<button class="btn btn-ghost" data-close>Fechar</button>`,
   });

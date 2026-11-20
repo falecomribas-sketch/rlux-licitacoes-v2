@@ -1,15 +1,15 @@
 // Dashboard — visão geral. Cálculos portados da versão atual (renderDash).
 // Inclui o bloco "Análise profissional" (Fase 6) e os contatos pendentes da régua (Fase 5).
-import { store } from "../core/store.js?v=20261120-111501";
-import { $, $$, fmt, fmtD, esc, raw, h, MESES_CURTOS, toTitleCase } from "../core/utils.js?v=20261120-111501";
-import { icon, vazio, tag } from "../core/ui.js?v=20261120-111501";
-import { registro, base, short, CORES as COR_PORTAIS, COR_STATUS, tipMoeda } from "../core/charts.js?v=20261120-111501";
-import { navigate } from "../core/router.js?v=20261120-111501";
-import { iniciarRegua, onRegua, pendentesHoje, situacaoRegua, TIPO_ROTULO } from "../core/regua.js?v=20261120-111501";
-import { verEmail } from "./reguas.js?v=20261120-111501";
+import { store } from "../core/store.js?v=20261120-120709";
+import { $, $$, fmt, fmtD, esc, raw, h, MESES_CURTOS, toTitleCase } from "../core/utils.js?v=20261120-120709";
+import { icon, vazio, tag } from "../core/ui.js?v=20261120-120709";
+import { registro, base, short, CORES as COR_PORTAIS, COR_STATUS, tipMoeda } from "../core/charts.js?v=20261120-120709";
+import { navigate } from "../core/router.js?v=20261120-120709";
+import { iniciarRegua, onRegua, pendentesHoje, situacaoRegua, TIPO_ROTULO } from "../core/regua.js?v=20261120-120709";
+import { verEmail } from "./reguas.js?v=20261120-120709";
 import {
   getLicit, getOrgao, getProp, getCat, isEspelho, isVencido, propTotal, STATUS_VENCIDO,
-} from "../core/domain.js?v=20261120-111501";
+} from "../core/domain.js?v=20261120-120709";
 
 const reg = registro();
 let unsub = null, unsubRegua = null;

@@ -1,6 +1,6 @@
 // Regras de negócio compartilhadas entre módulos.
 // Portadas 1:1 da versão atual — os números têm que bater durante a convivência.
-import { store } from "./store.js?v=20261120-111501";
+import { store } from "./store.js?v=20261120-120709";
 
 // ---------- lookups ----------
 export const getOrgao = (id) => store.find("orgaos", id) || {};
@@ -92,3 +92,17 @@ export const STATUS_CLASS = {
   "Faturado Parcial": "tag-orange", "Enviei Docs": "tag-purple",
   "Ag. Solic. Docs": "tag-amber", "Em Andamento": "tag-blue",
 };
+
+// Papel do contato do órgão: decide quem recebe cada tipo de e-mail
+export const PAPEIS = [["licitacao", "Licitação / pregoeiro"], ["compras", "Compras / requisitante"], ["financeiro", "Financeiro / pagamentos"], ["almoxarifado", "Almoxarifado / recebimento"], ["outro", "Outro"]];
+export const papelNome = (k) => (PAPEIS.find((x) => x[0] === k) || [])[1] || "";
+export function deduzirPapel(c) {
+  if (c?.papel) return c.papel;
+  const t = `${c?.cargo || ""} ${c?.email || ""} ${c?.nome || ""}`.toLowerCase();
+  if (/pregoeir|licita|cpl|contrata|comiss/.test(t)) return "licitacao";
+  if (/financ|pagament|tesour|contab|empenho/.test(t)) return "financeiro";
+  if (/almox|receb|patrim|estoque/.test(t)) return "almoxarifado";
+  if (/compra|requisit|suprimento|material|obras|secretaria|setor/.test(t)) return "compras";
+  return "";
+}
+export const PAPEL_CLASS = { licitacao: "tag-blue", compras: "tag-purple", financeiro: "tag-green", almoxarifado: "tag-amber", outro: "tag-gray" };

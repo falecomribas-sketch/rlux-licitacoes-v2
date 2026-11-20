@@ -1,17 +1,17 @@
 // Empenhos. Campos: id, propostaId | adesaoId, numero, data, valorRecebido (valor do empenho),
 // itensRecebidos[] (qtd por item, na ordem dos itens da proposta/adesão), arqData
-import { store, newId } from "../core/store.js?v=20261120-111501";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-111501";
-import { formModal, lerForm, campo, inputTxt, inputData, linha, exportarExcel } from "../core/forms.js?v=20261120-111501";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261120-111501";
-import { esc, fmt, fmtD, fmtNum, toTitleCase } from "../core/utils.js?v=20261120-111501";
-import { podeEditar } from "../core/auth.js?v=20261120-111501";
-import { getLicit, getOrgao, getProp, getPortal, getAta, propTotal } from "../core/domain.js?v=20261120-111501";
-import { ssel } from "../core/ssel.js?v=20261120-111501";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261120-111501";
-import { opcoesPropostas } from "./atas.js?v=20261120-111501";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261120-111501";
-import { gerarPdfEmpenho } from "../pdf/empenho.js?v=20261120-111501";
+import { store, newId } from "../core/store.js?v=20261120-120709";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-120709";
+import { formModal, lerForm, campo, inputTxt, inputData, linha, exportarExcel } from "../core/forms.js?v=20261120-120709";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261120-120709";
+import { esc, fmt, fmtD, fmtNum, toTitleCase } from "../core/utils.js?v=20261120-120709";
+import { podeEditar } from "../core/auth.js?v=20261120-120709";
+import { getLicit, getOrgao, getProp, getPortal, getAta, propTotal, deduzirPapel, papelNome } from "../core/domain.js?v=20261120-120709";
+import { ssel } from "../core/ssel.js?v=20261120-120709";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261120-120709";
+import { opcoesPropostas } from "./atas.js?v=20261120-120709";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261120-120709";
+import { gerarPdfEmpenho } from "../pdf/empenho.js?v=20261120-120709";
 
 let unsub = null, periodo = "mes";
 
@@ -64,7 +64,7 @@ export default {
         { key: "dataPregao", label: "Dt. pregão", width: "95px", sort: (e) => empCtx(e).dataPregao, render: (e) => fmtD(empCtx(e).dataPregao) },
         { key: "uasg", label: "UASG", width: "85px", sort: (e) => empCtx(e).uasg, render: (e) => { const c = empCtx(e); return `${c.uasg !== "—" ? tag(c.uasg, "tag-purple") : "—"}${c.tipo === "adesao" ? `<div style="margin-top:3px">${tag("Adesão", "tag-purple")}</div>` : ""}`; } },
         { key: "pregao", label: "Pregão", sort: (e) => empCtx(e).pregao, render: (e) => `<strong>${esc(empCtx(e).pregao)}</strong>` },
-        { key: "orgao", label: "Órgão", sort: (e) => empCtx(e).orgaoNome, render: (e) => esc(toTitleCase(empCtx(e).orgaoNome)) },
+        { key: "orgao", label: "Órgão", sort: (e) => empCtx(e).orgaoNome, render: (e) => { const c = empCtx(e); const sol = e.solicitanteEmail ? (c.o?.contatos || []).find((x) => x.email === e.solicitanteEmail) : null; return esc(toTitleCase(c.orgaoNome)) + (e.solicitanteEmail ? `<div class="muted" style="font-size:11px" title="${esc(e.solicitanteEmail)}">solicitante: ${esc(sol?.nome || e.solicitanteEmail)}</div>` : ""); } },
         { key: "data", label: "Data", render: (e) => fmtD(e.data) },
         { key: "valor", label: "Este empenho", num: true, sort: (e) => e.valorRecebido || 0, render: (e) => `<strong>${fmt(e.valorRecebido)}</strong>` },
         { key: "tot", label: "Total empenhado", num: true, sort: (e) => totalGrupo(e), render: (e) => `<span class="muted">${fmt(totalGrupo(e))}</span>` },
@@ -102,6 +102,9 @@ function abrirForm(e = null) {
       <div id="sec-ad" hidden>${linha(`<div class="field"><span>Adesão aprovada</span><div id="ad-ssel"></div></div>`)}</div>
       <div id="ref-info" class="info-box" hidden></div>
       ${linha(campo("Nº do empenho", inputTxt("numero", e?.numero || "", "required")), campo("Data", inputData("data", e?.data || "")))}
+      <div id="sec-contatos">${linha(campo("Solicitante (contato do órgão)", `<select name="solicitante" class="input"><option value="">—</option></select>`), campo("Financeiro responsável (opcional)", `<select name="financeiro" class="input"><option value="">herdar do órgão (papel Financeiro)</option></select>`), `<div class="field"><span>&nbsp;</span><button type="button" class="btn btn-ghost btn-sm" data-novo-contato>+ novo contato no órgão</button></div>`)}
+        <div id="novo-contato" hidden style="background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px">${linha(campo("Nome", `<input class="input" name="nc_nome">`), campo("Cargo / setor", `<input class="input" name="nc_cargo" placeholder="ex.: Setor de Compras">`), campo("E-mail", `<input class="input" type="email" name="nc_email">`), `<div class="field"><span>&nbsp;</span><button type="button" class="btn btn-primary btn-sm" data-salvar-contato>Salvar contato</button></div>`)}</div>
+        <div class="muted" style="font-size:12px;margin-top:-4px">O solicitante recebe os e-mails de cobrança deste empenho junto com o financeiro do órgão; os demais contatos só se você marcar.</div></div>
       <div class="form-section">Itens — informe as quantidades a empenhar</div>
       <div id="itens"><div class="empty">Selecione a origem para carregar os itens</div></div>
       <div class="totais"><div class="total-geral"><span class="muted">Valor a empenhar</span><strong id="t-total">R$ 0,00</strong></div></div>
@@ -109,9 +112,19 @@ function abrirForm(e = null) {
     onAberto(form) {
       const secP = form.querySelector("#sec-prop"), secA = form.querySelector("#sec-ad");
       const refId = () => origem === "adesao" ? adSel.value : propSel.value;
+      const preencherContatos = (c) => { const o = c.o || {}; const cs = (o.contatos || []).filter((x) => x.email); const opt = (sel, atual, vazio) => { sel.innerHTML = `<option value="">${vazio}</option>` + cs.map((x) => `<option value="${esc(x.email)}" ${atual === x.email ? "selected" : ""}>${esc(x.nome || "sem nome")}${x.cargo ? ` — ${esc(x.cargo)}` : ""}${deduzirPapel(x) ? ` (${esc(papelNome(deduzirPapel(x)))})` : ""} · ${esc(x.email)}</option>`).join(""); };
+        const sS = form.elements.solicitante, sF = form.elements.financeiro; const atualS = sS.value || e?.solicitanteEmail || "", atualF = sF.value || e?.financeiroEmail || "";
+        opt(sS, atualS, cs.length ? "—" : "órgão sem contato com e-mail"); opt(sF, atualF, "herdar do órgão (papel Financeiro)"); form._orgaoId = o.id || ""; };
+      form.querySelector("[data-novo-contato]").addEventListener("click", () => { if (!form._orgaoId) return toast("Selecione a proposta/adesão primeiro.", "aviso"); const b = form.querySelector("#novo-contato"); b.hidden = !b.hidden; if (!b.hidden) form.elements.nc_nome.focus(); });
+      form.querySelector("[data-salvar-contato]").addEventListener("click", async () => { const o = store.find("orgaos", form._orgaoId); if (!o) return; const nome = form.elements.nc_nome.value.trim(), cargo = form.elements.nc_cargo.value.trim(), email = form.elements.nc_email.value.trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast("Informe um e-mail válido.", "erro"); if ((o.contatos || []).some((x) => (x.email || "").toLowerCase() === email.toLowerCase())) return toast("Este e-mail já está cadastrado no órgão.", "aviso");
+        const novo = { nome, cargo, email, telefone: "", papel: deduzirPapel({ cargo, email, nome }) || "compras" };
+        await store.setItem("orgaos", { ...o, contatos: [...(o.contatos || []), novo] }); toast(`Contato ${nome || email} criado no órgão.`);
+        preencherContatos(empCtx(origem === "adesao" ? { adesaoId: refId() } : { propostaId: refId() })); form.elements.solicitante.value = email; form.querySelector("#novo-contato").hidden = true; ["nc_nome", "nc_cargo", "nc_email"].forEach((k) => { form.elements[k].value = ""; }); });
       const renderItens = () => { const id = refId(); const box = form.querySelector("#ref-info"); const cont = form.querySelector("#itens");
         if (!id) { box.hidden = true; cont.innerHTML = `<div class="empty">Selecione a origem para carregar os itens</div>`; form.querySelector("#t-total").textContent = fmt(0); return; }
         const fake = origem === "adesao" ? { adesaoId: id } : { propostaId: id }; const c = empCtx(fake);
+        preencherContatos(c);
         const outros = empsDoMesmoGrupo(fake).filter((x) => x.id !== e?.id); const jaTot = outros.reduce((s, x) => s + (x.valorRecebido || 0), 0);
         box.hidden = false; box.innerHTML = `<div><div class="k">${c.tipo === "adesao" ? "Adesão" : "Proposta"}</div>${c.tipo === "adesao" ? esc(c.a.numero) : "#" + (c.p.num || "?") + " · " + esc(c.pregao)}</div><div><div class="k">Órgão</div>${esc(toTitleCase(c.orgaoNome))}</div><div><div class="k">Total / já empenhado</div>${fmt(c.totalRef)} · <span style="color:var(--green)">${fmt(jaTot)}</span></div><div><div class="k">Saldo disponível</div><strong>${fmt(c.totalRef - jaTot)}</strong></div>`;
         cont.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Nº</th><th>Produto</th><th class="num">Vl. unit.</th><th class="num">Qtd ${c.tipo === "adesao" ? "adesão" : "proposta"}</th><th class="num">Já emp.</th><th class="num">Saldo</th><th style="width:120px">Qtd a empenhar</th></tr></thead><tbody>
@@ -137,7 +150,7 @@ function abrirForm(e = null) {
       form.querySelectorAll("#itens [data-idx]").forEach((r) => { const q = +r.querySelector("[data-q]").value || 0; if (q > +r.dataset.max) throw new Error("Quantidade acima do saldo disponível em um dos itens."); itensRecebidos.push(q); valor += q * +r.dataset.preco; });
       if (valor <= 0) throw new Error("Informe ao menos uma quantidade a empenhar.");
       const eid = e?.id || newId();
-      const item = { ...(e || {}), id: eid, propostaId: origem === "proposta" ? id : "", adesaoId: origem === "adesao" ? id : "", numero: v.numero.trim(), data: v.data, valorRecebido: valor, itensRecebidos, arqData: e?.arqData || "" };
+      const item = { ...(e || {}), id: eid, propostaId: origem === "proposta" ? id : "", adesaoId: origem === "adesao" ? id : "", numero: v.numero.trim(), data: v.data, valorRecebido: valor, itensRecebidos, arqData: e?.arqData || "", solicitanteEmail: v.solicitante || "", financeiroEmail: v.financeiro || "" };
       const f = form.arq.files[0]; if (f) { toast("Enviando anexo…", "info"); item.arqData = await uploadAnexo("empenhos", eid, "arqData", f); }
       await store.setItem("empenhos", item); closeModal(); toast(e ? "Empenho atualizado." : "Empenho registrado.");
     },

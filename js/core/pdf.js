@@ -1,5 +1,5 @@
 // PDFs — jsPDF + autoTable carregados sob demanda, cabeçalho e rodapé padrão Rlux.
-import { toast } from "./ui.js?v=20261120-111501";
+import { toast } from "./ui.js?v=20261120-120709";
 
 export const EMPRESA = {
   nome: "RLUX ILUMINAÇÃO LTDA",

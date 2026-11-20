@@ -1,9 +1,9 @@
 // Resultados de disputa: leitura da planilha "Exportação de resultados" da Effecti, classificação da perda
 // e agregações para o painel Resultados. Os dados ficam em proposta.resultadoDisputa.itens[] (campo concorrencia).
-import { store } from "./store.js?v=20261120-111501";
-import { abrirExcel } from "./forms.js?v=20261120-111501";
-import { getLicit, getOrgao, getPortal } from "./domain.js?v=20261120-111501";
-import { piso, getCfg, deduzirFamilia, FAMILIAS_TEC } from "./preco.js?v=20261120-111501";
+import { store } from "./store.js?v=20261120-120709";
+import { abrirExcel } from "./forms.js?v=20261120-120709";
+import { getLicit, getOrgao, getPortal } from "./domain.js?v=20261120-120709";
+import { piso, getCfg, deduzirFamilia, FAMILIAS_TEC } from "./preco.js?v=20261120-120709";
 
 export const NOS_RE = /rlux/i;
 const LANCE_DESISTENCIA = 10000; // lances tipo "100.000" são desistência — ignorados na análise

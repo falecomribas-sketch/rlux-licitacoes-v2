@@ -1,17 +1,17 @@
 // Cobrança financeira (notas fiscais a receber). Campos (iguais ao legado):
 // id, empenhoId | avulsa + avEmpenho/avOrgao/avOrgaoId/avPregao/avUasg, nf, emissao, valor,
 // vencimento, status, pagamento, obs, ultimaCobranca, qtdCobrancas, _atualizado
-import { store, newId } from "../core/store.js?v=20261120-111501";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-111501";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, textarea, select, linha, exportarExcel } from "../core/forms.js?v=20261120-111501";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261120-111501";
-import { esc, fmt, fmtD, hojeIso, toTitleCase } from "../core/utils.js?v=20261120-111501";
-import { podeEditar } from "../core/auth.js?v=20261120-111501";
-import { getLicit, getOrgao, getProp, getAta } from "../core/domain.js?v=20261120-111501";
-import { ssel } from "../core/ssel.js?v=20261120-111501";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261120-111501";
-import { abrirClienteEmail } from "../core/regua.js?v=20261120-111501";
-import { EMPRESA } from "../core/pdf.js?v=20261120-111501";
+import { store, newId } from "../core/store.js?v=20261120-120709";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-120709";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, textarea, select, linha, exportarExcel } from "../core/forms.js?v=20261120-120709";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261120-120709";
+import { esc, fmt, fmtD, hojeIso, toTitleCase } from "../core/utils.js?v=20261120-120709";
+import { podeEditar } from "../core/auth.js?v=20261120-120709";
+import { getLicit, getOrgao, getProp, getAta, deduzirPapel, papelNome } from "../core/domain.js?v=20261120-120709";
+import { ssel } from "../core/ssel.js?v=20261120-120709";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261120-120709";
+import { abrirClienteEmail, copiarTextoFormatado } from "../core/regua.js?v=20261120-120709";
+import { EMPRESA } from "../core/pdf.js?v=20261120-120709";
 
 export const STATUS_COB = ["Aguardando NF", "NF Emitida", "Material Enviado", "Aguardando Pagamento", "Pago", "Inadimplente"];
 const ST_CLS = { "Aguardando NF": "tag-gray", "NF Emitida": "tag-teal", "Material Enviado": "tag-purple", "Aguardando Pagamento": "tag-amber", Pago: "tag-green", Inadimplente: "tag-red" };
@@ -21,15 +21,17 @@ let unsub = null, filtro = "";
 function empCtx(e) {
   if (!e) return { uasg: "—", pregao: "—", orgaoNome: "—", valor: 0, emails: [], empNumero: null };
   if (e.adesaoId) { const a = store.find("adesoes", e.adesaoId) || {}, ata = getAta(a.ataId) || {}, p = getProp(ata.propostaId) || {}, l = getLicit(p.licitacaoId), o = getOrgao(a.orgaoId);
-    const emails = (o.contatos || []).filter((c) => c.email).map((c) => c.email); if (a.email && !emails.includes(a.email)) emails.unshift(a.email);
-    return { uasg: a.uasgAderente || "—", pregao: l.numero || "—", orgaoNome: a.orgaoAderente || "—", valor: e.valorRecebido || 0, emails, empNumero: e.numero || null }; }
+    const contatos = (o.contatos || []).filter((c) => c.email); if (a.email && !contatos.some((c) => c.email === a.email)) contatos.unshift({ nome: a.contato || "", cargo: "Contato da adesão", email: a.email, papel: "compras" });
+    return { uasg: a.uasgAderente || "—", pregao: l.numero || "—", orgaoNome: a.orgaoAderente || "—", valor: e.valorRecebido || 0, emails: contatos.map((c) => c.email), contatos, orgaoId: o.id || "", solicitanteEmail: e.solicitanteEmail || a.email || "", financeiroEmail: e.financeiroEmail || "", empNumero: e.numero || null }; }
   const p = getProp(e.propostaId) || {}, l = getLicit(p.licitacaoId), o = getOrgao(l.orgaoId);
-  return { uasg: o.uasg || "—", pregao: l.numero || "—", orgaoNome: o.nome || "—", valor: e.valorRecebido || 0, emails: (o.contatos || []).filter((c) => c.email).map((c) => c.email), empNumero: e.numero || null };
+  const contatos = (o.contatos || []).filter((c) => c.email);
+  return { uasg: o.uasg || "—", pregao: l.numero || "—", orgaoNome: o.nome || "—", valor: e.valorRecebido || 0, emails: contatos.map((c) => c.email), contatos, orgaoId: o.id || "", solicitanteEmail: e.solicitanteEmail || "", financeiroEmail: e.financeiroEmail || "", empNumero: e.numero || null };
 }
 export function cobCtx(c) {
   if (c?.avulsa) { let orgaoNome = c.avOrgao || "—", uasg = c.avUasg || "—", emails = [];
-    if (c.avOrgaoId) { const o = store.find("orgaos", c.avOrgaoId); if (o) { orgaoNome = o.nome || orgaoNome; if (!c.avUasg && o.uasg) uasg = o.uasg; emails = (o.contatos || []).filter((x) => x.email).map((x) => x.email); } }
-    return { uasg, pregao: c.avPregao || "—", orgaoNome, valor: c.valor || 0, emails, empNumero: c.avEmpenho || "—", avulsa: true }; }
+    let contatos = [], orgaoId = "";
+    if (c.avOrgaoId) { const o = store.find("orgaos", c.avOrgaoId); if (o) { orgaoNome = o.nome || orgaoNome; if (!c.avUasg && o.uasg) uasg = o.uasg; contatos = (o.contatos || []).filter((x) => x.email); emails = contatos.map((x) => x.email); orgaoId = o.id; } }
+    return { uasg, pregao: c.avPregao || "—", orgaoNome, valor: c.valor || 0, emails, contatos, orgaoId, empNumero: c.avEmpenho || "—", avulsa: true }; }
   const e = store.find("empenhos", c.empenhoId); const ctx = empCtx(e); ctx.removido = !e; return ctx;
 }
 // Dias de atraso: >0 vencida; 0 em dia; null pago/sem vencimento
@@ -126,7 +128,7 @@ function abrirForm(c = null) {
 // E-mail de cobrança (texto idêntico ao legado) — abre o cliente de e-mail e registra a data
 async function enviarCobranca(c) {
   if (!c) return; const x = cobCtx(c); const emails = x.emails || [];
-  if (!emails.length) { toast(c.avulsa ? "Cobrança avulsa sem e-mails cadastrados — preencha o destinatário no e-mail." : "Nenhum e-mail cadastrado nos contatos deste órgão.", "erro", 5000); if (!c.avulsa) return; }
+  if (!emails.length) toast(c.avulsa ? "Cobrança avulsa sem e-mails cadastrados — informe o destinatário." : "Nenhum e-mail cadastrado nos contatos deste órgão — informe o destinatário ou cadastre em Órgãos.", "aviso", 6000);
   if (!c.nf && !await confirmar("Esta cobrança ainda não tem nota fiscal informada. Enviar o e-mail mesmo assim?", { ok: "Enviar" })) return;
   const atr = cobAtraso(c), vencido = (atr || 0) > 0, empNum = x.empNumero || "—", nCob = (c.qtdCobrancas || 0) + 1, ord = nCob > 1 ? ` (${nCob}ª cobrança)` : "";
   const assunto = `Cobrança${ord} - NF ${c.nf || "s/nº"}${vencido ? " VENCIDA" : ""} - Empenho ${empNum}`;
@@ -136,7 +138,7 @@ async function enviarCobranca(c) {
     `${nomeOrg}\nSetor Financeiro`, ``, `Prezados(as),`, ``,
     `A RLUX Iluminação Ltda. (CNPJ ${EMPRESA.cnpj}) informa a pendência de pagamento referente ao fornecimento abaixo${nCob > 1 && c.ultimaCobranca ? `. Reiteramos a cobrança enviada em ${fmtD(c.ultimaCobranca)} — esta é a ${nCob}ª comunicação sobre este débito.` : "."}`, ``,
     `DADOS DA COBRANÇA`,
-    fato("Nota de Empenho", empNum), fato("Pregão / Processo", x.pregao !== "—" ? x.pregao : ""), fato("UASG", x.uasg !== "—" ? x.uasg : ""),
+    fato("Nota de Empenho", empNum), fato("Solicitante do empenho", (() => { const s = (x.contatos || []).find((k) => k.email === x.solicitanteEmail); return s ? `${s.nome || s.email}${s.cargo ? ` (${s.cargo})` : ""}` : ""; })()), fato("Pregão / Processo", x.pregao !== "—" ? x.pregao : ""), fato("UASG", x.uasg !== "—" ? x.uasg : ""),
     fato("Nota Fiscal", c.nf ? `nº ${c.nf}${c.emissao ? ` (emitida em ${fmtD(c.emissao)})` : ""}` : "(a informar)"),
     fato("Valor", fmt(c.valor)), fato("Vencimento", c.vencimento ? fmtD(c.vencimento) : "—"),
     fato("Situação", vencido ? `VENCIDA há ${atr} dia(s)` : "a vencer"), ``,
@@ -144,7 +146,35 @@ async function enviarCobranca(c) {
     `Permanecemos à disposição para quaisquer esclarecimentos.`, ``,
     `Atenciosamente,`, `${EMPRESA.representante} · RLUX Iluminação Ltda.`, `CNPJ ${EMPRESA.cnpj}`, EMPRESA.tel, `financeiro@rlux.com.br | www.rlux.com.br`,
   ].filter((l, i, arr) => l !== null && !(l === "" && arr[i - 1] === "")).join("\r\n");
-  const inteiro = abrirClienteEmail({ para: emails[0] || "", assunto, corpo }, [...emails.slice(1), "financeiro@rlux.com.br"]);
-  await store.setItem("cobrancas", { ...c, ultimaCobranca: hojeIso(), qtdCobrancas: nCob, _atualizado: new Date().toISOString() });
-  toast(inteiro ? `E-mail de cobrança aberto${emails[0] ? ` para ${toTitleCase(x.orgaoNome)}` : " (preencha o destinatário)"}.` : "Texto longo: corpo copiado — cole com Ctrl+V no e-mail que abriu.", inteiro ? "ok" : "info", 6000);
+  abrirDestinatarios({ c, x, assunto, corpo, nCob });
+}
+
+// Destinatários da cobrança: financeiro do órgão + solicitante do empenho pré-marcados; demais desmarcados; escolha lembrada por órgão
+const chaveMem = (x) => `rlux.cob.dest.${x.orgaoId || "avulsa"}`;
+function abrirDestinatarios({ c, x, assunto, corpo, nCob }) {
+  const contatos = x.contatos || []; const papel = (k) => deduzirPapel(k);
+  let lembrados = null; try { const v = localStorage.getItem(chaveMem(x)); lembrados = v ? JSON.parse(v) : null; } catch { lembrados = null; }
+  const motivo = (k) => k.email === x.solicitanteEmail ? "solicitou o empenho" : k.email === x.financeiroEmail ? "financeiro do empenho" : papel(k) === "financeiro" ? "financeiro" : "";
+  const regra = contatos.map((k) => !!motivo(k)); const temRegra = regra.some(Boolean);
+  const marcado = (k, i) => Array.isArray(lembrados) && lembrados.length ? lembrados.includes(k.email) : temRegra ? regra[i] : true;
+  const m = openModal({ titulo: `E-mail de cobrança — NF ${c.nf || "s/nº"} · Empenho ${x.empNumero || "—"}`, largura: "lg",
+    corpo: `
+      <div class="info-box" style="margin-bottom:10px"><div><div class="k">Órgão</div>${esc(toTitleCase(x.orgaoNome))}</div><div><div class="k">Valor</div>${fmt(c.valor)}</div><div><div class="k">Vencimento</div>${c.vencimento ? fmtD(c.vencimento) : "—"}</div><div><div class="k">Cobrança</div>${nCob}ª</div></div>
+      <div class="field" style="margin-bottom:10px"><span style="display:flex;justify-content:space-between"><span>Para — ${temRegra ? "financeiro do órgão e solicitante do empenho pré-selecionados" : "órgão sem financeiro/solicitante identificados: todos marcados"}</span><a href="#orgaos" style="font-weight:400;font-size:12px">+ cadastrar contato em Órgãos</a></span>
+        ${contatos.length ? `<div class="dest-lista"><div class="dest-cab"><label><input type="checkbox" data-dest-todos> todos</label><span>Nome</span><span>Papel</span><span>E-mail</span></div>
+          ${contatos.map((k, i) => { const nome = /^(n\/?a|-+|—)$/i.test(String(k.nome || "").trim()) ? "" : (k.nome || ""); const mo = motivo(k); return `<label class="dest-row ${mo ? "dest-pre" : ""}"><input type="checkbox" data-dest="${i}" ${marcado(k, i) ? "checked" : ""}><span>${nome ? `<strong>${esc(nome)}</strong>` : '<span class="muted">sem nome</span>'}</span><span class="muted">${esc(papelNome(papel(k)) || k.cargo || "—")}${mo ? ` <span class="tag ${mo.includes("solicit") ? "tag-blue" : "tag-green"}" style="margin-left:4px">${esc(mo)}</span>` : ""}</span><span class="dest-mail" title="${esc(k.email)}">${esc(k.email)}</span></label>`; }).join("")}</div>` : `<div class="info-box" style="border-color:var(--amber)"><div>Nenhum contato com e-mail neste órgão. Digite o destinatário abaixo.</div></div>`}
+        <input type="text" class="input" id="cob-extra" placeholder="Outros e-mails (separe por ;)" style="margin-top:8px"></div>
+      <label class="field" style="margin-bottom:10px"><span>Assunto</span><input type="text" class="input" id="cob-assunto" value="${esc(assunto)}"></label>
+      <label class="field"><span>Mensagem <span class="muted" style="font-weight:400">(editável)</span></span><textarea class="input" id="cob-corpo" rows="12" style="font-size:13px;line-height:1.5">${esc(corpo)}</textarea></label>`,
+    rodape: `<span class="muted" style="font-size:12px;margin-right:auto">Sua seleção de destinatários fica lembrada para este órgão.</span><button class="btn btn-ghost" data-close>Fechar</button><button class="btn btn-ghost" data-cob="copiar">${icon("file")} Copiar e registrar</button><button class="btn btn-primary" data-cob="enviar">${icon("mail")} Abrir no e-mail e registrar</button>` });
+  const todosCb = m.querySelector("[data-dest-todos]"); const syncTodos = () => { if (!todosCb) return; const cbs = [...m.querySelectorAll("[data-dest]")]; todosCb.checked = cbs.length > 0 && cbs.every((k) => k.checked); todosCb.indeterminate = cbs.some((k) => k.checked) && !todosCb.checked; };
+  todosCb?.addEventListener("change", () => { m.querySelectorAll("[data-dest]").forEach((k) => { k.checked = todosCb.checked; }); }); m.querySelectorAll("[data-dest]").forEach((k) => k.addEventListener("change", syncTodos)); syncTodos();
+  m.addEventListener("click", async (e) => { const b = e.target.closest("[data-cob]"); if (!b) return;
+    const sel = [...m.querySelectorAll("[data-dest]:checked")].map((k) => contatos[+k.dataset.dest].email); const extra = m.querySelector("#cob-extra").value.split(/[;,]/).map((t) => t.trim()).filter(Boolean);
+    const para = [...new Set([...sel, ...extra])]; if (!para.length) return toast("Selecione ou informe ao menos um destinatário.", "erro");
+    try { localStorage.setItem(chaveMem(x), JSON.stringify(sel)); } catch {}
+    const email = { para: para[0], assunto: m.querySelector("#cob-assunto").value, corpo: m.querySelector("#cob-corpo").value };
+    if (b.dataset.cob === "copiar") { await copiarTextoFormatado(`Para: ${para.join("; ")}\nAssunto: ${email.assunto}\n\n${email.corpo}`); toast("Cobrança copiada e registrada."); }
+    else { const inteiro = abrirClienteEmail(email, [...para.slice(1), "financeiro@rlux.com.br"]); toast(inteiro ? `E-mail de cobrança aberto para ${para.length} destinatário(s).` : "Texto longo: corpo copiado — cole com Ctrl+V no e-mail que abriu.", inteiro ? "ok" : "info", 6000); }
+    await store.setItem("cobrancas", { ...c, ultimaCobranca: hojeIso(), qtdCobrancas: nCob, ultimosDestinatarios: para, _atualizado: new Date().toISOString() }); closeModal(); });
 }
