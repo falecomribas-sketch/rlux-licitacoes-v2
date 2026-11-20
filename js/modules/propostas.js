@@ -1,22 +1,23 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261120-110800";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-110800";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261120-110800";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261120-110800";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261120-110800";
-import { podeEditar } from "../core/auth.js?v=20261120-110800";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261120-110800";
-import { ssel } from "../core/ssel.js?v=20261120-110800";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261120-110800";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261120-110800";
-import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261120-110800";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261120-110800";
-import { dataLocal } from "../core/utils.js?v=20261120-110800";
+import { store, newId } from "../core/store.js?v=20261120-111101";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-111101";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261120-111101";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261120-111101";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261120-111101";
+import { podeEditar } from "../core/auth.js?v=20261120-111101";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261120-111101";
+import { ssel } from "../core/ssel.js?v=20261120-111101";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261120-111101";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261120-111101";
+import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261120-111101";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261120-111101";
+import { dataLocal } from "../core/utils.js?v=20261120-111101";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
-let stFiltro = "", verEspelhos = false;
+const lerPrefEsp = () => { try { return localStorage.getItem("rlux.propostas.verRenovacoes") !== "0"; } catch { return true; } }; // padrão: renovações visíveis
+let stFiltro = "", verEspelhos = lerPrefEsp();
 
 export const opcoesLicitacoes = (orgaoId) => store.get("licitacoes").filter((l) => l.orgaoId === orgaoId)
   .sort((a, b) => (b.data || "").localeCompare(a.data || ""))
@@ -26,7 +27,7 @@ export default {
   id: "propostas", titulo: "Propostas", grupo: "Licitações", icone: "file",
 
   render(el) {
-    stFiltro = ""; verEspelhos = false;
+    stFiltro = ""; verEspelhos = lerPrefEsp();
     el.innerHTML = `
       <div class="grid grid-4" id="kpis" style="margin-bottom:16px"></div>
       <div class="page-head"><h2>Propostas</h2>
@@ -90,7 +91,7 @@ export default {
       ],
     });
 
-    el.querySelector("#chk-esp").addEventListener("change", (e) => { verEspelhos = e.target.checked; kpis(); tabela.refresh(); });
+    el.querySelector("#chk-esp").addEventListener("change", (e) => { verEspelhos = e.target.checked; try { localStorage.setItem("rlux.propostas.verRenovacoes", verEspelhos ? "1" : "0"); } catch {} kpis(); tabela.refresh(); });
     onAction(el, {
       st: (id) => { stFiltro = id; el.querySelectorAll(".chip").forEach((c) => c.classList.toggle("active", c.dataset.id === id)); kpis(); tabela.refresh(); },
       novo: () => abrirForm(),
