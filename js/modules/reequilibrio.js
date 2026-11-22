@@ -1,20 +1,20 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261122-144802";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-144802";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261122-144802";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261122-144802";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261122-144802";
-import { podeEditar } from "../core/auth.js?v=20261122-144802";
-import { itensEmRisco } from "../core/risco.js?v=20261122-144802";
-import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261122-144802";
-import { EMPRESA } from "../core/pdf.js?v=20261122-144802";
-import { dataLocal } from "../core/utils.js?v=20261122-144802";
-import { getCfg, encargoUF } from "../core/preco.js?v=20261122-144802";
-import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261122-144802";
-import { ssel } from "../core/ssel.js?v=20261122-144802";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261122-144802";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261122-144802";
+import { store, newId } from "../core/store.js?v=20261122-150027";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-150027";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261122-150027";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261122-150027";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261122-150027";
+import { podeEditar } from "../core/auth.js?v=20261122-150027";
+import { itensEmRisco, diasAguardando, reequilibriosSemRetorno } from "../core/risco.js?v=20261122-150027";
+import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261122-150027";
+import { EMPRESA } from "../core/pdf.js?v=20261122-150027";
+import { dataLocal } from "../core/utils.js?v=20261122-150027";
+import { getCfg, encargoUF } from "../core/preco.js?v=20261122-150027";
+import { getLicit, getOrgao, getProp, getAta, propTotal, deduzirPapel, papelNome } from "../core/domain.js?v=20261122-150027";
+import { ssel } from "../core/ssel.js?v=20261122-150027";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261122-150027";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261122-150027";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -35,16 +35,17 @@ export default {
         ${podeEditar() ? `<button class="btn btn-primary" data-act="novo">${icon("plus")} Nova solicitação</button>` : ""}</div></div>
       <div class="card" id="risco" style="margin-bottom:16px"></div>
       <div class="card"><div class="chip-filters"><span class="muted">Status:</span><button class="chip ${!stFiltro ? "active" : ""}" data-act="st" data-id="">Todos</button>
-        ${STATUS_REQ.map((s) => `<button class="chip ${stFiltro === s ? "active" : ""}" data-act="st" data-id="${s}">${s}</button>`).join("")}</div>
+        ${STATUS_REQ.map((s) => `<button class="chip ${stFiltro === s ? "active" : ""}" data-act="st" data-id="${s}">${s}</button>`).join("")}
+        <span class="muted" style="margin-left:10px">Retorno:</span><button class="chip ${stFiltro === "__15" ? "active" : ""}" data-act="st" data-id="__15" style="border-color:#f3c6a5;color:var(--orange)">Sem retorno +15d</button><button class="chip ${stFiltro === "__30" ? "active" : ""}" data-act="st" data-id="__30" style="border-color:#f1b4ae;color:var(--red)">Sem retorno +30d</button></div>
         <div class="card-body flush" id="tbl"></div></div>`;
     const kpis = () => { const d = store.get("reequilibrio"); const ap = d.filter((r) => r.status === "Aprovado" || r.status === "Aprovado Parcial");
       el.querySelector("#kpis").innerHTML = `
         <div class="kpi"><div class="kpi-label">Pedidos</div><div class="kpi-value">${d.length}</div></div>
-        <div class="kpi"><div class="kpi-label">Pendentes / em análise</div><div class="kpi-value" style="color:var(--amber-txt)">${d.filter((r) => r.status === "Solicitado" || r.status === "Em Análise").length}</div></div>
+        <div class="kpi"><div class="kpi-label">Pendentes / em análise</div><div class="kpi-value" style="color:var(--amber-txt)">${d.filter((r) => r.status === "Solicitado" || r.status === "Em Análise").length}</div><div class="kpi-note" style="color:${reequilibriosSemRetorno(30).length ? "var(--red)" : "var(--muted)"}">${reequilibriosSemRetorno(30).length} sem retorno há +30 dias</div></div>
         <div class="kpi"><div class="kpi-label">Aprovados</div><div class="kpi-value" style="color:var(--green)">${ap.length}</div></div>
         <div class="kpi"><div class="kpi-label">Valor aprovado</div><div class="kpi-value">${fmt(ap.reduce((s, r) => s + (r.valorDif || 0), 0))}</div></div>`; };
     const tabela = dataTable({
-      el: el.querySelector("#tbl"), rows: () => store.get("reequilibrio").filter((r) => !stFiltro || r.status === stFiltro),
+      el: el.querySelector("#tbl"), rows: () => store.get("reequilibrio").filter((r) => !stFiltro || (stFiltro === "__15" ? (diasAguardando(r) ?? -1) >= 15 : stFiltro === "__30" ? (diasAguardando(r) ?? -1) >= 30 : r.status === stFiltro)),
       search: (r, q) => { const i = reqInfo(r); return [r.numero, r.processo, i.ata?.numero, i.o.nome, i.o.uasg, i.l?.numero, r.justificativa, r.status].some((x) => (x || "").toLowerCase().includes(q)); },
       placeholder: "Buscar nº, ATA, órgão, UASG, pregão…", sort: { key: "dataSolic", dir: "desc" }, empty: "Nenhuma solicitação",
       columns: [
@@ -53,10 +54,12 @@ export default {
         { key: "orgao", label: "Órgão", sort: (r) => reqInfo(r).o.nome || "", render: (r) => { const i = reqInfo(r); return `${esc(toTitleCase(i.o.nome || "—"))}<div class="muted" style="font-size:11px">UASG ${esc(i.o.uasg || "—")}</div>`; } },
         { key: "dataSolic", label: "Solicitação", render: (r) => fmtD(r.dataSolic) },
         { key: "dataResp", label: "Resposta", render: (r) => r.dataResp ? fmtD(r.dataResp) : tag("Pendente", "tag-amber") },
+        { key: "aguard", label: "Aguardando", sort: (r) => diasAguardando(r) ?? -1, render: (r) => { const d = diasAguardando(r); if (d === null) return '<span class="muted">—</span>'; const cs = r.cobrancasRetorno || []; const ult = cs.length ? cs[cs.length - 1] : null;
+          return `${tag(`${d} dia${d === 1 ? "" : "s"}`, d > 30 ? "tag-red" : d > 15 ? "tag-orange" : "tag-green")}<div class="muted" style="font-size:11px">${cs.length ? `${cs.length} cobrança${cs.length > 1 ? "s" : ""} · última ${fmtD(ult.data)}` : "nenhuma cobrança"}</div>`; } },
         { key: "percReajuste", label: "Reajuste", num: true, sort: (r) => r.percReajuste || 0, render: (r) => `<strong style="color:var(--purple)">${(r.percReajuste || 0).toFixed(2)}%</strong>` },
         { key: "valorDif", label: "Diferença", num: true, sort: (r) => r.valorDif || 0, render: (r) => `<strong style="color:${(r.valorDif || 0) > 0 ? "var(--red)" : "var(--green)"}">${fmt(r.valorDif)}</strong>` },
         { key: "status", label: "Status", render: (r) => `${tag(r.status || "—", COR[r.status] || "tag-gray")}${r.aplicado ? " " + tag("Aplicado na ATA", "tag-green") : ""}` },
-        { key: "acoes", label: "", sort: false, width: "120px", render: (r) => acoes(`<button class="icon-btn sm" data-act="pdf" data-id="${esc(r.id)}" title="PDF">${icon("print")}</button>`, ...(podeEditar() ? [btnEditar(r.id), btnExcluir(r.id, r.aplicado ? "Já aplicado na ATA" : "")] : [])) },
+        { key: "acoes", label: "", sort: false, width: "140px", render: (r) => acoes(`<button class="icon-btn sm" data-act="pdf" data-id="${esc(r.id)}" title="PDF">${icon("print")}</button>`, ...(podeEditar() && diasAguardando(r) !== null ? [`<button class="icon-btn sm" data-act="cobrar" data-id="${esc(r.id)}" title="Cobrar retorno do órgão" style="color:var(--teal)">${icon("mail")}</button>`] : []), ...(podeEditar() ? [btnEditar(r.id), btnExcluir(r.id, r.aplicado ? "Já aplicado na ATA" : "")] : [])) },
       ],
     });
     let riscoOrd = "impacto", riscoDir = "desc", riscoLimite = 40, riscoBusca = "", riscoNivel = "";
@@ -103,6 +106,7 @@ export default {
         const just = textoJustificativa(lst, cfg);
         abrirForm({ ataId, itens: lst.map((x) => ({ num: x.item.num, nome: x.item.nome, custoAntigo: x.custoProp, custoAtual: x.custoAtual })), justificativa: just, fundamento: "revisao" }); },
       novo: () => abrirForm(), editar: (id) => abrirForm(store.find("reequilibrio", id)), pdf: (id) => gerarPdfReequilibrio(store.find("reequilibrio", id)),
+      cobrar: (id) => cobrarRetorno(store.find("reequilibrio", id)),
       excluir: async (id) => { if (!await confirmar("Excluir esta solicitação?", { ok: "Excluir", perigo: true })) return; await store.remove("reequilibrio", id); toast("Excluída."); },
       excel: () => exportarExcel(store.get("reequilibrio").map((r) => { const i = reqInfo(r); return { "Nº Solicitação": r.numero, ATA: i.ata?.numero || "", Órgão: i.o.nome || "", UASG: i.o.uasg || "", "Dt. Solicitação": fmtD(r.dataSolic), "Dt. Resposta": r.dataResp ? fmtD(r.dataResp) : "", Status: r.status, "% Reajuste": (r.percReajuste || 0).toFixed(2), "Diferença (R$)": r.valorDif || 0, "Total Original": r.totalOrig || 0, "Total Reajustado": r.totalNovo || 0, "Tipo": r.fundamento || "", Índice: r.indice || "", Aplicado: r.aplicado ? "Sim" : "Não", Justificativa: r.justificativa || "" }; }), "Reequilíbrio", "reequilibrio"),
     });
@@ -294,4 +298,51 @@ function avisarOrgao(x) {
     closeModal();
     if (b.dataset.av === "copiar") { await copiarTextoFormatado(`Para: ${email.para}\nAssunto: ${email.assunto}\n\n${email.corpo}`); await registrarEnvio(x.p.id, "reequilibrio_aviso"); toast("Aviso copiado e registrado."); }
     else { const inteiro = abrirClienteEmail(email); await registrarEnvio(x.p.id, "reequilibrio_aviso"); toast(inteiro ? "E-mail aberto e aviso registrado." : "Texto longo: corpo copiado — cole com Ctrl+V no e-mail que abriu.", inteiro ? "ok" : "info", 6000); } });
+}
+
+// Cobrar retorno de solicitação enviada e sem resposta
+function textoCobranca(r, i, n, dias) {
+  const o = i.o || {}, l = i.l || {}; const orgao = toTitleCase(o.nome || "") || "____"; const ata = i.ata?.numero || "____";
+  const ante = (r.cobrancasRetorno || []).map((c) => fmtD(c.data)).join(", ");
+  const dura = n >= 2 ? `\n\nRegistramos que esta é a ${n}ª reiteração (anteriores em ${ante}) sem qualquer manifestação. A manutenção do fornecimento a preços comprovadamente deficitários impõe ônus desproporcional à contratada; na ausência de resposta, avaliaremos as medidas cabíveis, inclusive a suspensão do fornecimento dos itens em desequilíbrio, nos termos do art. 137, § 2º, da Lei nº 14.133/2021, o que gostaríamos de evitar.` : "";
+  return `À ${orgao}${o.uasg ? ` (UASG ${o.uasg})` : ""}
+Setor de Licitações e Contratos
+
+Prezado (a),
+
+Em ${fmtD(r.dataSolic)} protocolamos o pedido de reequilíbrio econômico-financeiro nº ${r.numero || "____"}, referente à Ata de Registro de Preços nº ${ata} (${l.tipo || "Pregão Eletrônico"} nº ${l.numero || "____"}), instruído com justificativa, demonstrativo de preços e comprovantes. Decorridos ${dias} dias, ainda não recebemos manifestação desse órgão.
+
+${n >= 2 ? `Reiteramos` : `Esta é a 1ª reiteração. Solicitamos`}, respeitosamente, informação sobre o andamento da análise e a previsão de decisão, lembrando que a Lei nº 14.133/2021 (art. 124, II, "d") assegura a recomposição da equação econômico-financeira e que a demora agrava o desequilíbrio já demonstrado, com reflexo na continuidade do fornecimento.${dura}
+
+Caso haja necessidade de documento complementar, basta nos indicar.
+
+Atenciosamente,
+${EMPRESA.nome} · CNPJ ${EMPRESA.cnpj}
+${EMPRESA.emailLicitacoes} · ${EMPRESA.tel}`;
+}
+function cobrarRetorno(r) {
+  if (!r) return; const i = reqInfo(r); const o = i.o || {}; const contatos = (o.contatos || []).filter((c) => c.email);
+  const n = (r.cobrancasRetorno || []).length + 1; const dias = diasAguardando(r) ?? 0; const anteriores = new Set((r.cobrancasRetorno || []).flatMap((c) => c.para || []));
+  const pre = (c) => anteriores.has(c.email) || deduzirPapel(c) === "licitacao";
+  const assunto = `Reiteração – Pedido de reequilíbrio ${r.numero || ""} – ATA ${i.ata?.numero || ""} – ${i.l?.tipo || "Pregão"} ${i.l?.numero || ""} – aguardando manifestação`;
+  const m = openModal({ titulo: `Cobrar retorno — ${r.numero || "solicitação"} · ${n}ª reiteração`, largura: "lg",
+    corpo: `<div class="info-box" style="margin-bottom:12px"><div><div class="k">Órgão</div>${esc(toTitleCase(o.nome || "—"))}</div><div><div class="k">Enviado em</div>${fmtD(r.dataSolic)}</div><div><div class="k">Aguardando</div><strong style="color:${dias > 30 ? "var(--red)" : "var(--amber-txt)"}">${dias} dias</strong></div><div><div class="k">Cobranças anteriores</div>${(r.cobrancasRetorno || []).map((c) => fmtD(c.data)).join(", ") || "nenhuma"}</div></div>
+      <div class="field" style="margin-bottom:10px"><span style="display:flex;justify-content:space-between"><span>Para — licitação pré-marcada${anteriores.size ? " + quem já recebeu" : ""}</span><a href="#orgaos" style="font-weight:400;font-size:12px">+ cadastrar contato em Órgãos</a></span>
+        ${contatos.length ? `<div class="dest-lista"><div class="dest-cab"><label><input type="checkbox" data-dest-todos> todos</label><span>Nome</span><span>Papel</span><span>E-mail</span></div>
+          ${contatos.map((c, k) => { const nome = /^(n\/?a|-+|—)$/i.test(String(c.nome || "").trim()) ? "" : (c.nome || ""); return `<label class="dest-row ${pre(c) ? "dest-pre" : ""}"><input type="checkbox" data-dest="${k}" ${contatos.length === 1 || pre(c) || !contatos.some(pre) ? "checked" : ""}><span>${nome ? `<strong>${esc(nome)}</strong>` : '<span class="muted">sem nome</span>'}</span><span class="muted">${esc(papelNome(deduzirPapel(c)) || c.cargo || "—")}${anteriores.has(c.email) ? ' <span class="tag tag-blue" style="margin-left:4px">já recebeu</span>' : ""}</span><span class="dest-mail" title="${esc(c.email)}">${esc(c.email)}</span></label>`; }).join("")}</div>` : `<div class="info-box" style="border-color:var(--amber)"><div>Este órgão não tem contato com e-mail cadastrado. Digite o e-mail abaixo.</div></div>`}
+        <input type="text" class="input" id="cr-extra" placeholder="Outros e-mails (separe por ;)" style="margin-top:8px"></div>
+      <label class="field" style="margin-bottom:10px"><span>Assunto</span><input type="text" class="input" id="cr-assunto" value="${esc(assunto)}"></label>
+      <label class="field"><span>Mensagem <span class="muted" style="font-weight:400">(editável${n >= 2 ? " — a partir da 2ª reiteração o texto menciona a possibilidade de suspensão; apague se não quiser usar" : ""})</span></span><textarea class="input" id="cr-corpo" rows="14" style="font-size:13px;line-height:1.5">${esc(textoCobranca(r, i, n, dias))}</textarea></label>`,
+    rodape: `<span class="muted" style="font-size:12px;margin-right:auto">Ao copiar ou abrir, a reiteração fica registrada na solicitação e na ATA.</span><button class="btn btn-ghost" data-close>Fechar</button><button class="btn btn-ghost" data-cr="copiar">${icon("file")} Copiar e registrar</button><button class="btn btn-primary" data-cr="enviar">${icon("mail")} Abrir no e-mail e registrar</button>` });
+  const todosCb = m.querySelector("[data-dest-todos]"); const syncTodos = () => { if (!todosCb) return; const cbs = [...m.querySelectorAll("[data-dest]")]; todosCb.checked = cbs.length > 0 && cbs.every((c) => c.checked); todosCb.indeterminate = cbs.some((c) => c.checked) && !todosCb.checked; };
+  todosCb?.addEventListener("change", () => { m.querySelectorAll("[data-dest]").forEach((c) => { c.checked = todosCb.checked; }); }); m.querySelectorAll("[data-dest]").forEach((c) => c.addEventListener("change", syncTodos)); syncTodos();
+  m.addEventListener("click", async (e) => { const b = e.target.closest("[data-cr]"); if (!b) return;
+    const sel = [...m.querySelectorAll("[data-dest]:checked")].map((c) => contatos[+c.dataset.dest].email); const extra = m.querySelector("#cr-extra").value.split(/[;,]/).map((t) => t.trim()).filter(Boolean);
+    const para = [...new Set([...sel, ...extra])]; if (!para.length) return toast("Selecione ou digite ao menos um e-mail.", "erro");
+    const email = { para: para.join(";"), assunto: m.querySelector("#cr-assunto").value.trim(), corpo: m.querySelector("#cr-corpo").value };
+    closeModal();
+    if (b.dataset.cr === "copiar") { await copiarTextoFormatado(`Para: ${email.para}\nAssunto: ${email.assunto}\n\n${email.corpo}`); toast(`${n}ª reiteração copiada e registrada.`); }
+    else { const inteiro = abrirClienteEmail(email); toast(inteiro ? `E-mail aberto · ${n}ª reiteração registrada.` : "Texto longo: corpo copiado — cole com Ctrl+V no e-mail que abriu.", inteiro ? "ok" : "info", 6000); }
+    await store.setItem("reequilibrio", { ...store.find("reequilibrio", r.id), cobrancasRetorno: [...(r.cobrancasRetorno || []), { n, data: hojeIso(), para, por: store.usuarioAtual || "" }] });
+    if (i.p?.id) await registrarEnvio(i.p.id, "reequilibrio_cobranca"); });
 }

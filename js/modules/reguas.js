@@ -1,12 +1,14 @@
 // Régua de Envio — visão auditável da régua de relacionamento: cada ATA/adesão com saldo,
 // quantos e-mails já foram, o último e o próximo. Toda a lógica está em core/regua.js.
-import { store } from "../core/store.js?v=20261122-144802";
-import { dataTable, acoes, onAction } from "../core/table.js?v=20261122-144802";
-import { exportarExcel } from "../core/forms.js?v=20261122-144802";
-import { toast, icon, tag, openModal, closeModal } from "../core/ui.js?v=20261122-144802";
-import { esc, fmt, fmtD, hojeIso, toTitleCase } from "../core/utils.js?v=20261122-144802";
-import { podeEditar } from "../core/auth.js?v=20261122-144802";
-import { iniciarRegua, onRegua, linhasRegua, situacaoRegua, montarEmail, enviarPelaRegua, copiarPelaRegua, TIPO_ROTULO, INTERVALO } from "../core/regua.js?v=20261122-144802";
+import { store } from "../core/store.js?v=20261122-150027";
+import { dataTable, acoes, onAction } from "../core/table.js?v=20261122-150027";
+import { exportarExcel } from "../core/forms.js?v=20261122-150027";
+import { toast, icon, tag, openModal, closeModal } from "../core/ui.js?v=20261122-150027";
+import { esc, fmt, fmtD, hojeIso, toTitleCase } from "../core/utils.js?v=20261122-150027";
+import { podeEditar } from "../core/auth.js?v=20261122-150027";
+import { reequilibriosSemRetorno, diasAguardando } from "../core/risco.js?v=20261122-150027";
+import { reqInfo } from "./reequilibrio.js?v=20261122-150027";
+import { iniciarRegua, onRegua, linhasRegua, situacaoRegua, montarEmail, enviarPelaRegua, copiarPelaRegua, TIPO_ROTULO, INTERVALO } from "../core/regua.js?v=20261122-150027";
 
 let unsub = null, unsubR = null, filtro = "todas";
 const FILTROS = [["todas", "Todas"], ["atrasadas", "Atrasadas"], ["hoje", "Para hoje"], ["semana", "Próximos 7 dias"], ["encerradas", "Encerradas"]];
@@ -20,8 +22,14 @@ export default {
       <div class="grid grid-4" id="kpis" style="margin-bottom:16px"></div>
       <div class="page-head"><h2>Régua de Envio</h2><div class="actions"><button class="btn btn-ghost" data-act="excel">${icon("download")} Excel</button></div></div>
       <p class="muted" style="margin:-6px 0 14px;font-size:13px;max-width:900px"><strong>Como funciona:</strong> acompanhamento a cada ${INTERVALO} dias enquanto houver saldo; avisos de renovação a 60 e 30 dias do vencimento da ATA; agradecimento quando o fornecimento termina. Cada envio fica registrado aqui e no sistema atual — é a mesma régua.</p>
+      <div id="reeq-lembrete"></div>
       <div class="card"><div class="chip-filters" id="chips"></div><div class="card-body flush" id="tbl"></div></div>`;
-    let cache = linhasRegua(); const recalc = () => { cache = linhasRegua(); };
+    const lembreteReeq = () => { const box = el.querySelector("#reeq-lembrete"); if (!box) return; const lst = reequilibriosSemRetorno(15); if (!lst.length) { box.innerHTML = ""; return; }
+      box.innerHTML = `<div class="card" style="margin-bottom:16px;border-color:#f3c6a5"><div class="card-head"><h2>Reequilíbrios aguardando retorno do órgão <span class="muted" style="font-weight:400;font-size:13px">(${lst.length})</span></h2><a class="btn btn-ghost btn-sm" href="#reequilibrio">Abrir Reequilíbrio</a></div>
+        <div class="card-body flush"><div class="table-wrap"><table><thead><tr><th>Solicitação</th><th>Órgão</th><th>Enviado</th><th>Aguardando</th><th>Cobranças</th></tr></thead><tbody>${lst.slice(0, 15).map((r) => { const i = reqInfo(r); const d = diasAguardando(r); const cs = r.cobrancasRetorno || []; return `<tr><td><strong>${esc(r.numero || "—")}</strong><div class="muted" style="font-size:11px">ATA ${esc(i.ata?.numero || "—")}</div></td><td>${esc(toTitleCase(i.o?.nome || "—"))}</td><td>${fmtD(r.dataSolic)}</td><td>${tag(`${d} dias`, d > 30 ? "tag-red" : "tag-orange")}</td><td class="muted" style="font-size:12px">${cs.length ? `${cs.length} · última ${fmtD(cs[cs.length - 1].data)}` : "nenhuma"}</td></tr>`; }).join("")}</tbody></table></div></div>
+        <div class="muted" style="font-size:11.5px;padding:8px 14px;border-top:1px solid var(--line)">Lembrete: sem resposta há 15 dias → 1ª reiteração; 30 dias → 2ª. Use "Cobrar retorno" na tela de Reequilíbrio.</div></div>`; };
+    lembreteReeq();
+    let cache = linhasRegua(); const recalc = () => { cache = linhasRegua(); lembreteReeq(); };
     const chips = () => { el.querySelector("#chips").innerHTML = `<span class="muted">Mostrar:</span>` + FILTROS.map(([v, t]) => `<button class="chip ${filtro === v ? "active" : ""}" data-act="filtro" data-id="${v}">${t}</button>`).join(""); };
     const kpis = () => { const ativas = cache.filter((l) => !l.encerrada); const s = ativas.map(situacaoRegua);
       el.querySelector("#kpis").innerHTML = `

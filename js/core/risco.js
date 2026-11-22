@@ -1,9 +1,9 @@
 // Monitor de reequilíbrio: compara o custo gravado na proposta (época da disputa) com o custo atual do cadastro,
 // para ATAs vigentes com saldo. Gatilhos (Parâmetros): lucro atual abaixo do mínimo OU alta do custo acima do limite.
-import { store } from "./store.js?v=20261122-144802";
-import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada } from "./domain.js?v=20261122-144802";
-import { getCfg, piso, encargoPct, custoVencido, diasCusto } from "./preco.js?v=20261122-144802";
-import { hojeIso } from "./utils.js?v=20261122-144802";
+import { store } from "./store.js?v=20261122-150027";
+import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada } from "./domain.js?v=20261122-150027";
+import { getCfg, piso, encargoPct, custoVencido, diasCusto } from "./preco.js?v=20261122-150027";
+import { hojeIso } from "./utils.js?v=20261122-150027";
 
 export function itensEmRisco() {
   const cfg = getCfg(); const hoje = hojeIso();
@@ -35,3 +35,12 @@ export function itensEmRisco() {
   });
   return out.sort((a, b) => b.impacto - a.impacto);
 }
+
+// Solicitações de reequilíbrio sem retorno: dias desde a última cobrança (ou desde o envio)
+export const REQ_ABERTO = ["Solicitado", "Em Análise"];
+export function diasAguardando(r) {
+  if (!REQ_ABERTO.includes(r?.status)) return null;
+  const ult = (r.cobrancasRetorno || []).map((c) => c.data).sort().pop() || r.dataSolic; if (!ult) return null;
+  return Math.max(0, Math.floor((new Date(hojeIso() + "T00:00:00") - new Date(String(ult).slice(0, 10) + "T00:00:00")) / 864e5));
+}
+export const reequilibriosSemRetorno = (min = 15) => store.get("reequilibrio").filter((r) => (diasAguardando(r) ?? -1) >= min).sort((a, b) => diasAguardando(b) - diasAguardando(a));
