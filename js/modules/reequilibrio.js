@@ -1,20 +1,20 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261122-180805";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-180805";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261122-180805";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261122-180805";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso, contem } from "../core/utils.js?v=20261122-180805";
-import { podeEditar } from "../core/auth.js?v=20261122-180805";
-import { itensEmRisco, diasAguardando, reequilibriosSemRetorno, diagnosticoRisco } from "../core/risco.js?v=20261122-180805";
-import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261122-180805";
-import { EMPRESA } from "../core/pdf.js?v=20261122-180805";
-import { dataLocal } from "../core/utils.js?v=20261122-180805";
-import { getCfg, encargoUF } from "../core/preco.js?v=20261122-180805";
-import { getLicit, getOrgao, getProp, getAta, propTotal, deduzirPapel, papelNome } from "../core/domain.js?v=20261122-180805";
-import { ssel } from "../core/ssel.js?v=20261122-180805";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261122-180805";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261122-180805";
+import { store, newId } from "../core/store.js?v=20261122-183701";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-183701";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261122-183701";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261122-183701";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso, contem } from "../core/utils.js?v=20261122-183701";
+import { podeEditar } from "../core/auth.js?v=20261122-183701";
+import { itensEmRisco, diasAguardando, reequilibriosSemRetorno, diagnosticoRisco } from "../core/risco.js?v=20261122-183701";
+import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261122-183701";
+import { EMPRESA } from "../core/pdf.js?v=20261122-183701";
+import { dataLocal } from "../core/utils.js?v=20261122-183701";
+import { getCfg, encargoUF } from "../core/preco.js?v=20261122-183701";
+import { getLicit, getOrgao, getProp, getAta, propTotal, deduzirPapel, papelNome } from "../core/domain.js?v=20261122-183701";
+import { ssel } from "../core/ssel.js?v=20261122-183701";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261122-183701";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261122-183701";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -82,7 +82,7 @@ export default {
           ${mostrar.map((x) => `<tr><td><strong>${esc(x.ata.numero || "—")}</strong><div class="muted" style="font-size:11px">${esc(toTitleCase(x.o.nome || ""))}${x.ata.vencimento ? ` · até ${fmtD(x.ata.vencimento)}` : ""}</div></td>
             <td><strong>${esc(x.item.num ?? "")}</strong> ${esc((x.item.nome || "").slice(0, 60))}<div class="muted" style="font-size:11px">${esc(x.prod.codigo || "")}</div></td>
             <td class="num">${fmtNum(x.item.saldo)}</td><td class="num">${fmt(x.item.preco)}<div class="muted" style="font-size:11px">piso hoje ${fmt(x.pisoAtual)}</div></td>
-            <td>${fmt(x.custoProp)} → <strong style="color:${x.variacao > 0 ? "var(--red)" : "var(--green)"}">${fmt(x.custoAtual)}</strong>${x.variacao !== null ? ` <span style="font-size:12px;color:${x.variacao > 0 ? "var(--red)" : "var(--green)"}">(${x.variacao > 0 ? "+" : ""}${x.variacao.toFixed(1).replace(".", ",")}%)</span>` : ""}<div class="muted" style="font-size:11px">${x.custoData ? `custo de ${fmtD(x.custoData)}` : "custo sem data"}${x.semData ? " · vencido" : ""}</div></td>
+            <td>${fmt(x.custoProp)} → <strong style="color:${x.variacao > 0 ? "var(--red)" : "var(--green)"}">${fmt(x.custoAtual)}</strong>${x.variacao !== null ? ` <span style="font-size:12px;color:${x.variacao > 0 ? "var(--red)" : "var(--green)"}">(${x.variacao > 0 ? "+" : ""}${x.variacao.toFixed(1).replace(".", ",")}%)</span>` : ""}<div class="muted" style="font-size:11px">${x.semCustoCadastro ? '<span style="color:var(--amber-txt)">produto sem custo no cadastro — usando o da proposta</span>' : `${x.custoData ? `custo de ${fmtD(x.custoData)}` : "custo sem data"}${x.semData ? " · vencido" : ""}`}</div></td>
             <td class="num" style="font-weight:600;color:${x.lucroAtual < 0 ? "var(--red)" : x.gatilhoLucro ? "var(--amber-txt)" : "var(--green)"}">${x.lucroAtual.toFixed(1).replace(".", ",")}%</td>
             <td class="num"><strong>${fmt(x.impacto)}</strong></td>
             <td>${tag(...NIVEL[x.nivel])}</td>

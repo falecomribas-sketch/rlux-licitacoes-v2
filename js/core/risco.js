@@ -1,9 +1,9 @@
 // Monitor de reequilíbrio: compara o custo gravado na proposta (época da disputa) com o custo atual do cadastro,
 // para ATAs vigentes com saldo. Gatilhos (Parâmetros): lucro atual abaixo do mínimo OU alta do custo acima do limite.
-import { store } from "./store.js?v=20261122-180805";
-import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada } from "./domain.js?v=20261122-180805";
-import { getCfg, piso, encargoPct, custoVencido, diasCusto } from "./preco.js?v=20261122-180805";
-import { hojeIso } from "./utils.js?v=20261122-180805";
+import { store } from "./store.js?v=20261122-183701";
+import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada } from "./domain.js?v=20261122-183701";
+import { getCfg, piso, encargoPct, custoVencido, diasCusto } from "./preco.js?v=20261122-183701";
+import { hojeIso } from "./utils.js?v=20261122-183701";
 
 export function itensEmRisco() {
   const cfg = getCfg(); const hoje = hojeIso();
@@ -21,15 +21,15 @@ export function itensEmRisco() {
     itens.forEach((it) => {
       if (!it.produtoId || !(it.saldo > 0) || !(it.preco > 0)) return;
       const prod = store.find("produtos", it.produtoId); if (!prod) return;
-      const custoProp = +it.custo || 0, custoAtual = +prod.custo || 0; if (!custoAtual) return;
+      const custoProp = +it.custo || 0; const semCustoCadastro = !(+prod.custo > 0); const custoAtual = semCustoCadastro ? custoProp : +prod.custo; if (!custoAtual) return; // sem custo no cadastro: avalia pelo custo da proposta
       const pisoAtual = piso(custoAtual, cfg, o?.estado);
       const lucroAtual = (1 - (cfg.simples + cfg.fretePct + encargoPct(o?.estado, cfg)) / 100) - custoAtual / it.preco; // fração do preço que sobra como lucro hoje
       const variacao = custoProp > 0 ? (custoAtual - custoProp) / custoProp * 100 : null;
-      const semData = custoVencido(prod);
+      const semData = semCustoCadastro || custoVencido(prod);
       const gatilhoLucro = lucroAtual * 100 < lucroMinReq, gatilhoAlta = variacao !== null && variacao > altaReq;
       if (!gatilhoLucro && !gatilhoAlta) return;
       const pedido = emAndamento.find((r) => r.ataId === ata.id && (r.itens || []).some((x) => String(x.num) === String(it.num) || x.nome === it.nome));
-      out.push({ ata, p, l, o, item: it, prod, custoProp, custoAtual, custoData: prod.custoData || "", diasCusto: diasCusto(prod), semData, variacao, lucroAtual: lucroAtual * 100, pisoAtual,
+      out.push({ ata, p, l, o, item: it, prod, custoProp, custoAtual, semCustoCadastro, custoData: prod.custoData || "", diasCusto: diasCusto(prod), semData, variacao, lucroAtual: lucroAtual * 100, pisoAtual,
         impacto: it.saldo * Math.max(0, custoAtual - custoProp), abaixoPiso: it.preco < pisoAtual, gatilhoLucro, gatilhoAlta, pedidoId: pedido?.id || "", nivel: pedido ? "em_andamento" : (variacao !== null && variacao <= 1) ? "origem" : semData ? "verificar" : (it.preco < pisoAtual ? "critico" : "alerta") }); // "origem": margem já era baixa na proposta, sem alta de custo — não fundamenta reequilíbrio
     });
   });
@@ -58,10 +58,11 @@ export function diagnosticoRisco(q) {
     if (ataFoiRenovada(ata)) return out.push({ rot, motivo: "ATA renovada — a vigência atual é a nova geração (veja a renovação)." });
     const sd = propSaldoDetalhado(p); const itens = sd.detalhado ? sd.itens : (p.itens || []).map((it) => ({ ...it, saldo: it.qtd || 0 }));
     if (!itens.length) return out.push({ rot, motivo: "Proposta sem itens." });
-    const semProd = itens.filter((it) => !it.produtoId).length, semSaldo = itens.filter((it) => !(it.saldo > 0)).length, semCusto = itens.filter((it) => it.produtoId && !(+store.find("produtos", it.produtoId)?.custo > 0)).length;
-    const avaliados = itens.filter((it) => it.produtoId && it.saldo > 0 && it.preco > 0 && +store.find("produtos", it.produtoId)?.custo > 0);
+    const custoDe = (it) => { const pr = it.produtoId ? store.find("produtos", it.produtoId) : null; return +pr?.custo > 0 ? +pr.custo : (+it.custo || 0); };
+    const semProd = itens.filter((it) => !it.produtoId).length, semSaldo = itens.filter((it) => !(it.saldo > 0)).length, semCusto = itens.filter((it) => it.produtoId && !(custoDe(it) > 0)).length;
+    const avaliados = itens.filter((it) => it.produtoId && it.saldo > 0 && it.preco > 0 && custoDe(it) > 0);
     if (!avaliados.length) return out.push({ rot, motivo: `Nenhum item avaliável: ${[semProd ? `${semProd} sem produto do catálogo vinculado` : "", semSaldo ? `${semSaldo} sem saldo a fornecer` : "", semCusto ? `${semCusto} com produto sem custo cadastrado` : ""].filter(Boolean).join(", ")}.` });
-    const detalhes = avaliados.map((it) => { const prod = store.find("produtos", it.produtoId); const ca = +prod.custo, cp = +it.custo || 0; const lucro = ((1 - (cfg.simples + cfg.fretePct + encargoPct(o?.estado, cfg)) / 100) - ca / it.preco) * 100; const v = cp > 0 ? (ca - cp) / cp * 100 : null; return `item ${it.num ?? ""}: lucro hoje ${lucro.toFixed(1)}%${v !== null ? `, custo ${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : ""}`; });
+    const detalhes = avaliados.map((it) => { const ca = custoDe(it), cp = +it.custo || 0; const lucro = ((1 - (cfg.simples + cfg.fretePct + encargoPct(o?.estado, cfg)) / 100) - ca / it.preco) * 100; const v = cp > 0 ? (ca - cp) / cp * 100 : null; return `item ${it.num ?? ""}: lucro hoje ${lucro.toFixed(1)}%${v !== null ? `, custo ${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : ""}`; });
     out.push({ rot, motivo: `${avaliados.length} item(ns) avaliado(s) e nenhum atingiu os gatilhos (lucro < ${lucroMinReq}% ou custo +${altaReq}%): ${detalhes.slice(0, 6).join("; ")}${detalhes.length > 6 ? "…" : ""}.`, ok: true });
   });
   return out;
