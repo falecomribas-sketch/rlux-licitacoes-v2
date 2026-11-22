@@ -1,20 +1,20 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261122-183701";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-183701";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261122-183701";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261122-183701";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso, contem } from "../core/utils.js?v=20261122-183701";
-import { podeEditar } from "../core/auth.js?v=20261122-183701";
-import { itensEmRisco, diasAguardando, reequilibriosSemRetorno, diagnosticoRisco } from "../core/risco.js?v=20261122-183701";
-import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261122-183701";
-import { EMPRESA } from "../core/pdf.js?v=20261122-183701";
-import { dataLocal } from "../core/utils.js?v=20261122-183701";
-import { getCfg, encargoUF } from "../core/preco.js?v=20261122-183701";
-import { getLicit, getOrgao, getProp, getAta, propTotal, deduzirPapel, papelNome } from "../core/domain.js?v=20261122-183701";
-import { ssel } from "../core/ssel.js?v=20261122-183701";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261122-183701";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261122-183701";
+import { store, newId } from "../core/store.js?v=20261122-184622";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-184622";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261122-184622";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261122-184622";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso, contem } from "../core/utils.js?v=20261122-184622";
+import { podeEditar } from "../core/auth.js?v=20261122-184622";
+import { itensEmRisco, diasAguardando, reequilibriosSemRetorno, diagnosticoRisco } from "../core/risco.js?v=20261122-184622";
+import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261122-184622";
+import { EMPRESA } from "../core/pdf.js?v=20261122-184622";
+import { dataLocal } from "../core/utils.js?v=20261122-184622";
+import { getCfg, encargoUF } from "../core/preco.js?v=20261122-184622";
+import { getLicit, getOrgao, getProp, getAta, propTotal, deduzirPapel, papelNome } from "../core/domain.js?v=20261122-184622";
+import { ssel } from "../core/ssel.js?v=20261122-184622";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261122-184622";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261122-184622";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -79,14 +79,14 @@ export default {
         <div class="chip-filters"><label class="search" style="min-width:240px"><span class="search-ic">${icon("search")}</span><input type="search" id="risco-busca" class="input" placeholder="ATA, órgão, item, código…" value="${esc(riscoBusca)}"></label>
           ${[["", "Todos", todos.length], ["critico", "Abaixo do piso", cont("critico")], ["alerta", "Em risco", cont("alerta")], ["verificar", "Verificar custo", cont("verificar")], ["em_andamento", "Pedido em andamento", cont("em_andamento")], ["origem", "Margem baixa na origem", cont("origem")]].map(([k, t, n]) => `<button class="chip ${riscoNivel === k ? "active" : ""}" data-risco-nivel="${k}">${t} (${n})</button>`).join("")}</div>`
         + (lst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr>${th("ata", "ATA / órgão")}${th("item", "Item")}${th("saldo", "Saldo", "num")}${th("preco", "Preço contratado", "num")}${th("variacao", "Custo proposta → atual")}${th("lucro", "Lucro hoje", "num")}${th("impacto", "Impacto", "num")}${th("situacao", "Situação")}<th></th></tr></thead><tbody>
-          ${mostrar.map((x) => `<tr><td><strong>${esc(x.ata.numero || "—")}</strong><div class="muted" style="font-size:11px">${esc(toTitleCase(x.o.nome || ""))}${x.ata.vencimento ? ` · até ${fmtD(x.ata.vencimento)}` : ""}</div></td>
+          ${mostrar.map((x) => `<tr><td><strong>${x.semAta ? '<span class="tag tag-amber" title="Proposta vencida sem ATA cadastrada">sem ATA</span>' : esc(x.ata.numero || "—")}</strong><div class="muted" style="font-size:11px">${esc(toTitleCase(x.o.nome || ""))}${x.ata.vencimento ? ` · até ${fmtD(x.ata.vencimento)}` : ""}</div></td>
             <td><strong>${esc(x.item.num ?? "")}</strong> ${esc((x.item.nome || "").slice(0, 60))}<div class="muted" style="font-size:11px">${esc(x.prod.codigo || "")}</div></td>
             <td class="num">${fmtNum(x.item.saldo)}</td><td class="num">${fmt(x.item.preco)}<div class="muted" style="font-size:11px">piso hoje ${fmt(x.pisoAtual)}</div></td>
             <td>${fmt(x.custoProp)} → <strong style="color:${x.variacao > 0 ? "var(--red)" : "var(--green)"}">${fmt(x.custoAtual)}</strong>${x.variacao !== null ? ` <span style="font-size:12px;color:${x.variacao > 0 ? "var(--red)" : "var(--green)"}">(${x.variacao > 0 ? "+" : ""}${x.variacao.toFixed(1).replace(".", ",")}%)</span>` : ""}<div class="muted" style="font-size:11px">${x.semCustoCadastro ? '<span style="color:var(--amber-txt)">produto sem custo no cadastro — usando o da proposta</span>' : `${x.custoData ? `custo de ${fmtD(x.custoData)}` : "custo sem data"}${x.semData ? " · vencido" : ""}`}</div></td>
             <td class="num" style="font-weight:600;color:${x.lucroAtual < 0 ? "var(--red)" : x.gatilhoLucro ? "var(--amber-txt)" : "var(--green)"}">${x.lucroAtual.toFixed(1).replace(".", ",")}%</td>
             <td class="num"><strong>${fmt(x.impacto)}</strong></td>
             <td>${tag(...NIVEL[x.nivel])}</td>
-            <td style="white-space:nowrap">${x.pedidoId ? `<button class="btn btn-ghost btn-sm" data-act="editar" data-id="${esc(x.pedidoId)}">Abrir pedido</button>` : podeEditar() ? `${x.nivel === "origem" ? `<div style="font-size:11px;color:var(--amber-txt);margin-bottom:4px" title="Sem alta de custo desde a proposta: não há fato superveniente — o órgão tende a negar">sem alta de custo — pedido frágil</div>` : ""}${(() => { const av = ultimoAviso(x.p.id); return av ? `<div class="muted" style="font-size:11px;margin-bottom:4px">Órgão avisado em ${fmtD(dataLocal(av.data))}</div>` : ""; })()}<button class="btn btn-ghost btn-sm" data-act="avisar" data-id="${esc(x.ata.id)}" title="E-mail ao órgão pedindo contato e procedimento">${icon("mail")} ${ultimoAviso(x.p.id) ? "Reenviar aviso" : "Avisar órgão"}</button> <button class="btn btn-primary btn-sm" data-act="solicitar" data-id="${esc(x.ata.id)}">Solicitar</button>` : ""}</td></tr>`).join("")}
+            <td style="white-space:nowrap">${x.pedidoId ? `<button class="btn btn-ghost btn-sm" data-act="editar" data-id="${esc(x.pedidoId)}">Abrir pedido</button>` : podeEditar() ? `${x.nivel === "origem" ? `<div style="font-size:11px;color:var(--amber-txt);margin-bottom:4px" title="Sem alta de custo desde a proposta: não há fato superveniente — o órgão tende a negar">sem alta de custo — pedido frágil</div>` : ""}${(() => { const av = ultimoAviso(x.p.id); return av ? `<div class="muted" style="font-size:11px;margin-bottom:4px">Órgão avisado em ${fmtD(dataLocal(av.data))}</div>` : ""; })()}<button class="btn btn-ghost btn-sm" data-act="avisar" data-id="${esc(x.ata.id)}" title="E-mail ao órgão pedindo contato e procedimento">${icon("mail")} ${ultimoAviso(x.p.id) ? "Reenviar aviso" : "Avisar órgão"}</button> ${x.semAta ? `<a class="btn btn-primary btn-sm" href="#atas" title="O pedido de reequilíbrio é vinculado à ATA/contrato: cadastre-o primeiro em Gestão de ATA">Cadastrar ATA</a>` : `<button class="btn btn-primary btn-sm" data-act="solicitar" data-id="${esc(x.ata.id)}">Solicitar</button>`}` : ""}</td></tr>`).join("")}
           </tbody></table></div>${lst.length > mostrar.length ? `<div style="display:flex;gap:8px;align-items:center;padding:10px 16px"><span class="muted" style="font-size:12px">Mostrando ${mostrar.length} de ${lst.length}.</span><button class="btn btn-ghost btn-sm" data-risco-mais="40">Mostrar mais 40</button><button class="btn btn-ghost btn-sm" data-risco-mais="all">Mostrar todos</button></div>` : ""}</div>`
         : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">${q ? `Nenhum item em risco para "${esc(riscoBusca.trim())}".` : "Nenhum item em risco: em todas as ATAs vigentes com saldo, o custo atual ainda sustenta o lucro mínimo. O monitor recalcula a cada importação de custos."}</p>
           ${q ? (() => { const dg = diagnosticoRisco(riscoBusca); return dg.length ? `<div style="margin-top:8px;font-size:12.5px"><div class="k" style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:4px">Por quê</div>${dg.map((d) => `<div style="margin:3px 0"><strong>${esc(d.rot)}</strong> — ${esc(d.motivo)}</div>`).join("")}</div>` : `<div class="muted" style="margin-top:6px;font-size:12.5px">Nenhuma ATA cadastrada com esse órgão/número — o monitor parte das ATAs em Gestão de ATA.</div>`; })() : ""}</div>`);
@@ -264,7 +264,7 @@ Setor de Licitações e Contratos
 
 Prezado (a),
 
-Em referência ao ${tipo} nº ${l.numero || "____"} – Ata de Registro de Preços nº ${x.ata.numero || "____"}, firmada entre a ${orgao} e a RLUX Iluminação Ltda., informamos que, em virtude de reajustes significativos nos preços de aquisição praticados pelos fabricantes/importadores após a apresentação de nossa proposta, precisaremos solicitar o reequilíbrio econômico-financeiro de itens registrados na referida Ata.
+Em referência ao ${tipo} nº ${l.numero || "____"}${x.semAta ? " e ao contrato dele decorrente, firmado" : ` – Ata de Registro de Preços nº ${x.ata.numero || "____"}, firmada`} entre a ${orgao} e a RLUX Iluminação Ltda., informamos que, em virtude de reajustes significativos nos preços de aquisição praticados pelos fabricantes/importadores após a apresentação de nossa proposta, precisaremos solicitar o reequilíbrio econômico-financeiro de itens ${x.semAta ? "contratados" : "registrados na referida Ata"}.
 
 Solicitamos a gentileza de nos informar o contato responsável e o procedimento adotado por esse órgão para a apresentação da documentação (ofício, planilhas e comprovantes), bem como se há formulário ou protocolo específico.
 
@@ -277,9 +277,9 @@ ${EMPRESA.emailLicitacoes} · ${EMPRESA.tel}`;
 function avisarOrgao(x) {
   const o = x.o || {}; const l = x.l || {}; const contatos = (o.contatos || []).filter((c) => c.email);
   const pre = (c) => /pregoeir|licita|compra|contrat/i.test(`${c.cargo || ""} ${c.email || ""} ${c.nome || ""}`);
-  const assunto = `ATA nº ${x.ata.numero || ""} – ${l.tipo || "Pregão Eletrônico"} nº ${l.numero || ""} – Reequilíbrio econômico-financeiro – procedimento para apresentação`;
+  const assunto = `${x.semAta ? "Contrato" : `ATA nº ${x.ata.numero || ""}`} – ${l.tipo || "Pregão Eletrônico"} nº ${l.numero || ""} – Reequilíbrio econômico-financeiro – procedimento para apresentação`;
   const itensRisco = itensEmRisco().filter((y) => y.ata.id === x.ata.id && y.nivel !== "origem");
-  const m = openModal({ titulo: `Avisar órgão — reequilíbrio · ATA ${x.ata.numero || ""}`, largura: "lg",
+  const m = openModal({ titulo: `Avisar órgão — reequilíbrio · ${x.semAta ? `${l.tipo || "Pregão"} ${l.numero || ""}` : `ATA ${x.ata.numero || ""}`}`, largura: "lg",
     corpo: `<div class="info-box" style="margin-bottom:12px"><div><div class="k">Órgão</div>${esc(toTitleCase(o.nome || "—"))}</div><div><div class="k">Pregão</div>${esc(l.tipo || "Pregão Eletrônico")} nº ${esc(l.numero || "—")}</div><div><div class="k">ATA</div>${esc(x.ata.numero || "—")}${x.ata.vencimento ? ` · vigente até ${fmtD(x.ata.vencimento)}` : ""}</div><div><div class="k">Itens em risco</div>${itensRisco.length} · impacto ${fmt(itensRisco.reduce((s, y) => s + y.impacto, 0))} <span class="muted">(não citados neste e-mail)</span></div></div>
       <div class="field" style="margin-bottom:10px"><span style="display:flex;justify-content:space-between"><span>Para — contatos cadastrados do órgão</span><a href="#orgaos" style="font-weight:400;font-size:12px">+ cadastrar contato em Órgãos</a></span>
         ${contatos.length ? `<div class="dest-lista">

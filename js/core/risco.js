@@ -1,20 +1,17 @@
 // Monitor de reequilíbrio: compara o custo gravado na proposta (época da disputa) com o custo atual do cadastro,
 // para ATAs vigentes com saldo. Gatilhos (Parâmetros): lucro atual abaixo do mínimo OU alta do custo acima do limite.
-import { store } from "./store.js?v=20261122-183701";
-import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada } from "./domain.js?v=20261122-183701";
-import { getCfg, piso, encargoPct, custoVencido, diasCusto } from "./preco.js?v=20261122-183701";
-import { hojeIso } from "./utils.js?v=20261122-183701";
+import { store } from "./store.js?v=20261122-184622";
+import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada, isVencido } from "./domain.js?v=20261122-184622";
+import { getCfg, piso, encargoPct, custoVencido, diasCusto } from "./preco.js?v=20261122-184622";
+import { hojeIso } from "./utils.js?v=20261122-184622";
 
 export function itensEmRisco() {
   const cfg = getCfg(); const hoje = hojeIso();
   const lucroMinReq = cfg.lucroMinReq ?? cfg.lucroMin ?? 7, altaReq = cfg.altaCustoReq ?? 10;
   const emAndamento = store.get("reequilibrio").filter((r) => r.status === "Solicitado" || r.status === "Em Análise");
   const out = [];
-  store.get("atas").forEach((ata) => {
-    if (!ata.propostaId) return;
-    if (ata.vencimento && ata.vencimento < hoje) return; // encerrada
-    if (ataFoiRenovada(ata)) return; // substituída por nova geração
-    const p = getProp(ata.propostaId); if (!p) return;
+  const comAta = new Set(store.get("atas").map((a) => a.propostaId).filter(Boolean));
+  const avaliar = (ata, p) => {
     const l = getLicit(p.licitacaoId), o = getOrgao(l?.orgaoId);
     const sd = propSaldoDetalhado(p);
     const itens = sd.detalhado ? sd.itens : (p.itens || []).map((it) => ({ ...it, saldo: it.qtd || 0, valorSaldo: (it.qtd || 0) * (it.preco || 0) }));
@@ -29,9 +26,21 @@ export function itensEmRisco() {
       const gatilhoLucro = lucroAtual * 100 < lucroMinReq, gatilhoAlta = variacao !== null && variacao > altaReq;
       if (!gatilhoLucro && !gatilhoAlta) return;
       const pedido = emAndamento.find((r) => r.ataId === ata.id && (r.itens || []).some((x) => String(x.num) === String(it.num) || x.nome === it.nome));
-      out.push({ ata, p, l, o, item: it, prod, custoProp, custoAtual, semCustoCadastro, custoData: prod.custoData || "", diasCusto: diasCusto(prod), semData, variacao, lucroAtual: lucroAtual * 100, pisoAtual,
+      out.push({ ata, semAta: !!ata.semAta, p, l, o, item: it, prod, custoProp, custoAtual, semCustoCadastro, custoData: prod.custoData || "", diasCusto: diasCusto(prod), semData, variacao, lucroAtual: lucroAtual * 100, pisoAtual,
         impacto: it.saldo * Math.max(0, custoAtual - custoProp), abaixoPiso: it.preco < pisoAtual, gatilhoLucro, gatilhoAlta, pedidoId: pedido?.id || "", nivel: pedido ? "em_andamento" : (variacao !== null && variacao <= 1) ? "origem" : semData ? "verificar" : (it.preco < pisoAtual ? "critico" : "alerta") }); // "origem": margem já era baixa na proposta, sem alta de custo — não fundamenta reequilíbrio
     });
+  };
+  store.get("atas").forEach((ata) => {
+    if (!ata.propostaId) return;
+    if (ata.vencimento && ata.vencimento < hoje) return; // encerrada
+    if (ataFoiRenovada(ata)) return; // substituída por nova geração
+    const p = getProp(ata.propostaId); if (p) avaliar(ata, p);
+  });
+  // propostas vencidas sem ATA cadastrada (contrato/compra direta): também têm saldo a fornecer e podem precisar de reequilíbrio
+  store.get("propostas").forEach((p) => {
+    if (!isVencido(p) || comAta.has(p.id) || p.espelhoDeAtaId) return;
+    if (["Faturado Total"].includes(p.status)) return;
+    avaliar({ id: "p:" + p.id, numero: "(sem ATA)", vencimento: "", propostaId: p.id, semAta: true }, p);
   });
   return out.sort((a, b) => b.impacto - a.impacto);
 }
@@ -65,5 +74,11 @@ export function diagnosticoRisco(q) {
     const detalhes = avaliados.map((it) => { const ca = custoDe(it), cp = +it.custo || 0; const lucro = ((1 - (cfg.simples + cfg.fretePct + encargoPct(o?.estado, cfg)) / 100) - ca / it.preco) * 100; const v = cp > 0 ? (ca - cp) / cp * 100 : null; return `item ${it.num ?? ""}: lucro hoje ${lucro.toFixed(1)}%${v !== null ? `, custo ${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : ""}`; });
     out.push({ rot, motivo: `${avaliados.length} item(ns) avaliado(s) e nenhum atingiu os gatilhos (lucro < ${lucroMinReq}% ou custo +${altaReq}%): ${detalhes.slice(0, 6).join("; ")}${detalhes.length > 6 ? "…" : ""}.`, ok: true });
   });
+  const comAta = new Set(store.get("atas").map((a) => a.propostaId).filter(Boolean));
+  store.get("propostas").forEach((p) => { if (comAta.has(p.id)) return; const l = getLicit(p.licitacaoId), o = getOrgao(l?.orgaoId); if (![o?.nome, o?.uasg, l?.numero].some((v) => n(v).includes(qq))) return;
+    const rot = `Proposta #${p.num || "?"} · ${l?.numero || "—"} · ${o?.nome || "—"}`;
+    if (!isVencido(p)) return out.push({ rot, motivo: `Status "${p.status || "Em Andamento"}" — só propostas vencidas entram no monitor.` });
+    if (p.status === "Faturado Total") return out.push({ rot, motivo: "Faturado Total — sem saldo a fornecer." });
+    out.push({ rot, motivo: "Proposta vencida sem ATA cadastrada: é avaliada pelos itens da proposta; se nenhum atingiu os gatilhos, não aparece. Cadastre a ATA em Gestão de ATA para controlar vigência e saldo." }); });
   return out;
 }

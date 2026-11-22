@@ -1,7 +1,7 @@
 // Precificação e famílias técnicas dos produtos.
 // Configuração em Firestore: config/precificacao { simples, fretePct, freteMin, lucroMin, descontoRef, custoValidadeDias }
-import { store } from "./store.js?v=20261122-183701";
-import { hojeIso } from "./utils.js?v=20261122-183701";
+import { store } from "./store.js?v=20261122-184622";
+import { hojeIso } from "./utils.js?v=20261122-184622";
 
 export const CFG_PADRAO = { simples: 11.35, fretePct: 6, freteMin: 50, lucroMin: 7, descontoRef: 0, custoValidadeDias: 90, lucroMinReq: 7, altaCustoReq: 10, folgaDesempate: 3, encargosUF: [{ uf: "TO", pct: 13, obs: "ICMS cobrado na entrada do estado (sobre o valor da nota)" }] };
 let cfg = { ...CFG_PADRAO }; let iniciado = false; const ouvintes = new Set();
