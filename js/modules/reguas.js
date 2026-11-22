@@ -1,14 +1,14 @@
 // Régua de Envio — visão auditável da régua de relacionamento: cada ATA/adesão com saldo,
 // quantos e-mails já foram, o último e o próximo. Toda a lógica está em core/regua.js.
-import { store } from "../core/store.js?v=20261122-184622";
-import { dataTable, acoes, onAction } from "../core/table.js?v=20261122-184622";
-import { exportarExcel } from "../core/forms.js?v=20261122-184622";
-import { toast, icon, tag, openModal, closeModal } from "../core/ui.js?v=20261122-184622";
-import { esc, fmt, fmtD, hojeIso, toTitleCase } from "../core/utils.js?v=20261122-184622";
-import { podeEditar } from "../core/auth.js?v=20261122-184622";
-import { reequilibriosSemRetorno, diasAguardando } from "../core/risco.js?v=20261122-184622";
-import { reqInfo } from "./reequilibrio.js?v=20261122-184622";
-import { iniciarRegua, onRegua, linhasRegua, situacaoRegua, montarEmail, enviarPelaRegua, copiarPelaRegua, TIPO_ROTULO, INTERVALO } from "../core/regua.js?v=20261122-184622";
+import { store } from "../core/store.js?v=20261122-235523";
+import { dataTable, acoes, onAction } from "../core/table.js?v=20261122-235523";
+import { exportarExcel } from "../core/forms.js?v=20261122-235523";
+import { toast, icon, tag, openModal, closeModal } from "../core/ui.js?v=20261122-235523";
+import { esc, fmt, fmtD, hojeIso, toTitleCase } from "../core/utils.js?v=20261122-235523";
+import { podeEditar } from "../core/auth.js?v=20261122-235523";
+import { reequilibriosSemRetorno, diasAguardando } from "../core/risco.js?v=20261122-235523";
+import { reqInfo } from "./reequilibrio.js?v=20261122-235523";
+import { iniciarRegua, onRegua, linhasRegua, situacaoRegua, montarEmail, enviarPelaRegua, copiarPelaRegua, TIPO_ROTULO, INTERVALO } from "../core/regua.js?v=20261122-235523";
 
 let unsub = null, unsubR = null, filtro = "todas";
 const FILTROS = [["todas", "Todas"], ["atrasadas", "Atrasadas"], ["hoje", "Para hoje"], ["semana", "Próximos 7 dias"], ["encerradas", "Encerradas"]];

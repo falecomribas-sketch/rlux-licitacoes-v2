@@ -1,9 +1,9 @@
 // PDF da proposta comercial — portado do legado (gerarPDF), mesmo layout.
-import { novoDoc, cabecalho, tituloSecao, assinatura, tabelaPadrao, EMPRESA, AZUL } from "../core/pdf.js?v=20261122-184622";
-import { store } from "../core/store.js?v=20261122-184622";
-import { fmt, fmtD, toTitleCase } from "../core/utils.js?v=20261122-184622";
-import { getLicit, getOrgao, getPortal, propTotal } from "../core/domain.js?v=20261122-184622";
-import { toast } from "../core/ui.js?v=20261122-184622";
+import { novoDoc, cabecalho, tituloSecao, assinatura, tabelaPadrao, EMPRESA, AZUL } from "../core/pdf.js?v=20261122-235523";
+import { store } from "../core/store.js?v=20261122-235523";
+import { fmt, fmtD, toTitleCase } from "../core/utils.js?v=20261122-235523";
+import { getLicit, getOrgao, getPortal, propTotal } from "../core/domain.js?v=20261122-235523";
+import { toast } from "../core/ui.js?v=20261122-235523";
 
 function numPorExtenso(n) {
   const u = ["", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
@@ -59,7 +59,7 @@ export async function gerarPdfProposta(p, opts = { comCusto: false, comMarca: tr
   if (opts.comCusto) { head.push("Custo"); cs[ci++] = { cellWidth: 22, halign: "right" }; }
   head.push("Preço Un."); cs[ci++] = { cellWidth: 24, halign: "right" };
   head.push("Total"); cs[ci++] = { cellWidth: 26, halign: "right" };
-  const rows = (p.itens || []).map((i) => { const r = [i.num || "", i.nome]; if (opts.comCodigo) r.push(i.codigo || ""); if (opts.comMarca) r.push(i.marca || ""); r.push(i.qtd); if (opts.comCusto) r.push(fmt(i.custo || 0)); r.push(fmt(i.preco), fmt(i.total)); return r; });
+  const rows = ordenarItens(p.itens || []).map((i) => { const r = [i.num || "", i.nome]; if (opts.comCodigo) r.push(i.codigo || ""); if (opts.comMarca) r.push(i.marca || ""); r.push(i.qtd); if (opts.comCusto) r.push(fmt(i.custo || 0)); r.push(fmt(i.preco), fmt(i.total)); return r; });
 
   doc.autoTable({ ...tabelaPadrao({ styles: { fontSize: 7.5, cellPadding: 2, overflow: "linebreak", textColor: [30, 41, 59] }, headStyles: { fillColor: AZUL, textColor: 255, fontStyle: "bold", fontSize: 7.5 }, footStyles: { fillColor: AZUL, textColor: 255, fontStyle: "bold", fontSize: 8.5 } }),
     head: [head], body: rows, startY: y, foot: [Array(head.length - 2).fill("").concat(["TOTAL", fmt(total)])],
@@ -101,7 +101,7 @@ export async function gerarPdfProposta(p, opts = { comCusto: false, comMarca: tr
   // fichas técnicas
   if (opts.comFicha) {
     const prods = store.get("produtos");
-    for (const item of p.itens || []) {
+    for (const item of ordenarItens(p.itens || [])) {
       const prod = prods.find((x) => x.id === item.produtoId);
       if (!prod?.prodFichaData) continue;
       doc.addPage("a4", "landscape");
@@ -123,4 +123,11 @@ export async function gerarPdfProposta(p, opts = { comCusto: false, comMarca: tr
 
   doc.save(`proposta_${p.num || p.id.slice(-4)}.pdf`);
   toast("PDF gerado.");
+}
+
+// Itens em ordem numérica do edital (quando todos têm número); senão, a ordem da proposta
+function ordenarItens(itens) {
+  const num = (i) => { const m = String(i.num ?? "").match(/\d+(?:[.,]\d+)?/); return m ? parseFloat(m[0].replace(",", ".")) : NaN; };
+  if (!itens.length || itens.some((i) => isNaN(num(i)))) return itens;
+  return itens.slice().sort((a, b) => num(a) - num(b));
 }

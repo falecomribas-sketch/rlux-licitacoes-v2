@@ -1,16 +1,16 @@
 // Produtos. Campos: id, nome, codigo, marca, custo, catId, prodFichaData (imagem base64 comprimida)
 // Etapa B (opcionais): familia, descricaoTecnica, tecnico{...}, custoData, custoOrigem, unidade
-import { store, newId } from "../core/store.js?v=20261122-184622";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-184622";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, textarea, select, linha, exportarExcel, lerExcel } from "../core/forms.js?v=20261122-184622";
-import { iniciarPreco, piso, custoVencido, diasCusto, FAMILIAS_TEC, deduzirFamilia, frequenciaVendas, getCfg } from "../core/preco.js?v=20261122-184622";
-import { hojeIso, dataLocal, fmtDc } from "../core/utils.js?v=20261122-184622";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261122-184622";
-import { esc, h, raw, fmt, fmtD, fmtNum } from "../core/utils.js?v=20261122-184622";
-import { podeEditar } from "../core/auth.js?v=20261122-184622";
-import { getCat, getLicit, getOrgao, ataDaProposta, STATUS_CLASS } from "../core/domain.js?v=20261122-184622";
-import { popover, fecharPopover } from "../core/popover.js?v=20261122-184622";
-import { novoDoc, cabecalho, rodape, tabelaPadrao, AZUL, VERDE, ROXO } from "../core/pdf.js?v=20261122-184622";
+import { store, newId } from "../core/store.js?v=20261122-235523";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-235523";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, textarea, select, linha, exportarExcel, lerExcel } from "../core/forms.js?v=20261122-235523";
+import { iniciarPreco, piso, custoVencido, diasCusto, FAMILIAS_TEC, deduzirFamilia, frequenciaVendas, getCfg } from "../core/preco.js?v=20261122-235523";
+import { hojeIso, dataLocal, fmtDc } from "../core/utils.js?v=20261122-235523";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261122-235523";
+import { esc, h, raw, fmt, fmtD, fmtNum } from "../core/utils.js?v=20261122-235523";
+import { podeEditar } from "../core/auth.js?v=20261122-235523";
+import { getCat, getLicit, getOrgao, ataDaProposta, STATUS_CLASS } from "../core/domain.js?v=20261122-235523";
+import { popover, fecharPopover } from "../core/popover.js?v=20261122-235523";
+import { novoDoc, cabecalho, rodape, tabelaPadrao, AZUL, VERDE, ROXO } from "../core/pdf.js?v=20261122-235523";
 
 let unsub = null;
 let catFiltro = "", sitFiltro = "";

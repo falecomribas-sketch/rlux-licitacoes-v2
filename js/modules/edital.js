@@ -1,24 +1,24 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261122-184622";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261122-184622";
-import { EMPRESA } from "../core/pdf.js?v=20261122-184622";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261122-184622";
-import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261122-184622";
-import { lanceDesempate } from "../core/resultados.js?v=20261122-184622";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261122-184622";
-import { store } from "../core/store.js?v=20261122-184622";
-import { ssel } from "../core/ssel.js?v=20261122-184622";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261122-184622";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261122-184622";
-import { newId } from "../core/store.js?v=20261122-184622";
-import { navigate } from "../core/router.js?v=20261122-184622";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261122-184622";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261122-184622";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261122-184622";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261122-184622";
-import { copiarTexto } from "../core/regua.js?v=20261122-184622";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261122-235523";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261122-235523";
+import { EMPRESA } from "../core/pdf.js?v=20261122-235523";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261122-235523";
+import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261122-235523";
+import { lanceDesempate } from "../core/resultados.js?v=20261122-235523";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261122-235523";
+import { store } from "../core/store.js?v=20261122-235523";
+import { ssel } from "../core/ssel.js?v=20261122-235523";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261122-235523";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261122-235523";
+import { newId } from "../core/store.js?v=20261122-235523";
+import { navigate } from "../core/router.js?v=20261122-235523";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261122-235523";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261122-235523";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261122-235523";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261122-235523";
+import { copiarTexto } from "../core/regua.js?v=20261122-235523";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -396,6 +396,7 @@ function novaLicitacao(el) {
       const licId = licAnterior ? licAnterior.id : newId();
       if (!licAnterior) await store.setItem("licitacoes", { id: licId, numero: v.numero.trim(), tipo: v.tipo, data: v.data || "", portalId: v.portalId || "", orgaoId, obs: `Criada pela análise de edital (IA). Validade: ${L.validadeProposta || "—"}. Entrega: ${L.entrega || "—"}${L.multiplosEnderecos ? " (múltiplos endereços)" : ""}. Amostra: ${L.exigeAmostra || "—"}. Garantia: ${L.garantiaContratual || "—"}.`, origemIA: true, analiseIA: { resumo: L, documentacaoEspecial: r.documentacaoEspecial || [], observacoes: r.observacoes || [], meta: r.meta || null, arquivos: r.arquivos || [] } });
       const itens = linhas.map(({ it, p }, i) => { const qtd = +v[`qtd_${i}`] || 0, preco = +v[`preco_${i}`] || 0; return { num: it.item, numPortal: it.numeroPortal || "", produtoId: p.id, nome: it.descricao || p.nome, produtoNome: p.nome, codigo: p.codigo, marca: p.marca || "", qtd, custo: p.custo || 0, preco, total: +(qtd * preco).toFixed(2), descricaoEdital: it.descricao, unidadeEdital: it.unidade || "", precoReferencia: it.precoReferencia ?? null }; });
+      itens.sort((a, b) => { const n = (x) => { const m = String(x.num ?? "").match(/\d+(?:[.,]\d+)?/); return m ? parseFloat(m[0].replace(",", ".")) : Infinity; }; return n(a) - n(b); });
       const num = Math.max(0, ...store.get("propostas").map((x) => +x.num || 0)) + 1;
       await store.setItem("propostas", { id: newId(), num, licitacaoId: licId, status: "Em Andamento", itens, criadoEm: new Date().toISOString(), origemIA: true });
       ultima.criada = { num, numero: v.numero.trim(), licId }; await salvarAnalise(); closeModal(); mostrar(el);

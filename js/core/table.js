@@ -5,8 +5,8 @@
 //   rows: () => array, search?(row, q), sort: { key, dir }, empty: "texto",
 // });
 // t.refresh()  -> re-renderiza com os dados atuais
-import { esc, semAcento, contem } from "./utils.js?v=20261122-184622";
-import { vazio, icon } from "./ui.js?v=20261122-184622";
+import { esc, semAcento, contem } from "./utils.js?v=20261122-235523";
+import { vazio, icon } from "./ui.js?v=20261122-235523";
 
 export function dataTable(cfg) {
   const state = { q: "", sort: { ...(cfg.sort || { key: cfg.columns[0].key, dir: "asc" }) } };
