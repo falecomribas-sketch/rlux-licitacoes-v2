@@ -3,8 +3,8 @@
 // Na versão atual o login tentava o Firebase Auth e, se falhasse, procurava
 // o usuário na coleção `usuarios` — mas como as regras do Firestore exigem
 // autenticação, na prática só o Auth funciona. Aqui mantemos só o Auth.
-import { auth } from "./firebase.js?v=20261122-055342";
-import { store, newId } from "./store.js?v=20261122-055342";
+import { auth } from "./firebase.js?v=20261122-144322";
+import { store, newId } from "./store.js?v=20261122-144322";
 import {
   signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 

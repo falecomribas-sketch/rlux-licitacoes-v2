@@ -1,8 +1,8 @@
 // Pedido de Reequilíbrio Econômico-Financeiro (retrato) — portado de gerarPDFReq.
-import { novoDoc, tabelaPadrao, EMPRESA, AZUL, VERDE, AMBAR, ROXO, CINZA, ESCURO, BRANCO } from "../core/pdf.js?v=20261122-055342";
-import { fmt, fmtD, fmtNum } from "../core/utils.js?v=20261122-055342";
-import { reqInfo } from "../modules/reequilibrio.js?v=20261122-055342";
-import { toast } from "../core/ui.js?v=20261122-055342";
+import { novoDoc, tabelaPadrao, EMPRESA, AZUL, VERDE, AMBAR, ROXO, CINZA, ESCURO, BRANCO } from "../core/pdf.js?v=20261122-144322";
+import { fmt, fmtD, fmtNum } from "../core/utils.js?v=20261122-144322";
+import { reqInfo } from "../modules/reequilibrio.js?v=20261122-144322";
+import { toast } from "../core/ui.js?v=20261122-144322";
 
 const TEXTO_FUND = {
   revisao: 'Art. 124, inciso II, alínea "d" da Lei nº 14.133/2021 — Os contratos poderão ser alterados, com as devidas justificativas, por acordo entre as partes, para restabelecer o equilíbrio econômico-financeiro inicial do contrato em caso de força maior, caso fortuito ou fato do príncipe ou em decorrência de fatos imprevisíveis ou previsíveis de consequências incalculáveis, que inviabilizem a execução do contrato tal como pactuado, respeitada, em qualquer caso, a repartição objetiva de risco estabelecida no contrato.',
@@ -43,8 +43,19 @@ export async function gerarPdfReequilibrio(r) {
   box(ML, y, CW, fh, [245, 243, 255]); doc.setFillColor(...ROXO); doc.rect(ML, y, 1.5, fh, "F"); doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(75, 65, 130); doc.text(fl, ML + 5, y + 5);
   if (r.indice) { doc.setFont("helvetica", "bold"); doc.text("Índice de referência: " + r.indice, ML + 5, y + fh - 3); } y += fh + 4;
 
-  y = checkY(y, 30); y = secao("JUSTIFICATIVA", y, VERDE);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...ESCURO); const jl = doc.splitTextToSize(r.justificativa || "", CW); doc.text(jl, ML, y); y += jl.length * 3.5 + 5;
+  y = checkY(y, 30); y = secao("JUSTIFICATIVA", y, VERDE) + 1.5;
+  // parágrafos justificados, com quebra de página linha a linha (justificativas longas não transbordam)
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...ESCURO); const LH = 3.7;
+  String(r.justificativa || "").replace(/\r/g, "").split(/\n/).forEach((par) => {
+    const t = par.trim(); if (!t) { y += LH * 0.6; return; }
+    const titulo = /^(\d+\.|[A-ZÀ-Ü][A-ZÀ-Ü\s]{3,}:?$)/.test(t) && t.length < 90 && !/[.;]$/.test(t); // "1. Do custo comprovado" / "DOS PEDIDOS"
+    const linhas = doc.splitTextToSize(t, CW);
+    linhas.forEach((ln, i) => { y = checkY(y, LH + 2); if (y === 30) { doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...ESCURO); }
+      doc.setFont("helvetica", titulo ? "bold" : "normal");
+      if (!titulo && i < linhas.length - 1 && ln.length > 40) doc.text(ln, ML, y, { maxWidth: CW, align: "justify" }); else doc.text(ln, ML, y);
+      y += LH; });
+    y += LH * 0.45; });
+  y += 3;
 
   y = checkY(y, 40); y = secao("DEMONSTRATIVO DE PREÇOS", y, AMBAR);
   doc.autoTable({ ...tabelaPadrao({ styles: { fontSize: 7, cellPadding: 2.8, valign: "middle", textColor: ESCURO, lineColor: [226, 232, 240], lineWidth: .1 }, headStyles: { fillColor: AMBAR, textColor: BRANCO, fontStyle: "bold", fontSize: 6.5, cellPadding: 3.2 }, footStyles: { fillColor: AZUL, textColor: BRANCO, fontStyle: "bold", fontSize: 8 }, alternateRowStyles: { fillColor: [255, 251, 235] } }), startY: y, margin: { left: ML, right: MR, top: 30 },
