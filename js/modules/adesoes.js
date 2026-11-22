@@ -1,15 +1,15 @@
 // Adesões de ATA ("carona"). Limites do art. 86 da Lei 14.133/2021:
 // 50% da quantidade da ATA por órgão aderente e 200% somando todos os aderentes.
-import { store, newId } from "../core/store.js?v=20261122-144322";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-144322";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261122-144322";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261122-144322";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte } from "../core/utils.js?v=20261122-144322";
-import { podeEditar } from "../core/auth.js?v=20261122-144322";
-import { getLicit, getOrgao, getProp, getAta } from "../core/domain.js?v=20261122-144322";
-import { ssel } from "../core/ssel.js?v=20261122-144322";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261122-144322";
-import { gerarTermoAceite } from "../pdf/adesao.js?v=20261122-144322";
+import { store, newId } from "../core/store.js?v=20261122-144802";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-144802";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261122-144802";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261122-144802";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte } from "../core/utils.js?v=20261122-144802";
+import { podeEditar } from "../core/auth.js?v=20261122-144802";
+import { getLicit, getOrgao, getProp, getAta } from "../core/domain.js?v=20261122-144802";
+import { ssel } from "../core/ssel.js?v=20261122-144802";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261122-144802";
+import { gerarTermoAceite } from "../pdf/adesao.js?v=20261122-144802";
 
 export const STATUS_ADESAO = ["Em Análise", "Aprovada", "Negada", "Cancelada"];
 const COR_ST = { Aprovada: "tag-green", "Em Análise": "tag-amber", Negada: "tag-red", Cancelada: "tag-gray" };
