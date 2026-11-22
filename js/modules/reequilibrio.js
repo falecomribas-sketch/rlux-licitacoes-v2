@@ -1,20 +1,20 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261122-150027";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-150027";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261122-150027";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261122-150027";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261122-150027";
-import { podeEditar } from "../core/auth.js?v=20261122-150027";
-import { itensEmRisco, diasAguardando, reequilibriosSemRetorno } from "../core/risco.js?v=20261122-150027";
-import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261122-150027";
-import { EMPRESA } from "../core/pdf.js?v=20261122-150027";
-import { dataLocal } from "../core/utils.js?v=20261122-150027";
-import { getCfg, encargoUF } from "../core/preco.js?v=20261122-150027";
-import { getLicit, getOrgao, getProp, getAta, propTotal, deduzirPapel, papelNome } from "../core/domain.js?v=20261122-150027";
-import { ssel } from "../core/ssel.js?v=20261122-150027";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261122-150027";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261122-150027";
+import { store, newId } from "../core/store.js?v=20261122-180805";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-180805";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261122-180805";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261122-180805";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso, contem } from "../core/utils.js?v=20261122-180805";
+import { podeEditar } from "../core/auth.js?v=20261122-180805";
+import { itensEmRisco, diasAguardando, reequilibriosSemRetorno, diagnosticoRisco } from "../core/risco.js?v=20261122-180805";
+import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261122-180805";
+import { EMPRESA } from "../core/pdf.js?v=20261122-180805";
+import { dataLocal } from "../core/utils.js?v=20261122-180805";
+import { getCfg, encargoUF } from "../core/preco.js?v=20261122-180805";
+import { getLicit, getOrgao, getProp, getAta, propTotal, deduzirPapel, papelNome } from "../core/domain.js?v=20261122-180805";
+import { ssel } from "../core/ssel.js?v=20261122-180805";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261122-180805";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261122-180805";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -67,7 +67,7 @@ export default {
     const painelRisco = () => {
       const box = el.querySelector("#risco"); if (!box) return; const cfg = getCfg(); const todos = itensEmRisco();
       const q = riscoBusca.trim().toLowerCase();
-      const lst = todos.filter((x) => (!riscoNivel || x.nivel === riscoNivel) && (!q || [x.ata.numero, x.o.nome, x.o.uasg, x.l?.numero, x.item.nome, x.item.num, x.prod.codigo].some((v) => String(v || "").toLowerCase().includes(q))));
+      const lst = todos.filter((x) => (!riscoNivel || x.nivel === riscoNivel) && (!q || [x.ata.numero, x.o.nome, x.o.uasg, x.l?.numero, x.item.nome, x.item.num, x.prod.codigo].some((v) => contem(v, q))));
       const chave = { ata: (x) => (x.o.nome || "") + " " + (x.ata.numero || ""), item: (x) => x.item.nome || "", saldo: (x) => x.item.saldo || 0, preco: (x) => x.item.preco || 0, variacao: (x) => x.variacao ?? -1e9, lucro: (x) => x.lucroAtual, impacto: (x) => x.impacto, situacao: (x) => ({ critico: 0, alerta: 1, verificar: 2, em_andamento: 3 })[x.nivel] ?? 9, vencimento: (x) => x.ata.vencimento || "9999" }[riscoOrd] || ((x) => x.impacto);
       lst.sort((a, b) => { const x = chave(a), y = chave(b); const c = typeof x === "number" ? x - y : String(x).localeCompare(String(y)); return riscoDir === "asc" ? c : -c; });
       const th = (k, t, cls = "") => `<th class="${cls}"><a href="#" data-risco-ord="${k}" style="text-decoration:none;${riscoOrd === k ? "font-weight:700;color:var(--navy-2)" : "font-weight:600;color:inherit"}">${t}${riscoOrd === k ? (riscoDir === "asc" ? " ↑" : " ↓") : ""}</a></th>`;
@@ -88,7 +88,8 @@ export default {
             <td>${tag(...NIVEL[x.nivel])}</td>
             <td style="white-space:nowrap">${x.pedidoId ? `<button class="btn btn-ghost btn-sm" data-act="editar" data-id="${esc(x.pedidoId)}">Abrir pedido</button>` : podeEditar() ? `${x.nivel === "origem" ? `<div style="font-size:11px;color:var(--amber-txt);margin-bottom:4px" title="Sem alta de custo desde a proposta: não há fato superveniente — o órgão tende a negar">sem alta de custo — pedido frágil</div>` : ""}${(() => { const av = ultimoAviso(x.p.id); return av ? `<div class="muted" style="font-size:11px;margin-bottom:4px">Órgão avisado em ${fmtD(dataLocal(av.data))}</div>` : ""; })()}<button class="btn btn-ghost btn-sm" data-act="avisar" data-id="${esc(x.ata.id)}" title="E-mail ao órgão pedindo contato e procedimento">${icon("mail")} ${ultimoAviso(x.p.id) ? "Reenviar aviso" : "Avisar órgão"}</button> <button class="btn btn-primary btn-sm" data-act="solicitar" data-id="${esc(x.ata.id)}">Solicitar</button>` : ""}</td></tr>`).join("")}
           </tbody></table></div>${lst.length > mostrar.length ? `<div style="display:flex;gap:8px;align-items:center;padding:10px 16px"><span class="muted" style="font-size:12px">Mostrando ${mostrar.length} de ${lst.length}.</span><button class="btn btn-ghost btn-sm" data-risco-mais="40">Mostrar mais 40</button><button class="btn btn-ghost btn-sm" data-risco-mais="all">Mostrar todos</button></div>` : ""}</div>`
-        : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">Nenhum item em risco: em todas as ATAs vigentes com saldo, o custo atual ainda sustenta o lucro mínimo. O monitor recalcula a cada importação de custos.</p></div>`);
+        : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">${q ? `Nenhum item em risco para "${esc(riscoBusca.trim())}".` : "Nenhum item em risco: em todas as ATAs vigentes com saldo, o custo atual ainda sustenta o lucro mínimo. O monitor recalcula a cada importação de custos."}</p>
+          ${q ? (() => { const dg = diagnosticoRisco(riscoBusca); return dg.length ? `<div style="margin-top:8px;font-size:12.5px"><div class="k" style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:4px">Por quê</div>${dg.map((d) => `<div style="margin:3px 0"><strong>${esc(d.rot)}</strong> — ${esc(d.motivo)}</div>`).join("")}</div>` : `<div class="muted" style="margin-top:6px;font-size:12.5px">Nenhuma ATA cadastrada com esse órgão/número — o monitor parte das ATAs em Gestão de ATA.</div>`; })() : ""}</div>`);
     };
     painelRisco();
     el.addEventListener("click", (e) => {

@@ -5,8 +5,8 @@
 //   rows: () => array, search?(row, q), sort: { key, dir }, empty: "texto",
 // });
 // t.refresh()  -> re-renderiza com os dados atuais
-import { esc } from "./utils.js?v=20261122-150027";
-import { vazio, icon } from "./ui.js?v=20261122-150027";
+import { esc, semAcento, contem } from "./utils.js?v=20261122-180805";
+import { vazio, icon } from "./ui.js?v=20261122-180805";
 
 export function dataTable(cfg) {
   const state = { q: "", sort: { ...(cfg.sort || { key: cfg.columns[0].key, dir: "asc" }) } };
@@ -37,7 +37,8 @@ export function dataTable(cfg) {
 
   function render() {
     const all = cfg.rows();
-    let rows = state.q && cfg.search ? all.filter((r) => cfg.search(r, state.q)) : all.slice();
+    const qn = semAcento(state.q);
+    let rows = state.q && cfg.search ? all.filter((r) => cfg.search(r, state.q) || cfg.search(r, qn) || (cfg.texto ? contem(cfg.texto(r), state.q) : false)) : all.slice();
     const col = cfg.columns.find((c) => c.key === state.sort.key);
     if (col) {
       const sv = col.sort || ((r) => r[col.key]);

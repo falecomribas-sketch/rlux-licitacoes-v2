@@ -1,9 +1,9 @@
 // Monitor de reequilíbrio: compara o custo gravado na proposta (época da disputa) com o custo atual do cadastro,
 // para ATAs vigentes com saldo. Gatilhos (Parâmetros): lucro atual abaixo do mínimo OU alta do custo acima do limite.
-import { store } from "./store.js?v=20261122-150027";
-import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada } from "./domain.js?v=20261122-150027";
-import { getCfg, piso, encargoPct, custoVencido, diasCusto } from "./preco.js?v=20261122-150027";
-import { hojeIso } from "./utils.js?v=20261122-150027";
+import { store } from "./store.js?v=20261122-180805";
+import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada } from "./domain.js?v=20261122-180805";
+import { getCfg, piso, encargoPct, custoVencido, diasCusto } from "./preco.js?v=20261122-180805";
+import { hojeIso } from "./utils.js?v=20261122-180805";
 
 export function itensEmRisco() {
   const cfg = getCfg(); const hoje = hojeIso();
@@ -44,3 +44,25 @@ export function diasAguardando(r) {
   return Math.max(0, Math.floor((new Date(hojeIso() + "T00:00:00") - new Date(String(ult).slice(0, 10) + "T00:00:00")) / 864e5));
 }
 export const reequilibriosSemRetorno = (min = 15) => store.get("reequilibrio").filter((r) => (diasAguardando(r) ?? -1) >= min).sort((a, b) => diasAguardando(b) - diasAguardando(a));
+
+// Por que um órgão/ATA não aparece no monitor: diagnóstico para a busca sem resultado
+export function diagnosticoRisco(q) {
+  const cfg = getCfg(); const hoje = hojeIso(); const n = (x) => String(x ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); const qq = n(q).trim(); if (!qq) return [];
+  const lucroMinReq = cfg.lucroMinReq ?? cfg.lucroMin ?? 7, altaReq = cfg.altaCustoReq ?? 10; const out = [];
+  store.get("atas").forEach((ata) => {
+    const p = getProp(ata.propostaId); const l = getLicit(p?.licitacaoId); const o = getOrgao(l?.orgaoId);
+    if (![ata.numero, o?.nome, o?.uasg, l?.numero].some((v) => n(v).includes(qq))) return;
+    const rot = `ATA ${ata.numero || "—"} · ${o?.nome || "—"}`;
+    if (!p) return out.push({ rot, motivo: "ATA sem proposta vinculada." });
+    if (ata.vencimento && ata.vencimento < hoje) return out.push({ rot, motivo: `ATA vencida em ${ata.vencimento.split("-").reverse().join("/")} — o monitor só olha ATAs vigentes.` });
+    if (ataFoiRenovada(ata)) return out.push({ rot, motivo: "ATA renovada — a vigência atual é a nova geração (veja a renovação)." });
+    const sd = propSaldoDetalhado(p); const itens = sd.detalhado ? sd.itens : (p.itens || []).map((it) => ({ ...it, saldo: it.qtd || 0 }));
+    if (!itens.length) return out.push({ rot, motivo: "Proposta sem itens." });
+    const semProd = itens.filter((it) => !it.produtoId).length, semSaldo = itens.filter((it) => !(it.saldo > 0)).length, semCusto = itens.filter((it) => it.produtoId && !(+store.find("produtos", it.produtoId)?.custo > 0)).length;
+    const avaliados = itens.filter((it) => it.produtoId && it.saldo > 0 && it.preco > 0 && +store.find("produtos", it.produtoId)?.custo > 0);
+    if (!avaliados.length) return out.push({ rot, motivo: `Nenhum item avaliável: ${[semProd ? `${semProd} sem produto do catálogo vinculado` : "", semSaldo ? `${semSaldo} sem saldo a fornecer` : "", semCusto ? `${semCusto} com produto sem custo cadastrado` : ""].filter(Boolean).join(", ")}.` });
+    const detalhes = avaliados.map((it) => { const prod = store.find("produtos", it.produtoId); const ca = +prod.custo, cp = +it.custo || 0; const lucro = ((1 - (cfg.simples + cfg.fretePct + encargoPct(o?.estado, cfg)) / 100) - ca / it.preco) * 100; const v = cp > 0 ? (ca - cp) / cp * 100 : null; return `item ${it.num ?? ""}: lucro hoje ${lucro.toFixed(1)}%${v !== null ? `, custo ${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : ""}`; });
+    out.push({ rot, motivo: `${avaliados.length} item(ns) avaliado(s) e nenhum atingiu os gatilhos (lucro < ${lucroMinReq}% ou custo +${altaReq}%): ${detalhes.slice(0, 6).join("; ")}${detalhes.length > 6 ? "…" : ""}.`, ok: true });
+  });
+  return out;
+}
