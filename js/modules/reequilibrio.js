@@ -1,20 +1,20 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261120-123309";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261120-123309";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261120-123309";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261120-123309";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261120-123309";
-import { podeEditar } from "../core/auth.js?v=20261120-123309";
-import { itensEmRisco } from "../core/risco.js?v=20261120-123309";
-import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261120-123309";
-import { EMPRESA } from "../core/pdf.js?v=20261120-123309";
-import { dataLocal } from "../core/utils.js?v=20261120-123309";
-import { getCfg, encargoUF } from "../core/preco.js?v=20261120-123309";
-import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261120-123309";
-import { ssel } from "../core/ssel.js?v=20261120-123309";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261120-123309";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261120-123309";
+import { store, newId } from "../core/store.js?v=20261122-055342";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-055342";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261122-055342";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261122-055342";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso } from "../core/utils.js?v=20261122-055342";
+import { podeEditar } from "../core/auth.js?v=20261122-055342";
+import { itensEmRisco } from "../core/risco.js?v=20261122-055342";
+import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261122-055342";
+import { EMPRESA } from "../core/pdf.js?v=20261122-055342";
+import { dataLocal } from "../core/utils.js?v=20261122-055342";
+import { getCfg, encargoUF } from "../core/preco.js?v=20261122-055342";
+import { getLicit, getOrgao, getProp, getAta, propTotal } from "../core/domain.js?v=20261122-055342";
+import { ssel } from "../core/ssel.js?v=20261122-055342";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261122-055342";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261122-055342";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -253,10 +253,13 @@ Seguem em anexo: comunicados de reajuste emitidos pelas importadoras/fabricantes
 // ---------- aviso prévio ao órgão (antes do dossiê) ----------
 const ultimoAviso = (propostaId) => enviosDe(propostaId).filter((e) => e.tipo === "reequilibrio_aviso").slice(-1)[0] || null;
 function textoAviso(x) {
-  const l = x.l || {}; const tipo = l.tipo || "Pregão Eletrônico";
-  return `Prezado (a),
+  const l = x.l || {}; const tipo = l.tipo || "Pregão Eletrônico"; const o = x.o || {}; const orgao = toTitleCase(o.nome || "") || "____";
+  return `À ${orgao}${o.uasg ? ` (UASG ${o.uasg})` : ""}
+Setor de Licitações e Contratos
 
-Em referência ao ${tipo} nº ${l.numero || "____"} – Ata de Registro de Preços nº ${x.ata.numero || "____"}, informamos que, em virtude de reajustes significativos nos preços de aquisição praticados pelos fabricantes/importadores após a apresentação de nossa proposta, precisaremos solicitar o reequilíbrio econômico-financeiro de itens registrados na referida Ata.
+Prezado (a),
+
+Em referência ao ${tipo} nº ${l.numero || "____"} – Ata de Registro de Preços nº ${x.ata.numero || "____"}, firmada entre a ${orgao} e a RLUX Iluminação Ltda., informamos que, em virtude de reajustes significativos nos preços de aquisição praticados pelos fabricantes/importadores após a apresentação de nossa proposta, precisaremos solicitar o reequilíbrio econômico-financeiro de itens registrados na referida Ata.
 
 Solicitamos a gentileza de nos informar o contato responsável e o procedimento adotado por esse órgão para a apresentação da documentação (ofício, planilhas e comprovantes), bem como se há formulário ou protocolo específico.
 
