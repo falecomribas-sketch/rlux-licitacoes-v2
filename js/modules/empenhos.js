@@ -1,17 +1,17 @@
 // Empenhos. Campos: id, propostaId | adesaoId, numero, data, valorRecebido (valor do empenho),
 // itensRecebidos[] (qtd por item, na ordem dos itens da proposta/adesão), arqData
-import { store, newId } from "../core/store.js?v=20261122-235523";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261122-235523";
-import { formModal, lerForm, campo, inputTxt, inputData, linha, exportarExcel } from "../core/forms.js?v=20261122-235523";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261122-235523";
-import { esc, fmt, fmtD, fmtNum, toTitleCase } from "../core/utils.js?v=20261122-235523";
-import { podeEditar } from "../core/auth.js?v=20261122-235523";
-import { getLicit, getOrgao, getProp, getPortal, getAta, propTotal, deduzirPapel, papelNome } from "../core/domain.js?v=20261122-235523";
-import { ssel } from "../core/ssel.js?v=20261122-235523";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261122-235523";
-import { opcoesPropostas } from "./atas.js?v=20261122-235523";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261122-235523";
-import { gerarPdfEmpenho } from "../pdf/empenho.js?v=20261122-235523";
+import { store, newId } from "../core/store.js?v=20261123-122444";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261123-122444";
+import { formModal, lerForm, campo, inputTxt, inputData, linha, exportarExcel } from "../core/forms.js?v=20261123-122444";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261123-122444";
+import { esc, fmt, fmtD, fmtNum, toTitleCase } from "../core/utils.js?v=20261123-122444";
+import { podeEditar } from "../core/auth.js?v=20261123-122444";
+import { getLicit, getOrgao, getProp, getPortal, getAta, propTotal, deduzirPapel, papelNome } from "../core/domain.js?v=20261123-122444";
+import { ssel } from "../core/ssel.js?v=20261123-122444";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261123-122444";
+import { opcoesPropostas } from "./atas.js?v=20261123-122444";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261123-122444";
+import { gerarPdfEmpenho } from "../pdf/empenho.js?v=20261123-122444";
 
 let unsub = null, periodo = "mes";
 

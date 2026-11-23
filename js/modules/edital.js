@@ -1,24 +1,24 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261122-235523";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261122-235523";
-import { EMPRESA } from "../core/pdf.js?v=20261122-235523";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261122-235523";
-import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261122-235523";
-import { lanceDesempate } from "../core/resultados.js?v=20261122-235523";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261122-235523";
-import { store } from "../core/store.js?v=20261122-235523";
-import { ssel } from "../core/ssel.js?v=20261122-235523";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261122-235523";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261122-235523";
-import { newId } from "../core/store.js?v=20261122-235523";
-import { navigate } from "../core/router.js?v=20261122-235523";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261122-235523";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261122-235523";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261122-235523";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261122-235523";
-import { copiarTexto } from "../core/regua.js?v=20261122-235523";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261123-122444";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261123-122444";
+import { EMPRESA } from "../core/pdf.js?v=20261123-122444";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261123-122444";
+import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261123-122444";
+import { lanceDesempate } from "../core/resultados.js?v=20261123-122444";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261123-122444";
+import { store } from "../core/store.js?v=20261123-122444";
+import { ssel } from "../core/ssel.js?v=20261123-122444";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261123-122444";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261123-122444";
+import { newId } from "../core/store.js?v=20261123-122444";
+import { navigate } from "../core/router.js?v=20261123-122444";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261123-122444";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261123-122444";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261123-122444";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261123-122444";
+import { copiarTexto } from "../core/regua.js?v=20261123-122444";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -174,7 +174,7 @@ function historico(el) {
       <div style="display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--text-2)"><span>Disputa de</span><input type="date" id="hist-de" class="input input-sm" value="${histDe}" style="width:140px"><span>até</span><input type="date" id="hist-ate" class="input input-sm" value="${histAte}" style="width:140px"><span style="margin-left:8px">Portal</span><select id="hist-portal" class="input input-sm" style="width:auto;max-width:170px"><option value="">Todos</option>${store.get("portais").map((pt) => `<option value="${esc(pt.id)}" ${histPortal === pt.id ? "selected" : ""}>${esc(pt.sigla)}${pt.nome ? ` — ${esc(pt.nome)}` : ""}</option>`).join("")}<option value="__sem" ${histPortal === "__sem" ? "selected" : ""}>Sem portal</option></select>${histDe || histAte || histPortal ? `<button class="btn btn-ghost btn-sm" data-hist-limpar-datas>Limpar</button>` : ""}</div>
     </div>` + (mostrarLst.length ? `<div class="card-body flush"><div class="table-wrap"><table><thead><tr>${th("analise", "Análise")}<th>Licitação</th>${th("disputa", "Disputa")}${th("portal", "Portal")}${th("orgao", "Órgão")}${th("itens", "Itens", "num")}${th("corr", "Correspondência")}${th("situacao", "Situação")}<th></th></tr></thead><tbody>
     ${mostrarLst.map((a) => { const L = a.resumo || {}; const n = (a.itens || []).length, c = (a.correspondencia || []).filter((x) => x.produtoId).length;
-      return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtDc(dataLocal(a.criadoEm))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong></td><td style="white-space:nowrap">${disputa(L)}</td><td style="font-size:12.5px">${podeEditar() ? `<select class="input input-sm" data-portal-de="${esc(a.id)}" title="Portal da disputa" style="max-width:150px;font-size:12px;height:28px;padding:0 6px"><option value="">—</option>${store.get("portais").map((pt) => `<option value="${esc(pt.id)}" ${L.portalId === pt.id || (!L.portalId && portalDe(L) && (normTxt(portalDe(L)).includes(normTxt(pt.sigla)) || (pt.nome && normTxt(pt.nome).includes(normTxt(portalDe(L)))))) ? "selected" : ""}>${esc(pt.sigla)}${pt.nome ? ` — ${esc(pt.nome)}` : ""}</option>`).join("")}${portalDe(L) && !L.portalId && !store.get("portais").some((pt) => normTxt(portalDe(L)).includes(normTxt(pt.sigla)) || (pt.nome && normTxt(pt.nome).includes(normTxt(portalDe(L))))) ? `<option value="__txt" selected>${esc(portalDe(L))} (não cadastrado)</option>` : ""}</select>` : esc(portalDe(L) || "—")}</td><td><div style="display:flex;align-items:flex-start;gap:4px"><div><span title="${esc(L.orgao || "")}">${esc((L.orgao || "—").slice(0, 50))}${(L.orgao || "").length > 50 ? "…" : ""}</span><div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></div>${podeEditar() ? `<button class="icon-btn sm" data-orgao-de="${esc(a.id)}" title="Editar órgão, município e UF" style="flex:none">${icon("edit")}</button>` : ""}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${criadaValida(a) ? tag(`Proposta #${propostaCriada(a).num}`, "tag-teal") : a.criada ? tag("Proposta excluída", "tag-amber") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button> <button class="btn btn-ghost btn-sm btn-icon" data-excluir="${esc(a.id)}" title="Excluir análise">${icon("trash")}</button></td></tr>`; }).join("")}
+      return `<tr class="${ultima?.id === a.id ? "row-active" : ""}"><td>${fmtDc(dataLocal(a.criadoEm))}<div class="muted" style="font-size:11px">${esc((a.usuario || "").split("@")[0])}</div></td><td><div style="display:flex;align-items:center;gap:4px"><strong>${esc(modalidadeCurta(L.modalidade))} ${esc(numeroCurto(L.numero) || "—")}</strong>${podeEditar() ? `<button class="icon-btn sm" data-orgao-de="${esc(a.id)}" data-aba-lic title="Corrigir modalidade, número e data da sessão" style="flex:none">${icon("edit")}</button>` : ""}</div></td><td style="white-space:nowrap">${disputa(L)}</td><td style="font-size:12.5px">${podeEditar() ? `<select class="input input-sm" data-portal-de="${esc(a.id)}" title="Portal da disputa" style="max-width:150px;font-size:12px;height:28px;padding:0 6px"><option value="">—</option>${store.get("portais").map((pt) => `<option value="${esc(pt.id)}" ${L.portalId === pt.id || (!L.portalId && portalDe(L) && (normTxt(portalDe(L)).includes(normTxt(pt.sigla)) || (pt.nome && normTxt(pt.nome).includes(normTxt(portalDe(L)))))) ? "selected" : ""}>${esc(pt.sigla)}${pt.nome ? ` — ${esc(pt.nome)}` : ""}</option>`).join("")}${portalDe(L) && !L.portalId && !store.get("portais").some((pt) => normTxt(portalDe(L)).includes(normTxt(pt.sigla)) || (pt.nome && normTxt(pt.nome).includes(normTxt(portalDe(L))))) ? `<option value="__txt" selected>${esc(portalDe(L))} (não cadastrado)</option>` : ""}</select>` : esc(portalDe(L) || "—")}</td><td><div style="display:flex;align-items:flex-start;gap:4px"><div><span title="${esc(L.orgao || "")}">${esc((L.orgao || "—").slice(0, 50))}${(L.orgao || "").length > 50 ? "…" : ""}</span><div class="muted" style="font-size:11px">${esc([L.municipio, L.estado].filter(Boolean).join("/"))}</div></div>${podeEditar() ? `<button class="icon-btn sm" data-orgao-de="${esc(a.id)}" title="Editar órgão, município e UF" style="flex:none">${icon("edit")}</button>` : ""}</div></td><td class="num">${n}</td><td>${a.correspondencia ? tag(`${c}/${n}`, c === n && n ? "tag-green" : "tag-amber") : `<span class="muted">—</span>`}</td><td>${criadaValida(a) ? tag(`Proposta #${propostaCriada(a).num}`, "tag-teal") : a.criada ? tag("Proposta excluída", "tag-amber") : n ? tag("Analisado", "tag-blue") : tag("Sem itens", "tag-gray")}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-abrir="${esc(a.id)}">Abrir</button> <button class="btn btn-ghost btn-sm btn-icon" data-excluir="${esc(a.id)}" title="Excluir análise">${icon("trash")}</button></td></tr>`; }).join("")}
   </tbody></table></div></div>` : `<div class="card-body"><p class="muted" style="margin:0;font-size:13px">${todas.length ? "Nenhuma análise corresponde à busca." : "As análises feitas a partir de agora ficam guardadas aqui."}</p></div>`);
   const inp = box.querySelector("#hist-busca"); if (inp) { inp.addEventListener("input", () => { histBusca = inp.value; const pos = inp.selectionStart; historico(el); const n = box.querySelector("#hist-busca"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }
   box.querySelectorAll("[data-hist-sit]").forEach((b) => b.addEventListener("click", () => { histSit = b.dataset.histSit; historico(el); }));
@@ -575,16 +575,23 @@ export function separarNumeroPortal(r) {
 // Edita órgão / município / UF gravados na análise (a IA às vezes traz nomes longos ou errados)
 function editarOrgaoAnalise(id, el) {
   const a = store.find("analises", id); if (!a) return; const L = a.resumo || {};
+  const lic = a.criada?.licId ? store.find("licitacoes", a.criada.licId) : null;
+  const tipoIni = TIPOS.find((t) => normTxt(t) === normTxt(modalidadeCurta(L.modalidade))) || "";
   formModal({
-    titulo: `Órgão da análise — ${modalidadeCurta(L.modalidade)} ${numeroCurto(L.numero) || ""}`, largura: "md",
-    corpo: `${campo("Órgão", inputTxt("orgao", L.orgao || "", "required"))}
+    titulo: `Dados da análise — ${modalidadeCurta(L.modalidade)} ${numeroCurto(L.numero) || ""}`, largura: "lg",
+    corpo: `<div class="form-section">Licitação</div>
+      ${linha(campo("Modalidade", select("modalidade", [["", "—"], ...TIPOS.map((t) => [t, t])], tipoIni)), campo("Número", inputTxt("numero", numeroCurto(L.numero) || "")), campo("Data da sessão", inputData("dataSessao", isoOk(L.dataSessao) ? L.dataSessao.slice(0, 10) : "")), campo("Hora", inputTxt("horaSessao", L.horaSessao || "")))}
+      <div class="form-section">Órgão</div>
+      ${campo("Órgão", inputTxt("orgao", L.orgao || "", "required"))}
       ${linha(campo("Município", inputTxt("municipio", L.municipio || "")), campo("UF", select("estado", [["", "—"], ...UFS.map((u) => [u, u])], L.estado || "")), campo("UASG / código", inputTxt("uasg", L.uasg || "")))}
-      <p class="muted" style="font-size:12px;margin:6px 0 0">Altera só esta análise. A UF define o encargo estadual no piso. Se já existe licitação/proposta criada a partir dela, edite também o cadastro em Órgãos.</p>`,
+      ${lic ? `<label class="switch" style="margin-top:8px"><input type="checkbox" name="propagar" checked> Atualizar também a licitação já criada (${esc(lic.numero || "")}) com modalidade, número e data</label>` : ""}
+      <p class="muted" style="font-size:12px;margin:6px 0 0">Altera esta análise${lic ? " e, se marcado, a licitação criada a partir dela" : ""}. A UF define o encargo estadual no piso. O cadastro do órgão em Órgãos não muda.</p>`,
     async onSalvar(form) {
-      const v = lerForm(form); if (!v.orgao.trim()) throw new Error("Informe o órgão.");
-      const resumo = { ...L, orgao: v.orgao.trim(), municipio: v.municipio.trim(), estado: v.estado, uasg: v.uasg.trim() };
+      const v = lerForm(form); if (!v.orgao.trim()) throw new Error("Informe o órgão."); if (!v.numero.trim()) throw new Error("Informe o número da licitação.");
+      const resumo = { ...L, modalidade: v.modalidade || L.modalidade, numero: v.numero.trim(), dataSessao: v.dataSessao || L.dataSessao || "", horaSessao: (v.horaSessao || "").trim(), orgao: v.orgao.trim(), municipio: v.municipio.trim(), estado: v.estado, uasg: v.uasg.trim() };
       await store.setItem("analises", { ...a, resumo }); if (ultima?.id === a.id) ultima.resumo = resumo;
-      closeModal(); toast("Órgão atualizado."); mostrar(el);
+      if (lic && v.propagar) await store.setItem("licitacoes", { ...lic, numero: v.numero.trim(), tipo: v.modalidade || lic.tipo, data: v.dataSessao || lic.data });
+      closeModal(); toast(`Análise atualizada${lic && v.propagar ? " · licitação também" : ""}.`); mostrar(el);
     },
   });
 }
