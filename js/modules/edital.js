@@ -1,24 +1,24 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261123-122444";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261123-122444";
-import { EMPRESA } from "../core/pdf.js?v=20261123-122444";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261123-122444";
-import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261123-122444";
-import { lanceDesempate } from "../core/resultados.js?v=20261123-122444";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261123-122444";
-import { store } from "../core/store.js?v=20261123-122444";
-import { ssel } from "../core/ssel.js?v=20261123-122444";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261123-122444";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261123-122444";
-import { newId } from "../core/store.js?v=20261123-122444";
-import { navigate } from "../core/router.js?v=20261123-122444";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261123-122444";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261123-122444";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261123-122444";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261123-122444";
-import { copiarTexto } from "../core/regua.js?v=20261123-122444";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261123-185726";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261123-185726";
+import { EMPRESA } from "../core/pdf.js?v=20261123-185726";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261123-185726";
+import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261123-185726";
+import { lanceDesempate } from "../core/resultados.js?v=20261123-185726";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261123-185726";
+import { store } from "../core/store.js?v=20261123-185726";
+import { ssel } from "../core/ssel.js?v=20261123-185726";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261123-185726";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261123-185726";
+import { newId } from "../core/store.js?v=20261123-185726";
+import { navigate } from "../core/router.js?v=20261123-185726";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261123-185726";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261123-185726";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261123-185726";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261123-185726";
+import { copiarTexto } from "../core/regua.js?v=20261123-185726";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -595,3 +595,13 @@ function editarOrgaoAnalise(id, el) {
     },
   });
 }
+
+// Abre a análise ligada a uma proposta (pela licitação criada) direto na aba pedida. Retorna false se não houver análise.
+export function abrirAnaliseDaProposta(prop, abaInicial = "decl") {
+  const a = store.get("analises").find((x) => x.criada?.licId && x.criada.licId === prop?.licitacaoId) || store.get("analises").find((x) => x.criada?.num && String(x.criada.num) === String(prop?.num));
+  if (!a) return false;
+  ultima = JSON.parse(JSON.stringify(a)); aba = abaInicial; arquivos = [];
+  if (location.hash !== "#edital") location.hash = "#edital"; else { const el = document.querySelector("#view"); if (el) mostrar(el); }
+  return true;
+}
+export const analiseDaProposta = (prop) => store.get("analises").find((x) => x.criada?.licId && x.criada.licId === prop?.licitacaoId) || null;

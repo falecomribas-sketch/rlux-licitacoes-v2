@@ -1,18 +1,20 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261123-122444";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261123-122444";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261123-122444";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261123-122444";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261123-122444";
-import { podeEditar } from "../core/auth.js?v=20261123-122444";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261123-122444";
-import { ssel } from "../core/ssel.js?v=20261123-122444";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261123-122444";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261123-122444";
-import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261123-122444";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261123-122444";
-import { dataLocal } from "../core/utils.js?v=20261123-122444";
+import { store, newId } from "../core/store.js?v=20261123-185726";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261123-185726";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261123-185726";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261123-185726";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261123-185726";
+import { podeEditar } from "../core/auth.js?v=20261123-185726";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261123-185726";
+import { ssel } from "../core/ssel.js?v=20261123-185726";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261123-185726";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261123-185726";
+import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261123-185726";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261123-185726";
+import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261123-185726";
+import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261123-185726";
+import { dataLocal } from "../core/utils.js?v=20261123-185726";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -177,7 +179,7 @@ function abrirForm(p = null) {
 
   const { form } = formModal({
     titulo: p ? `Editar proposta #${p.num || ""}` : "Nova proposta", largura: "xl",
-    extra: p ? `<button type="button" class="btn btn-ghost" data-pdf>${icon("print")} PDF</button>` : "",
+    extra: p ? `<button type="button" class="btn btn-ghost" data-pdf>${icon("print")} PDF</button><button type="button" class="btn btn-ghost" data-decl title="Declarações exigidas no edital (da análise que originou esta proposta)">${icon("doc")} Declarações</button>` : "",
     corpo:
       linha(`<div class="field"><span>Órgão</span><div id="org-ssel"></div></div>`, `<div class="field"><span>Pregão / licitação</span><div id="lic-ssel"></div></div>`, campo("Status", select("status", STATUS, p?.status || "Em Andamento")))
       + `<div id="lic-info" class="info-box" hidden></div>
@@ -260,6 +262,13 @@ function abrirForm(p = null) {
         nodes.sort((a, b) => numDe(a) - numDe(b) || 0).forEach((n) => cont.appendChild(n)); toast("Itens ordenados pelo número."); });
       (p?.itens?.length ? p.itens : [{}]).forEach((d) => addItem(d));
       m.querySelector("[data-pdf]")?.addEventListener("click", () => opcoesPdf(p));
+      m.querySelector("[data-decl]")?.addEventListener("click", async () => {
+        const a = analiseDaProposta(p);
+        if (!a) return toast("Esta proposta não veio de uma análise de edital — as declarações são geradas a partir da análise (Analisar edital → aba Declarações).", "aviso", 8000);
+        const docs = (a.declaracoes || []).filter((d) => d.forma !== "sistema");
+        if (docs.length) { const doc = await gerarPdfDeclaracoes(docs, { data: new Date((a.declaracoesData || hojeIso()) + "T12:00:00") }); doc.save(`declaracoes_${String(getLicit(p.licitacaoId).numero || "proposta").replace(/[^\w]+/g, "_")}.pdf`); toast(`PDF com ${docs.length} declaração(ões) gerado. Para revisar ou refazer, abra a aba Declarações da análise.`, "ok", 7000); return; }
+        closeModal(); abrirAnaliseDaProposta(p, "decl"); toast(a.declaracoes ? "Todas as declarações deste edital são marcadas no portal — veja a aba Declarações." : "As declarações ainda não foram localizadas: clique em \"Localizar e preencher com IA\".", "info", 8000);
+      });
     },
     async onSalvar(form) {
       if (!licSel.value) throw new Error("Selecione a licitação.");
