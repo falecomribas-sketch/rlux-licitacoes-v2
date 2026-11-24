@@ -22,12 +22,15 @@ function listarFiguras(buffer) {
     const tmp = path.join(os.tmpdir(), `fig-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
     try { fs.writeFileSync(tmp, buffer); } catch (e) { console.warn("figuras: tmp", e.message); return resolve([]); }
     const fim = (r, why) => { try { fs.unlinkSync(tmp); } catch {} if (why) console.warn("figuras:", why); resolve(r); };
-    let saida = "";
-    const ch = execFile(process.execPath, ["--max-old-space-size=384", path.join(__dirname, "figuras.js"), tmp], { timeout: 15000, killSignal: "SIGKILL", maxBuffer: 4e6 }, (err) => {
-      if (err) return fim([], err.killed ? "tempo esgotado (15s) — segue sem figuras" : err.message.slice(0, 200));
+    let saida = ""; let morto = "";
+    const ch = execFile(process.execPath, ["--max-old-space-size=256", path.join(__dirname, "figuras.js"), tmp], { timeout: 12000, killSignal: "SIGKILL", maxBuffer: 4e6 }, (err) => {
+      clearInterval(vigia);
+      if (err || morto) return fim([], morto || (err.killed ? "tempo esgotado (12s) — segue sem figuras" : err.message.slice(0, 200)));
       try { resolve(JSON.parse(saida || "[]")); } catch (e) { return fim([], "saída inválida"); } fim(null);
     });
     ch.stdout.on("data", (d) => { saida += d; });
+    // vigia de memória: pdf.js explode em alguns PDFs (2 GB em segundos) e derruba a instância — mata o filho acima de 300 MB
+    const vigia = setInterval(() => { try { const m = /VmRSS:\s+(\d+)/.exec(fs.readFileSync(`/proc/${ch.pid}/status`, "utf8")); if (m && +m[1] > 300 * 1024) { morto = `memória do leitor de figuras passou de 300 MB (${Math.round(+m[1] / 1024)} MB) — segue sem figuras`; ch.kill("SIGKILL"); } } catch {} }, 150);
   });
 }
 
