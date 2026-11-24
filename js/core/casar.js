@@ -1,6 +1,6 @@
 // Pré-filtro de candidatos por família (feito em código, antes da IA) e cálculo do custo/piso por item.
-import { store } from "./store.js?v=20261123-185726";
-import { deduzirFamilia, FAMILIAS_TEC, piso } from "./preco.js?v=20261123-185726";
+import { store } from "./store.js?v=20261124-092843";
+import { deduzirFamilia, FAMILIAS_TEC, piso } from "./preco.js?v=20261124-092843";
 
 const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const PALAVRAS = ["pilha", "bateria", "lampada", "led", "bulbo", "tubular", "painel", "plafon", "refletor", "luminaria", "disjuntor", "idr", "dps", "contator", "fotocelula", "rele", "acoplador", "plug", "tomada", "barramento", "pente", "fita", "emergencia", "publica", "arandela", "mr16", "gu10", "e27", "g13", "t8", "t5", "9v", "aa", "aaa", "palito", "alcalina", "selada"];
@@ -12,6 +12,8 @@ export function candidatosPara(item) {
   const nums = (d.match(/\d+(?:[.,]\d+)?\s*(w|k|v|a|ah|ma|mm|cm|m)\b/g) || []).map((x) => x.replace(/\s+/g, ""));
   const pontua = (p) => { const t = norm(`${p.nome} ${p.descricaoTecnica || ""} ${JSON.stringify(p.tecnico || {})}`); let s = 0;
     termos.forEach((w) => { if (t.includes(w)) s += 2; }); nums.forEach((n) => { if (t.replace(/\s+/g, "").includes(n)) s += 3; }); return s; };
+  // Exclusões duras antes da IA: padrão construtivo que a RLUX não tem (disjuntor NEMA / caixa moldada) → sem candidatos
+  if (fam === "protecao" && /\bnema\b|caixa\s+moldada|\bmccb\b/i.test(item.descricao || "")) return { familia: fam, candidatos: [], exclusao: "Disjuntor NEMA / caixa moldada: a RLUX não possui essa linha (só DIN)." };
   const prods = store.get("produtos").filter((p) => (p.familia || deduzirFamilia(`${p.nome} ${p.descricaoTecnica || ""}`)) === fam);
   return { familia: fam, candidatos: prods.map((p) => ({ p, s: pontua(p) })).sort((a, b) => b.s - a.s).slice(0, 40).map(({ p }) => ({ id: p.id, nome: p.nome, descricaoTecnica: p.descricaoTecnica || "", unidade: p.unidade || "", tecnico: Object.entries(p.tecnico || {}).map(([k, v]) => `${k}=${v}`).join(", "), custo: +p.custo || 0, preferido: !!p.preferido })) };
 }

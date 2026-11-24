@@ -1,9 +1,9 @@
 // Monitor de reequilíbrio: compara o custo gravado na proposta (época da disputa) com o custo atual do cadastro,
 // para ATAs vigentes com saldo. Gatilhos (Parâmetros): lucro atual abaixo do mínimo OU alta do custo acima do limite.
-import { store } from "./store.js?v=20261123-185726";
-import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada, isVencido } from "./domain.js?v=20261123-185726";
-import { getCfg, piso, encargoPct, custoVencido, diasCusto } from "./preco.js?v=20261123-185726";
-import { hojeIso } from "./utils.js?v=20261123-185726";
+import { store } from "./store.js?v=20261124-092843";
+import { getProp, getLicit, getOrgao, propSaldoDetalhado, ataFoiRenovada, isVencido } from "./domain.js?v=20261124-092843";
+import { getCfg, piso, encargoPct, custoVencido, diasCusto } from "./preco.js?v=20261124-092843";
+import { hojeIso } from "./utils.js?v=20261124-092843";
 
 export function itensEmRisco() {
   const cfg = getCfg(); const hoje = hojeIso();

@@ -1,11 +1,11 @@
 // Parâmetros: precificação (piso) e regras da IA (padrões por família e equivalências de termo).
 // Firestore: config/precificacao e config/regrasIA. Só Admin edita; todos podem ver.
-import { store } from "../core/store.js?v=20261123-185726";
-import { toast, icon, closeModal, confirmar } from "../core/ui.js?v=20261123-185726";
-import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js?v=20261123-185726";
-import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js?v=20261123-185726";
-import { isAdmin } from "../core/auth.js?v=20261123-185726";
-import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js?v=20261123-185726";
+import { store } from "../core/store.js?v=20261124-092843";
+import { toast, icon, closeModal, confirmar } from "../core/ui.js?v=20261124-092843";
+import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js?v=20261124-092843";
+import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js?v=20261124-092843";
+import { isAdmin } from "../core/auth.js?v=20261124-092843";
+import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js?v=20261124-092843";
 
 // Regras portadas do prompt "GPT 2" — ponto de partida editável
 export const REGRAS_PADRAO = {
@@ -16,6 +16,8 @@ export const REGRAS_PADRAO = {
     { familia: "iluminacao", regra: "Refletor sem detalhe = refletor LED SMD quando potência e IP coincidirem." },
     { familia: "protecao", regra: "Disjuntor sem curva informada = curva C; sem padrão informado = DIN; sem kA informado ou sem exigência acima de 3 kA = 3 kA." },
     { familia: "protecao", regra: "Se o edital exigir kA acima de 3 (4,5 / 5 / 6 / 10 kA), nunca oferecer 3 kA." },
+    { familia: "protecao", regra: "Padrão construtivo é eliminatório: disjuntor NEMA (padrão americano, caixa moldada NEMA, 'tipo NEMA', 'NEMA 1') NÃO é atendido por disjuntor DIN. A RLUX não possui linha NEMA — devolver sem produto, com o motivo.", fixa: "nema" },
+    { familia: "protecao", regra: "Disjuntor: a corrente nominal deve ser EXATA (ex.: 50 A só com 50 A). Não adotar a próxima corrente maior — a proteção ficaria acima da capacidade do condutor. Sem a corrente exata na lista, devolver sem produto.", fixa: "corrente-exata" },
     { familia: "comando", regra: "Contator: corrente nominal e tensão da bobina têm prioridade sobre potência. Próxima corrente maior só sem conflito de bobina, polos, classe e contato auxiliar." },
     { familia: "conexao", regra: "Priorizar tipo, corrente, polos, tensão, padrão industrial (IEC 60309), IP e posição horária." },
     { familia: "barramento", regra: "Priorizar tipo, aplicação, polos/vias, corrente, padrão DIN/pente e compatibilidade dimensional." },
@@ -65,7 +67,12 @@ let prompts = {}, unsubP = null, padraoPrompts = null;
 export const getPrompts = () => ({ analise: prompts.analise || "", casar: prompts.casar || "", declaracoes: prompts.declaracoes || "" });
 export function iniciarPrompts() { if (unsubP) return; unsubP = store.watchObj("config", "promptsIA", (d) => { prompts = d || {}; ouvintesR.forEach((f) => f()); }); }
 async function carregarPadrao() { if (padraoPrompts) return padraoPrompts; try { padraoPrompts = await (await fetch("functions/prompts-padrao.json", { cache: "no-cache" })).json(); } catch { padraoPrompts = { analise: "", casar: "" }; } return padraoPrompts; }
-export function iniciarRegras() { if (unsubR) return; unsubR = store.watchObj("config", "regrasIA", (d) => { regras = d && Array.isArray(d.padroes) ? { padroes: d.padroes, equivalencias: d.equivalencias || [] } : null; ouvintesR.forEach((f) => f()); }); }
+export function iniciarRegras() { if (unsubR) return; unsubR = store.watchObj("config", "regrasIA", (d) => {
+  if (d && Array.isArray(d.padroes)) { // regras fixas novas do padrão entram mesmo em configuração já personalizada (até o admin removê-las)
+    const faltam = REGRAS_PADRAO.padroes.filter((r) => r.fixa && !d.padroes.some((x) => x.fixa === r.fixa) && !(d.removidas || []).includes(r.fixa));
+    regras = { padroes: [...d.padroes, ...faltam], equivalencias: d.equivalencias || [], removidas: d.removidas || [] };
+  } else regras = null;
+  ouvintesR.forEach((f) => f()); }); }
 
 export default {
   id: "parametros", titulo: "Parâmetros", grupo: "CRM e análise", icone: "scale",
@@ -161,7 +168,7 @@ export default {
         await store.setObj("config", "promptsIA", { ...prompts, [k]: igual ? "" : txt, _atualizado: new Date().toISOString() });
         const st = el.querySelector(`#pst-${k}`); if (st) { st.textContent = igual ? "padrão" : "editado"; st.className = `tag ${igual ? "tag-gray" : "tag-amber"}`; }
         toast(igual ? "Prompt restaurado ao padrão." : "Prompt salvo. Vale para as próximas análises."); return; }
-      if (b.dataset.act === "rm-padrao") { r.padroes.splice(i, 1); await salvarRegras(r); }
+      if (b.dataset.act === "rm-padrao") { const [rem] = r.padroes.splice(i, 1); if (rem?.fixa) r.removidas = [...new Set([...(r.removidas || []), rem.fixa])]; await salvarRegras(r); }
       if (b.dataset.act === "rm-equiv") { r.equivalencias.splice(i, 1); await salvarRegras(r); } });
     iniciarRegras(); iniciarPrompts(); iniciarPrecos(); const fR = () => { if (el.querySelector("#padroes")) { tabelas(el, getRegras()); painelCusto(el); } }; ouvintesR.add(fR); el._fR = fR;
     unsubC = onCfg(() => { if (document.activeElement?.form?.id !== "f-preco") desenhar(); });

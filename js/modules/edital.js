@@ -1,24 +1,24 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261123-185726";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261123-185726";
-import { EMPRESA } from "../core/pdf.js?v=20261123-185726";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261123-185726";
-import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261123-185726";
-import { lanceDesempate } from "../core/resultados.js?v=20261123-185726";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261123-185726";
-import { store } from "../core/store.js?v=20261123-185726";
-import { ssel } from "../core/ssel.js?v=20261123-185726";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261123-185726";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261123-185726";
-import { newId } from "../core/store.js?v=20261123-185726";
-import { navigate } from "../core/router.js?v=20261123-185726";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261123-185726";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261123-185726";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261123-185726";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261123-185726";
-import { copiarTexto } from "../core/regua.js?v=20261123-185726";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261124-092843";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261124-092843";
+import { EMPRESA } from "../core/pdf.js?v=20261124-092843";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261124-092843";
+import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261124-092843";
+import { lanceDesempate } from "../core/resultados.js?v=20261124-092843";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261124-092843";
+import { store } from "../core/store.js?v=20261124-092843";
+import { ssel } from "../core/ssel.js?v=20261124-092843";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261124-092843";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261124-092843";
+import { newId } from "../core/store.js?v=20261124-092843";
+import { navigate } from "../core/router.js?v=20261124-092843";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261124-092843";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261124-092843";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261124-092843";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261124-092843";
+import { copiarTexto } from "../core/regua.js?v=20261124-092843";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -191,7 +191,7 @@ const linhasCorr = () => (ultima?.itens || []).map((it) => { const c = (ultima.c
 async function casar(el) {
   if (!ultima || casando) return; casando = true; mostrar(el);
   try {
-    const itens = ultima.itens.map((it) => { const { familia, candidatos } = candidatosPara(it); return { item: it.item, descricao: it.descricao, unidade: it.unidade, quantidade: it.quantidade, marcaReferencia: it.marcaReferencia, familia, candidatos }; });
+    const itens = ultima.itens.map((it) => { const { familia, candidatos, exclusao } = candidatosPara(it); return { item: it.item, descricao: it.descricao, unidade: it.unidade, quantidade: it.quantidade, marcaReferencia: it.marcaReferencia, familia, candidatos, exclusao }; });
     // Em lotes de até 10 itens, em paralelo: respostas curtas (sem risco de corte) e mais rápido
     const LOTE = 10; const lotes = []; for (let i = 0; i < itens.length; i += LOTE) lotes.push(itens.slice(i, i + LOTE));
     const prog = el.querySelector("#corr-prog"); let feitos = 0;
@@ -202,7 +202,7 @@ async function casar(el) {
     const achar = (it, idx, lote) => todos.find((x) => String(x.item) === String(it.item)) || todos.find((x) => numItem(x.item) && numItem(x.item) === numItem(it.item)) || (lote && lote.resp.length === lote.itens.length ? lote.resp[idx] : null);
     const porLote = []; lotes.forEach((lt, li) => lt.forEach((it, idx) => porLote.push({ it, idx, lote: { itens: lt, resp: partes[li]?.itens || [] } })));
     console.log("correspondência: itens enviados", itens.map((i) => i.item), "devolvidos", todos.map((c) => c.item));
-    ultima.correspondencia = porLote.map(({ it, idx, lote }) => { const c = achar(it, idx, lote); return c ? { ...c, item: String(it.item) } : { item: String(it.item), produtoId: "", confianca: "nenhuma", justificativa: "A IA não devolveu resposta para este item — use Refazer ou escolha manualmente.", observacao: "" }; });
+    ultima.correspondencia = porLote.map(({ it, idx, lote }) => { if (it.exclusao) return { item: String(it.item), produtoId: "", confianca: "nenhuma", justificativa: it.exclusao }; const c = achar(it, idx, lote); return c ? { ...c, item: String(it.item) } : { item: String(it.item), produtoId: "", confianca: "nenhuma", justificativa: "A IA não devolveu resposta para este item — use Refazer ou escolha manualmente.", observacao: "" }; });
     const semResposta = ultima.correspondencia.filter((c) => /não devolveu resposta/.test(c.justificativa || ""));
     ultima.metaCorr = meta; registrarUso(ultima, "correspondencia", meta); ultima.candidatosEnviados = itens.reduce((s, i) => s + i.candidatos.length, 0);
     await salvarAnalise(); toast(semResposta.length ? `Correspondência concluída, mas ${semResposta.length} item(ns) ficaram sem resposta da IA.` : "Correspondência concluída.", semResposta.length ? "aviso" : "ok", 6000);
