@@ -1,9 +1,10 @@
 // PDF das declarações exigidas no edital, no papel timbrado da RLUX.
-import { novoDoc, carregarTimbrado, aplicarTimbrado, EMPRESA, dataExtenso, ESCURO } from "../core/pdf.js?v=20261124-092843";
+import { novoDoc, carregarTimbrado, aplicarTimbrado, EMPRESA, dataExtenso, ESCURO } from "../core/pdf.js?v=20261124-160544";
+import { balancoPronto } from "../core/balanco.js?v=20261124-160544";
 
 // decl: { titulo, destinatario, texto, quemAssina }. Devolve o jsPDF (uma declaração por documento ou várias, uma por página).
 export async function gerarPdfDeclaracoes(lista, { data = new Date(), nomeArquivo = "declaracoes" } = {}) {
-  const doc = await novoDoc("portrait"); const fundo = await carregarTimbrado();
+  const doc = await novoDoc("portrait"); const fundo = await carregarTimbrado(); const b = await balancoPronto();
   const ML = 22, MR = 22, CW = doc._W - ML - MR;
   lista.forEach((d, idx) => {
     if (idx > 0) doc.addPage();
@@ -28,7 +29,7 @@ export async function gerarPdfDeclaracoes(lista, { data = new Date(), nomeArquiv
     y += 8; doc.setFontSize(11); doc.text(dataExtenso(data), ML, y); y += 22;
     const cx = doc._W / 2; doc.setDrawColor(...ESCURO); doc.setLineWidth(.35); doc.line(cx - 45, y, cx + 45, y); y += 5;
     doc.setFont("helvetica", "bold"); doc.setFontSize(10.5);
-    if (d.quemAssina === "contador") { doc.text("[Nome do contador]", cx, y, { align: "center" }); doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.text("Contador(a) — CRC [PREENCHER]", cx, y + 5, { align: "center" }); doc.text(`${EMPRESA.nome} — CNPJ ${EMPRESA.cnpj}`, cx, y + 10, { align: "center" }); }
+    if (d.quemAssina === "contador") { doc.text(b.contadorNome || "[Nome do contador]", cx, y, { align: "center" }); doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.text(`Contador(a) — CRC ${b.contadorCRC || "[PREENCHER]"}${b.contadorCPF ? ` — CPF ${b.contadorCPF}` : ""}`, cx, y + 5, { align: "center" }); doc.text(`${EMPRESA.nome} — CNPJ ${EMPRESA.cnpj}`, cx, y + 10, { align: "center" }); }
     else { doc.text(EMPRESA.representanteCompleto, cx, y, { align: "center" }); doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.text(`${EMPRESA.cargoRepresentante} — RG ${EMPRESA.rg} — CPF ${EMPRESA.cpf}`, cx, y + 5, { align: "center" }); doc.text(`${EMPRESA.nome} — CNPJ ${EMPRESA.cnpj}`, cx, y + 10, { align: "center" }); }
   });
   return doc;

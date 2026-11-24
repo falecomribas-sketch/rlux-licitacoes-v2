@@ -1,11 +1,12 @@
 // Parâmetros: precificação (piso) e regras da IA (padrões por família e equivalências de termo).
 // Firestore: config/precificacao e config/regrasIA. Só Admin edita; todos podem ver.
-import { store } from "../core/store.js?v=20261124-092843";
-import { toast, icon, closeModal, confirmar } from "../core/ui.js?v=20261124-092843";
-import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js?v=20261124-092843";
-import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js?v=20261124-092843";
-import { isAdmin } from "../core/auth.js?v=20261124-092843";
-import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js?v=20261124-092843";
+import { store } from "../core/store.js?v=20261124-160544";
+import { toast, icon, closeModal, confirmar } from "../core/ui.js?v=20261124-160544";
+import { formModal, lerForm, campo, inputTxt, textarea, select, linha } from "../core/forms.js?v=20261124-160544";
+import { esc, fmt, fmtNum, dataLocal, hojeIso } from "../core/utils.js?v=20261124-160544";
+import { isAdmin } from "../core/auth.js?v=20261124-160544";
+import { iniciarPreco, getCfg, onCfg, salvarCfg, piso, pedidoMinimoSemAjuste, FAMILIAS_TEC } from "../core/preco.js?v=20261124-160544";
+import { iniciarBalanco, getBalanco, salvarBalanco, indices, fmtIdx, BALANCO_PADRAO } from "../core/balanco.js?v=20261124-160544";
 
 // Regras portadas do prompt "GPT 2" — ponto de partida editável
 export const REGRAS_PADRAO = {
@@ -77,9 +78,9 @@ export function iniciarRegras() { if (unsubR) return; unsubR = store.watchObj("c
 export default {
   id: "parametros", titulo: "Parâmetros", grupo: "CRM e análise", icone: "scale",
   render(el) {
-    iniciarPreco();
+    iniciarPreco(); iniciarBalanco();
     const desenhar = () => {
-      const c = getCfg(), r = getRegras(), ro = isAdmin() ? "" : "disabled";
+      const c = getCfg(), r = getRegras(), b = getBalanco(), ro = isAdmin() ? "" : "disabled";
       el.innerHTML = `
         <div class="page-head"><h2>Parâmetros</h2></div>
         <div class="grid grid-2">
@@ -110,6 +111,36 @@ export default {
             <p><strong>Lance mínimo (Effecti)</strong>: o valor limite é o piso, mas evitando centavos terminados em 0 ou 5 — limites "redondos" costumam coincidir com o do concorrente e o desempate vai para quem cobriu primeiro. O sistema desce até ${c.folgaDesempate ?? 3} centavo(s) abaixo do piso para fugir do empate (ex.: piso 5,50 → limite 5,49).</p>
             <p>Produto com custo há mais de ${c.custoValidadeDias} dias aparece marcado como <strong>custo vencido</strong> na proposta e na análise do edital.</p>
             <p><strong>Monitor de reequilíbrio</strong> (tela Reequilíbrio): para ATAs vigentes com saldo, compara o custo gravado na proposta com o custo atual do produto e alerta quando o lucro de hoje fica abaixo de ${c.lucroMinReq ?? c.lucroMin}% ou o custo subiu mais de ${c.altaCustoReq ?? 10}%.</p>
+          </div></div>
+        </div>
+        <div class="section-title">Dados contábeis (balanço patrimonial do último exercício — usado nas declarações de índices econômicos)</div>
+        <div class="grid grid-2">
+          <div class="card"><div class="card-head"><h2>Balanço patrimonial</h2></div><div class="card-body">
+            <form id="f-bal" class="form">
+              <div class="form-row cols-3">
+                <label class="field"><span>Exercício</span><input name="exercicio" value="${esc(b.exercicio || "")}" placeholder="2025" ${ro}></label>
+                <label class="field"><span>Encerrado em</span><input name="encerramento" value="${esc(b.encerramento || "")}" placeholder="31/12/2025" ${ro}></label>
+                <label class="field"><span>Registro na Junta</span><input name="registro" value="${esc(b.registro || "")}" placeholder="JUCESC, Diário nº 6, 10/07/2026" ${ro}></label>
+              </div>
+              <div class="form-row cols-3">
+                <label class="field"><span>Ativo Circulante (R$)</span><input type="number" step="0.01" name="ativoCirculante" value="${b.ativoCirculante || ""}" ${ro}></label>
+                <label class="field"><span>Realizável a Longo Prazo (R$)</span><input type="number" step="0.01" name="realizavelLP" value="${b.realizavelLP || ""}" ${ro}></label>
+                <label class="field"><span>Ativo Total (R$)</span><input type="number" step="0.01" name="ativoTotal" value="${b.ativoTotal || ""}" ${ro}></label>
+                <label class="field"><span>Passivo Circulante (R$)</span><input type="number" step="0.01" name="passivoCirculante" value="${b.passivoCirculante || ""}" ${ro}></label>
+                <label class="field"><span>Passivo Não Circulante (R$)</span><input type="number" step="0.01" name="passivoNaoCirculante" value="${b.passivoNaoCirculante || ""}" ${ro}></label>
+                <label class="field"><span>Patrimônio Líquido (R$)</span><input type="number" step="0.01" name="patrimonioLiquido" value="${b.patrimonioLiquido || ""}" ${ro}></label>
+                <label class="field"><span>Capital Social (R$)</span><input type="number" step="0.01" name="capitalSocial" value="${b.capitalSocial || ""}" ${ro}></label>
+                <label class="field"><span>Contador(a) — nome</span><input name="contadorNome" value="${esc(b.contadorNome || "")}" ${ro}></label>
+                <label class="field"><span>Contador(a) — CRC</span><input name="contadorCRC" value="${esc(b.contadorCRC || "")}" placeholder="1SP225860/O-0" ${ro}></label>
+                <label class="field"><span>Contador(a) — CPF</span><input name="contadorCPF" value="${esc(b.contadorCPF || "")}" ${ro}></label>
+              </div>
+              <p class="muted" style="font-size:12px;margin:6px 0 0">Realizável a Longo Prazo são só os créditos a receber após 12 meses (duplicatas de longo prazo, depósitos judiciais) — imobilizado, intangível e investimentos NÃO entram. Deixe 0 quando o balanço não tiver a conta.</p>
+              ${isAdmin() ? `<div style="text-align:right;margin-top:10px"><button class="btn btn-primary" type="submit">Salvar balanço</button></div>` : ""}
+            </form></div></div>
+          <div class="card"><div class="card-head"><h2>Índices calculados</h2></div><div class="card-body" style="font-size:13.5px;line-height:1.55">
+            <div class="info-box" id="bal-idx" style="grid-template-columns:repeat(5,1fr)"></div>
+            <p style="margin-top:10px">Fórmulas usuais dos editais (Lei 14.133, art. 69; IN SEGES 3/2018): <strong>LG</strong> = (Ativo Circulante + Realizável a LP) ÷ (Passivo Circulante + Passivo Não Circulante); <strong>SG</strong> = Ativo Total ÷ (Passivo Circulante + Passivo Não Circulante); <strong>LC</strong> = Ativo Circulante ÷ Passivo Circulante; <strong>Endividamento</strong> = (PC + PNC) ÷ Ativo Total.</p>
+            <p>Com o balanço cadastrado, o gerador de declarações preenche os índices, o exercício e, quando algum índice fica abaixo do mínimo, o patrimônio líquido/capital social; a assinatura do contador sai com nome e CRC. Se o edital usar outra fórmula, a IA recalcula a partir das contas acima e cita a fórmula do edital — confira sempre.</p>
           </div></div>
         </div>
         <div class="section-title">Regras da IA (correspondência item do edital → produto RLUX)</div>
@@ -144,6 +175,11 @@ export default {
       el.querySelector("#enc-add")?.addEventListener("click", () => { const tb = el.querySelector("#enc-tab tbody"); tb.insertAdjacentHTML("beforeend", encLinha({ uf: "", pct: 0, obs: "" }, tb.children.length, "")); tb.lastElementChild.querySelector("input").focus(); });
       el.querySelector("#enc-tab").addEventListener("click", (e) => { const b = e.target.closest("[data-enc-rm]"); if (!b) return; b.closest("tr").remove(); simul(); });
       el.querySelector("#f-preco").addEventListener("input", simul); simul();
+      const lerBal = () => { const f = el.querySelector("#f-bal"); const o = {}; Object.keys(BALANCO_PADRAO).forEach((k) => { const v = f.elements[k]?.value ?? ""; o[k] = typeof BALANCO_PADRAO[k] === "number" ? (+v || 0) : String(v).trim(); }); return o; };
+      const mostrarIdx = () => { const v = lerBal(); const i = indices(v); const tem = i.AT > 0; const chip = (nome, val, bom) => `<div><div class="k">${nome}</div><strong style="color:${!tem || val == null ? "var(--muted)" : bom ? "var(--green)" : "var(--red)"}">${tem ? (val == null ? "∞" : fmtIdx(val)) : "—"}</strong></div>`;
+        el.querySelector("#bal-idx").innerHTML = chip("Liquidez Geral (LG)", i.LG, i.LG == null || i.LG >= 1) + chip("Solvência Geral (SG)", i.SG, i.SG == null || i.SG >= 1) + chip("Liquidez Corrente (LC)", i.LC, i.LC == null || i.LC >= 1) + chip("Endividamento", i.GE, i.GE == null || i.GE <= 0.5) + `<div><div class="k">Patrimônio líquido</div><strong>${tem ? fmt(i.PL) : "—"}</strong></div>`; };
+      el.querySelector("#f-bal").addEventListener("input", mostrarIdx); mostrarIdx();
+      el.querySelector("#f-bal").addEventListener("submit", async (e) => { e.preventDefault(); if (!isAdmin()) return; await salvarBalanco(lerBal()); toast("Balanço salvo — as próximas declarações usam estes índices."); });
       el.querySelector("#f-preco").addEventListener("submit", async (e) => { e.preventDefault(); if (!isAdmin()) return; await salvarCfg(lerPreco(el)); toast("Parâmetros salvos."); });
       tabelas(el, r);
     };

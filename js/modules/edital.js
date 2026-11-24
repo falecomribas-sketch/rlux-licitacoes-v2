@@ -1,24 +1,25 @@
 // Analisar edital (IA) — Etapa A: leitura do edital e dos anexos, sem gravar nada no banco.
 // Aba Resumo: 7 campos (órgão, nº, município/UF, validade, amostra, entrega, garantia) com base, documentação especial, observações.
 // Aba Itens: itens do portfólio encontrados, com página. A proposta (Etapa D) virá depois.
-import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261124-092843";
-import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261124-092843";
-import { EMPRESA } from "../core/pdf.js?v=20261124-092843";
-import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261124-092843";
-import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261124-092843";
-import { lanceDesempate } from "../core/resultados.js?v=20261124-092843";
-import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261124-092843";
-import { store } from "../core/store.js?v=20261124-092843";
-import { ssel } from "../core/ssel.js?v=20261124-092843";
-import { podeEditar, currentUser } from "../core/auth.js?v=20261124-092843";
-import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261124-092843";
-import { newId } from "../core/store.js?v=20261124-092843";
-import { navigate } from "../core/router.js?v=20261124-092843";
-import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261124-092843";
-import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261124-092843";
-import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261124-092843";
-import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261124-092843";
-import { copiarTexto } from "../core/regua.js?v=20261124-092843";
+import { analisarEdital, casarItens, extrairDeclaracoes } from "../core/ia.js?v=20261124-160544";
+import { gerarPdfDeclaracoes, nomeArquivoDecl } from "../pdf/declaracoes.js?v=20261124-160544";
+import { iniciarBalanco, dadosBalancoIA, temBalanco } from "../core/balanco.js?v=20261124-160544";
+import { EMPRESA } from "../core/pdf.js?v=20261124-160544";
+import { candidatosPara, nomeFamilia, historicoProduto } from "../core/casar.js?v=20261124-160544";
+import { iniciarPreco, piso, pedidoMinimoSemAjuste, custoVencido, getCfg, notaEncargo } from "../core/preco.js?v=20261124-160544";
+import { lanceDesempate } from "../core/resultados.js?v=20261124-160544";
+import { getRegras, iniciarRegras, getPrompts, iniciarPrompts } from "./parametros.js?v=20261124-160544";
+import { store } from "../core/store.js?v=20261124-160544";
+import { ssel } from "../core/ssel.js?v=20261124-160544";
+import { podeEditar, currentUser } from "../core/auth.js?v=20261124-160544";
+import { formModal, lerForm, campo, inputTxt, inputNum, inputData, select, linha, exportarExcel, exportarExcelFormatado, abrirExcel, salvarWorkbook, XL, UFS } from "../core/forms.js?v=20261124-160544";
+import { newId } from "../core/store.js?v=20261124-160544";
+import { navigate } from "../core/router.js?v=20261124-160544";
+import { opcoesOrgaos, TIPOS } from "./licitacoes.js?v=20261124-160544";
+import { toTitleCase, dataLocal, hojeIso, fmtDc } from "../core/utils.js?v=20261124-160544";
+import { toast, icon, tag, vazio, closeModal, confirmar } from "../core/ui.js?v=20261124-160544";
+import { esc, fmt, fmtNum, fmtD, cnpjDigitos, cnpjFormatado } from "../core/utils.js?v=20261124-160544";
+import { copiarTexto } from "../core/regua.js?v=20261124-160544";
 
 let ultima = null, arquivos = [], ocupado = false, aba = "edital", modelo = "claude-haiku-5-5";
 const MODELOS = [["claude-haiku-5-5", "Haiku — econômico (padrão)"], ["claude-sonnet-5-5", "Sonnet — mais preciso (~3× o custo)"]];
@@ -28,7 +29,7 @@ export default {
   id: "edital", titulo: "Analisar edital (IA)", grupo: "Licitações", icone: "bulb",
   render(el) {
     histBusca = ""; histSit = ""; histOrd = "analise"; histDir = "desc"; histDe = ""; histAte = ""; histPortal = "";
-    iniciarPreco(); iniciarRegras(); iniciarPrompts();
+    iniciarPreco(); iniciarRegras(); iniciarPrompts(); iniciarBalanco();
     el.innerHTML = `
       <div class="page-head"><h2>Analisar edital (IA)</h2><div class="actions" id="acoes"></div></div>
       <div class="card" id="entrada"><div class="card-body">
@@ -512,7 +513,7 @@ function ligarDecl(el) {
       if (r.declaracoes && !await confirmar("Refazer as declarações com a IA? Os textos editados serão substituídos.")) return;
       gerandoDecl = true; mostrar(el);
       try {
-        const empresa = { "Razão social": EMPRESA.nome, CNPJ: EMPRESA.cnpj, "Inscrição Estadual": EMPRESA.ie, "Endereço completo": EMPRESA.endereco, Telefone: EMPRESA.tel, "E-mail": EMPRESA.emailLicitacoes, "Representante legal": EMPRESA.representanteCompleto, "Cargo do representante": EMPRESA.cargoRepresentante, "RG do representante": EMPRESA.rg, "CPF do representante": EMPRESA.cpf, "Enquadramento": "Empresa de Pequeno Porte (EPP), optante pelo Simples Nacional", "Cidade para data": EMPRESA.cidade };
+        const empresa = { "Razão social": EMPRESA.nome, CNPJ: EMPRESA.cnpj, "Inscrição Estadual": EMPRESA.ie, "Endereço completo": EMPRESA.endereco, Telefone: EMPRESA.tel, "E-mail": EMPRESA.emailLicitacoes, "Representante legal": EMPRESA.representanteCompleto, "Cargo do representante": EMPRESA.cargoRepresentante, "RG do representante": EMPRESA.rg, "CPF do representante": EMPRESA.cpf, "Enquadramento": "Empresa de Pequeno Porte (EPP), optante pelo Simples Nacional", "Cidade para data": EMPRESA.cidade, ...dadosBalancoIA() };
         const Lr = r.resumo || {}; const certame = { "Órgão": limparNaoLoc(Lr.orgao), "UASG": limparNaoLoc(Lr.uasg), "Modalidade": modalidadeCurta(Lr.modalidade), "Número": numeroCurto(Lr.numero), "Município/UF": [Lr.municipio, Lr.estado].filter(Boolean).join("/"), "Objeto": limparNaoLoc(Lr.objeto), "Data da sessão": Lr.dataSessao ? fmtD(Lr.dataSessao) : "" };
         const res = await extrairDeclaracoes(r.arquivos, { empresa, certame, prompt: getPrompts().declaracoes, modelo });
         r.declaracoes = res.declaracoes || []; r.declaracoesObs = res.observacoes || ""; r.declaracoesMeta = { ...(res.meta || {}), arquivos: (r.arquivos || []).map((a) => a.nome), pasta: (r.arquivos?.[0]?.path || "").split("/")[2] || "" }; registrarUso(r, "declaracoes", res.meta); r.declaracoesData = hojeIso();
