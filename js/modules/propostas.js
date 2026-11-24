@@ -1,20 +1,20 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261124-160544";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261124-160544";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261124-160544";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261124-160544";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261124-160544";
-import { podeEditar } from "../core/auth.js?v=20261124-160544";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261124-160544";
-import { ssel } from "../core/ssel.js?v=20261124-160544";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261124-160544";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261124-160544";
-import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261124-160544";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261124-160544";
-import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261124-160544";
-import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261124-160544";
-import { dataLocal } from "../core/utils.js?v=20261124-160544";
+import { store, newId } from "../core/store.js?v=20261124-230307";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261124-230307";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261124-230307";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261124-230307";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261124-230307";
+import { podeEditar } from "../core/auth.js?v=20261124-230307";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261124-230307";
+import { ssel } from "../core/ssel.js?v=20261124-230307";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261124-230307";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261124-230307";
+import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261124-230307";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261124-230307";
+import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261124-230307";
+import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261124-230307";
+import { dataLocal } from "../core/utils.js?v=20261124-230307";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -375,7 +375,7 @@ function lancarResultado(p) {
       const abaixo = vencidos.filter((it) => it.preco < piso(it.custo, getCfg(), o.estado));
       if (abaixo.length && !await confirmar(`${abaixo.length} item(ns) arrematado(s) abaixo do piso. Aplicar mesmo assim?`, { ok: "Aplicar" })) return;
       const status = vencidos.length ? "Vencida" : "Perdida";
-      await store.setItem("propostas", { ...p, itens: vencidos.length ? vencidos : itens, status, resultadoDisputa: { data: v.dataDisputa || hojeIso(), obs: v.obsDisputa || "", itens: hist, perdidos: perdidos.map((it) => ({ num: it.num, codigo: it.codigo, nome: it.nome, qtd: it.qtd, preco: it.preco, custo: it.custo, produtoId: it.produtoId || "" })) }, readequadaEm: vencidos.length ? new Date().toISOString() : "" });
+      await store.setItem("propostas", { ...p, itens: vencidos.length ? vencidos : itens, status, resultadoDisputa: { data: v.dataDisputa || hojeIso(), obs: v.obsDisputa || "", itens: hist, perdidos: perdidos.map((it) => ({ num: it.num, codigo: it.codigo, nome: it.nome, marca: it.marca || "", descricaoEdital: !!it.descricaoEdital, numPortal: it.numPortal || "", qtd: it.qtd, preco: it.preco, custo: it.custo, produtoId: it.produtoId || "" })) }, readequadaEm: vencidos.length ? new Date().toISOString() : "" });
       closeModal(); toast(vencidos.length ? `Proposta readequada: ${vencidos.length} item(ns) vencido(s), ${perdidos.length} perdido(s). Status: Vencida.` : "Todos os itens perdidos. Status: Perdida.", "ok", 6000);
       if (vencidos.length && await confirmar("Gerar o PDF da proposta readequada agora?", { ok: "Gerar PDF" })) opcoesPdf(store.find("propostas", p.id));
     },
@@ -401,7 +401,7 @@ function convocarRemanescente(p) {
       form.querySelectorAll("[data-desfazer-conv]").forEach((b) => b.addEventListener("click", async () => { const i = +b.dataset.desfazerConv; const c = (p.convocacoes || [])[i]; if (!c) return;
         if (!await confirmar(`Desfazer a convocação de ${fmtD(c.data)} (itens ${(c.itens || []).join(", ")})? Os itens voltam para "perdidos" e a proposta volta ao status anterior se não sobrar item.`, { ok: "Desfazer", perigo: true })) return;
         const nums = new Set((c.itens || []).map(String)); const atual = store.find("propostas", p.id); const rd0 = atual.resultadoDisputa || {};
-        const volta = (atual.itens || []).filter((it) => it.convocado && nums.has(String(it.num))).map((it) => ({ num: it.num, codigo: it.codigo, nome: it.nome, qtd: it.qtd, preco: it.precoInicial ?? it.preco, custo: it.custo, produtoId: it.produtoId || "" }));
+        const volta = (atual.itens || []).filter((it) => it.convocado && nums.has(String(it.num))).map((it) => ({ num: it.num, codigo: it.codigo, nome: it.nome, marca: it.marca || "", descricaoEdital: !!it.descricaoEdital, numPortal: it.numPortal || "", qtd: it.qtd, preco: it.precoInicial ?? it.preco, custo: it.custo, produtoId: it.produtoId || "" }));
         const itensRest = (atual.itens || []).filter((it) => !(it.convocado && nums.has(String(it.num))));
         const rdNovo = { ...rd0, perdidos: [...(rd0.perdidos || []), ...volta], itens: (rd0.itens || []).map((h) => nums.has(String(h.num)) ? { ...h, convocado: false, precoConvocacao: null, convocadoEm: null } : h) };
         const convs = (atual.convocacoes || []).filter((_, k) => k !== i);
@@ -417,7 +417,7 @@ function convocarRemanescente(p) {
       const abaixo = escolhidos.filter((x) => x.it.custo && x.preco < piso(+x.it.custo, getCfg(), o.estado));
       if (abaixo.length && !await confirmar(`${abaixo.length} item(ns) abaixo do piso. Registrar mesmo assim?`, { ok: "Registrar" })) return;
       const quando = new Date().toISOString(); const nums = new Set(escolhidos.map((x) => String(x.it.num)));
-      const novos = escolhidos.map(({ it, preco }) => { const h = hist(it.num); return { ...it, preco, precoInicial: h.precoInicial ?? it.preco, total: +(preco * (it.qtd || 0)).toFixed(2), convocado: true, convocadoEm: v.dataConv || hojeIso(), precoVencedorDisputa: h.concorrencia?.precoVencedor || null, vencedorDisputa: h.concorrencia?.vencedor || "" }; });
+      const novos = escolhidos.map(({ it, preco }) => { const h = hist(it.num); const marca = it.marca || (it.produtoId ? (store.find("produtos", it.produtoId)?.marca || "") : ""); return { ...it, marca, preco, precoInicial: h.precoInicial ?? it.preco, total: +(preco * (it.qtd || 0)).toFixed(2), convocado: true, convocadoEm: v.dataConv || hojeIso(), precoVencedorDisputa: h.concorrencia?.precoVencedor || null, vencedorDisputa: h.concorrencia?.vencedor || "" }; });
       const itensProp = (p.status === "Perdida" ? [] : (p.itens || [])).concat(novos);
       const rdNovo = { ...rd, perdidos: perdidos.filter((it) => !nums.has(String(it.num))), itens: (rd.itens || []).map((h) => nums.has(String(h.num)) ? { ...h, convocado: true, precoConvocacao: escolhidos.find((x) => String(x.it.num) === String(h.num)).preco, convocadoEm: v.dataConv || hojeIso() } : h) };
       const convocacoes = [...(p.convocacoes || []), { data: v.dataConv || hojeIso(), prazo: v.prazoConv || "", obs: v.obsConv || "", itens: [...nums], registradoEm: quando, por: store.usuarioAtual || "" }];

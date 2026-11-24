@@ -1,7 +1,7 @@
 // Roteador por hash (#dashboard, #propostas, ...). Cada módulo registra
 // { id, titulo, grupo, icone, render(container), destroy?() }.
-import { $, $$ } from "./utils.js?v=20261124-160544";
-import { icon } from "./ui.js?v=20261124-160544";
+import { $, $$ } from "./utils.js?v=20261124-230307";
+import { icon } from "./ui.js?v=20261124-230307";
 
 const modules = new Map();
 let current = null;
