@@ -1,0 +1,47 @@
+# Lê um documento do Firestore para diagnóstico (Actions → "Ler dados (diagnóstico)").
+# O repositório é público, então o resultado sai CIFRADO com a chave pública informada (só quem tem a chave privada lê).
+name: Ler dados (diagnóstico)
+
+on:
+  workflow_dispatch:
+    inputs:
+      colecao: { description: "Coleção (ex.: propostas)", default: "propostas" }
+      campo: { description: "Campo para filtrar (ex.: num) — vazio = id do documento", default: "num" }
+      valor: { description: "Valor do campo (número ou texto) ou id", default: "" }
+      chave: { description: "Chave pública RSA (PEM em base64, uma linha)", default: "" }
+
+jobs:
+  ler:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Credenciais do Google Cloud
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+      - name: Instalar dependências
+        run: cd functions && npm ci --no-audit --no-fund
+      - name: Ler e cifrar
+        env:
+          COLECAO: ${{ github.event.inputs.colecao }}
+          CAMPO: ${{ github.event.inputs.campo }}
+          VALOR: ${{ github.event.inputs.valor }}
+          CHAVE: ${{ github.event.inputs.chave }}
+        run: |
+          test -n "$CHAVE" || { echo "Informe a chave pública."; exit 1; }
+          echo "$CHAVE" | base64 -d > "$RUNNER_TEMP/pub.pem"
+          cd functions && node -e '
+            const admin = require("firebase-admin"); admin.initializeApp(); const db = admin.firestore();
+            (async () => {
+              const col = db.collection(process.env.COLECAO); let docs;
+              if (process.env.CAMPO) { const v = process.env.VALOR; const n = Number(v); const snap = await col.where(process.env.CAMPO, "==", String(n) === v.trim() && v.trim() !== "" ? n : v).get(); docs = snap.docs; }
+              else { const d = await col.doc(process.env.VALOR).get(); docs = d.exists ? [d] : []; }
+              require("fs").writeFileSync(process.env.RUNNER_TEMP + "/dados.json", JSON.stringify(docs.map((d) => ({ id: d.id, ...d.data() })), null, 1));
+              console.log(docs.length + " documento(s)");
+            })().catch((e) => { console.error(e); process.exit(1); });'
+          openssl rand -out "$RUNNER_TEMP/aes.bin" 32
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in "$RUNNER_TEMP/dados.json" -out "$RUNNER_TEMP/dados.enc" -pass file:"$RUNNER_TEMP/aes.bin"
+          openssl pkeyutl -encrypt -pubin -inkey "$RUNNER_TEMP/pub.pem" -in "$RUNNER_TEMP/aes.bin" -out "$RUNNER_TEMP/aes.enc"
+          echo "-----CHAVE-----"; base64 -w0 "$RUNNER_TEMP/aes.enc"; echo; echo "-----DADOS-----"; base64 -w0 "$RUNNER_TEMP/dados.enc"; echo; echo "-----FIM-----"
