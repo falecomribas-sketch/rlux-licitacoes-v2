@@ -1,20 +1,20 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261124-230307";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261124-230307";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261124-230307";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261124-230307";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261124-230307";
-import { podeEditar } from "../core/auth.js?v=20261124-230307";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261124-230307";
-import { ssel } from "../core/ssel.js?v=20261124-230307";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261124-230307";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261124-230307";
-import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261124-230307";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261124-230307";
-import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261124-230307";
-import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261124-230307";
-import { dataLocal } from "../core/utils.js?v=20261124-230307";
+import { store, newId } from "../core/store.js?v=20261125-173213";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261125-173213";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261125-173213";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261125-173213";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261125-173213";
+import { podeEditar } from "../core/auth.js?v=20261125-173213";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261125-173213";
+import { ssel } from "../core/ssel.js?v=20261125-173213";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261125-173213";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261125-173213";
+import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261125-173213";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261125-173213";
+import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261125-173213";
+import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261125-173213";
+import { dataLocal } from "../core/utils.js?v=20261125-173213";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -239,16 +239,17 @@ function abrirForm(p = null) {
         calcTotais();
       }
       function calcTotais() {
-        let venda = 0, custo = 0, custoReal = 0, defasados = 0;
-        cont.querySelectorAll(".item").forEach((n) => { const q = +n.querySelector("[name=qtd]").value || 0, c = +n.querySelector("[name=custo]").value || 0; venda += q * (+n.querySelector("[name=preco]").value || 0); custo += q * c; const pr = custoAtualDe(n); const cr = pr ? pr.custo : c; custoReal += q * cr; if (pr && c > 0 && difCusto(c, pr.custo)) defasados++; });
+        let venda = 0, custo = 0, custoReal = 0, defasados = 0, semCusto = 0;
+        cont.querySelectorAll(".item").forEach((n) => { const q = +n.querySelector("[name=qtd]").value || 0, c = +n.querySelector("[name=custo]").value || 0; venda += q * (+n.querySelector("[name=preco]").value || 0); custo += q * c; const pr = custoAtualDe(n); const cr = pr ? pr.custo : c; custoReal += q * cr; if (pr && c > 0 && difCusto(c, pr.custo)) defasados++; if (!(c > 0)) semCusto++; });
         form.querySelector("#t-total").textContent = fmt(venda); form.querySelector("#t-custo").innerHTML = fmt(custo) + (difCusto(custo, custoReal) ? ` <span class="muted" style="font-weight:400;font-size:12px">· real ${fmt(custoReal)}</span>` : "");
         const tf = form.querySelector("#t-frete"); if (tf) { if (venda > 0) { const fe = freteEstimado(venda, getCfg()); tf.textContent = fmt(fe.valor); tf.style.color = fe.minimo ? "var(--amber-txt)" : ""; tf.title = fe.minimo ? "Pedido pequeno: prevalece o frete mínimo dos Parâmetros" : "Frete % sobre o total (Parâmetros)"; } else { tf.textContent = "—"; tf.style.color = ""; } }
         const tl = form.querySelector("#t-lucro"); if (tl) { if (custo > 0) { const cfg = getCfg(), uf = ufForm(); const liq = lucroLiquidoPedido(venda, custo, uf, cfg); tl.innerHTML = fmt(liq) + (difCusto(custo, custoReal) && custoReal > 0 ? ` <span class="muted" style="font-weight:400;font-size:12px">· real ${fmt(lucroLiquidoPedido(venda, custoReal, uf, cfg))}</span>` : "") + (notaEncargo(uf) ? ` <span class="muted" style="font-weight:400;font-size:11px">· ${esc(notaEncargo(uf))}</span>` : ""); tl.style.color = liq >= 0 ? "var(--green)" : "var(--red)"; } else { tl.textContent = "—"; tl.style.color = ""; } }
         const m = form.querySelector("#t-margem"); if (custo > 0) { const pct = (venda / custo - 1) * 100; let t = pctTxt(pct); if (difCusto(custo, custoReal) && custoReal > 0) { const r = (venda / custoReal - 1) * 100; t += ` <span style="font-weight:400;font-size:12px">· real ${pctTxt(r)}</span>`; } m.innerHTML = t; m.style.color = (custoReal > 0 ? venda / custoReal - 1 : pct) >= 0 ? "var(--green)" : "var(--red)"; } else { m.textContent = "—"; m.style.color = ""; }
         // aviso no topo
         const av = form.querySelector("#aviso-custos"); const dias = p ? diasDesde(p.criadoEm) : null;
-        if (p && (defasados > 0 || (dias !== null && dias > DIAS_AVISO))) { av.hidden = false;
-          av.innerHTML = `<div><div class="k">Revise os custos antes de enviar</div>Proposta criada em ${p.criadoEm ? fmtD(dataLocal(p.criadoEm)) : "—"}${dias !== null ? ` (há ${dias} dia${dias === 1 ? "" : "s"})` : ""}${defasados ? ` · <strong>${defasados} item(ns) com custo diferente do cadastro atual</strong>` : " · custos conferem com o cadastro"}.</div>${defasados && podeAtualizar() ? `<button type="button" class="btn btn-primary btn-sm" data-atualizar-todos>Atualizar custos de todos os itens</button>` : ""}`; }
+        if (p && (defasados > 0 || semCusto > 0 || (dias !== null && dias > DIAS_AVISO))) { av.hidden = false;
+          const notas = [defasados ? `<strong>${defasados} item(ns) com custo diferente do cadastro atual</strong>` : "", semCusto ? `<strong style="color:var(--red)">${semCusto} item(ns) sem custo</strong> — margem e lucro não calculados` : ""].filter(Boolean);
+          av.innerHTML = `<div><div class="k">Revise os custos antes de enviar</div>Proposta criada em ${p.criadoEm ? fmtD(dataLocal(p.criadoEm)) : "—"}${dias !== null ? ` (há ${dias} dia${dias === 1 ? "" : "s"})` : ""} · ${notas.length ? notas.join(" · ") : "custos conferem com o cadastro"}.</div>${defasados && podeAtualizar() ? `<button type="button" class="btn btn-primary btn-sm" data-atualizar-todos>Atualizar custos de todos os itens</button>` : ""}`; }
         else { av.hidden = true; av.innerHTML = ""; }
       }
       form.querySelector("#aviso-custos").addEventListener("click", async (e) => { if (!e.target.closest("[data-atualizar-todos]")) return;
@@ -260,7 +261,17 @@ function abrirForm(p = null) {
       form.querySelector("[data-add]").addEventListener("click", () => addItem({}));
       form.querySelector("[data-ordenar]").addEventListener("click", () => { const nodes = [...cont.querySelectorAll(".item")]; const numDe = (n) => { const v = String(n.querySelector("[name=num]")?.value || "").trim(); const m = v.match(/\d+(?:[.,]\d+)?/); return m ? parseFloat(m[0].replace(",", ".")) : Infinity; };
         nodes.sort((a, b) => numDe(a) - numDe(b) || 0).forEach((n) => cont.appendChild(n)); toast("Itens ordenados pelo número."); });
-      (p?.itens?.length ? p.itens : [{}]).forEach((d) => addItem(d));
+      // Itens sem vínculo com o catálogo, mas com código: religa pelo código (puxa custo e marca que estiverem vazios)
+      const normCod = (c) => String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const porCodigo = new Map(); store.get("produtos").forEach((pr) => { const k = normCod(pr.codigo); if (k && !porCodigo.has(k)) porCodigo.set(k, pr); });
+      const religados = [];
+      const itensIni = (p?.itens?.length ? p.itens : [{}]).map((d) => {
+        if (d.produtoId || !d.codigo) return d; const pr = porCodigo.get(normCod(d.codigo)); if (!pr) return d;
+        religados.push(`${d.num ? `item ${d.num} · ` : ""}${pr.codigo}`);
+        return { ...d, produtoId: pr.id, custo: +d.custo > 0 ? d.custo : (pr.custo || 0), marca: d.marca || pr.marca || "" };
+      });
+      itensIni.forEach((d) => addItem(d));
+      if (religados.length) toast(`${religados.length} item(ns) religado(s) ao catálogo pelo código (${religados.slice(0, 3).join("; ")}${religados.length > 3 ? "…" : ""}). Salve a proposta para manter o vínculo.`, "ok", 9000);
       m.querySelector("[data-pdf]")?.addEventListener("click", () => opcoesPdf(p));
       m.querySelector("[data-decl]")?.addEventListener("click", async () => {
         const a = analiseDaProposta(p);
