@@ -44,4 +44,4 @@ jobs:
           openssl rand -out "$RUNNER_TEMP/aes.bin" 32
           openssl enc -aes-256-cbc -pbkdf2 -salt -in "$RUNNER_TEMP/dados.json" -out "$RUNNER_TEMP/dados.enc" -pass file:"$RUNNER_TEMP/aes.bin"
           openssl pkeyutl -encrypt -pubin -inkey "$RUNNER_TEMP/pub.pem" -in "$RUNNER_TEMP/aes.bin" -out "$RUNNER_TEMP/aes.enc"
-          echo "-----CHAVE-----"; base64 -w0 "$RUNNER_TEMP/aes.enc"; echo; echo "-----DADOS-----"; base64 -w0 "$RUNNER_TEMP/dados.enc"; echo; echo "-----FIM-----"
+          echo "-----CHAVE-----"; base64 -w 76 "$RUNNER_TEMP/aes.enc"; echo "-----DADOS-----"; base64 -w 76 "$RUNNER_TEMP/dados.enc"; echo "-----FIM-----"
