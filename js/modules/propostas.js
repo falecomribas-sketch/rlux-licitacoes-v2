@@ -1,20 +1,20 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261125-173716";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261125-173716";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261125-173716";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261125-173716";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261125-173716";
-import { podeEditar } from "../core/auth.js?v=20261125-173716";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261125-173716";
-import { ssel } from "../core/ssel.js?v=20261125-173716";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261125-173716";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261125-173716";
-import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261125-173716";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261125-173716";
-import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261125-173716";
-import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261125-173716";
-import { dataLocal } from "../core/utils.js?v=20261125-173716";
+import { store, newId } from "../core/store.js?v=20261125-182118";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261125-182118";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261125-182118";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261125-182118";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261125-182118";
+import { podeEditar } from "../core/auth.js?v=20261125-182118";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261125-182118";
+import { ssel } from "../core/ssel.js?v=20261125-182118";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261125-182118";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261125-182118";
+import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261125-182118";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261125-182118";
+import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261125-182118";
+import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261125-182118";
+import { dataLocal } from "../core/utils.js?v=20261125-182118";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -168,7 +168,7 @@ function itemHtml(d = {}) {
       ${campo("Total", `<input type="text" class="ro-total" readonly>`)}
     </div>
     <input type="hidden" name="produtoId" value="${esc(d.produtoId || "")}">
-    <input type="hidden" name="extra" value="${esc(JSON.stringify({ descricaoEdital: d.descricaoEdital || "", unidadeEdital: d.unidadeEdital || "", precoReferencia: d.precoReferencia ?? null, produtoNome: d.produtoNome || "", precoInicial: d.precoInicial ?? null, custoData: d.custoData || "", historicoCusto: d.historicoCusto || [] }))}">
+    <input type="hidden" name="extra" value="${esc(JSON.stringify({ descricaoEdital: d.descricaoEdital || "", unidadeEdital: d.unidadeEdital || "", precoReferencia: d.precoReferencia ?? null, produtoNome: d.produtoNome || "", precoInicial: d.precoInicial ?? null, custoData: d.custoData || "", historicoCusto: d.historicoCusto || [], numPortal: d.numPortal || "", convocado: d.convocado || false, convocadoEm: d.convocadoEm || "", precoVencedorDisputa: d.precoVencedorDisputa ?? null, vencedorDisputa: d.vencedorDisputa || "", ultimoLance: d.ultimoLance ?? null }))}">
   </div>`;
 }
 
@@ -297,7 +297,7 @@ function lerItem(n) {
   const g = (name) => n.querySelector(`[name=${name}]`).value;
   const qtd = +g("qtd") || 0, preco = +g("preco") || 0;
   let extra = {}; try { extra = JSON.parse(g("extra") || "{}"); } catch { extra = {}; }
-  const limpo = Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== "" && v !== null && v !== undefined && !(Array.isArray(v) && !v.length)));
+  const limpo = Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== "" && v !== null && v !== undefined && v !== false && !(Array.isArray(v) && !v.length)));
   return { ...limpo, num: parseInt(g("num")) || "", produtoId: g("produtoId") || "", nome: g("nome").trim(), codigo: g("codigo").trim(), marca: g("marca").trim(), qtd, custo: +g("custo") || 0, preco, total: qtd * preco };
 }
 
