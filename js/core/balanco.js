@@ -1,7 +1,7 @@
 // Balanço patrimonial da RLUX (último exercício) — alimenta as declarações de índices econômicos / capacidade financeira.
 // Configuração em Firestore: config/balanco { exercicio, encerramento, registro, ativoCirculante, realizavelLP, ativoTotal,
 //   passivoCirculante, passivoNaoCirculante, patrimonioLiquido, capitalSocial, contadorNome, contadorCRC, contadorCPF }
-import { store } from "./store.js?v=20261125-182540";
+import { store } from "./store.js?v=20261125-182827";
 
 export const BALANCO_PADRAO = { exercicio: "", encerramento: "", registro: "", ativoCirculante: 0, realizavelLP: 0, ativoTotal: 0, passivoCirculante: 0, passivoNaoCirculante: 0, patrimonioLiquido: 0, capitalSocial: 0, contadorNome: "", contadorCRC: "", contadorCPF: "" };
 let bal = { ...BALANCO_PADRAO }; let iniciado = false; const ouvintes = new Set();

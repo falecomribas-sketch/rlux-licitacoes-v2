@@ -1,20 +1,20 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261125-182540";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261125-182540";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261125-182540";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261125-182540";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261125-182540";
-import { podeEditar } from "../core/auth.js?v=20261125-182540";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261125-182540";
-import { ssel } from "../core/ssel.js?v=20261125-182540";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261125-182540";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261125-182540";
-import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261125-182540";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261125-182540";
-import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261125-182540";
-import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261125-182540";
-import { dataLocal } from "../core/utils.js?v=20261125-182540";
+import { store, newId } from "../core/store.js?v=20261125-182827";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261125-182827";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261125-182827";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261125-182827";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261125-182827";
+import { podeEditar } from "../core/auth.js?v=20261125-182827";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261125-182827";
+import { ssel } from "../core/ssel.js?v=20261125-182827";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261125-182827";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261125-182827";
+import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261125-182827";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261125-182827";
+import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261125-182827";
+import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261125-182827";
+import { dataLocal } from "../core/utils.js?v=20261125-182827";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -79,8 +79,9 @@ export default {
         { key: "margem", label: "Margem", num: true, sort: (p) => propMargem(p) ?? -Infinity, render: (p) => { const m = propMargem(p); if (m === null) return '<span class="muted">—</span>';
           return `<strong style="color:${m >= 15 ? "var(--green)" : m >= 0 ? "var(--amber-txt)" : "var(--red)"}">${m.toFixed(1)}%</strong>`; } },
         { key: "margemAtual", label: "Margem atual", num: true, sort: (p) => margemAtual(p)?.pct ?? -Infinity, render: (p) => { const a = margemAtual(p); if (!a) return '<span class="muted">—</span>';
-          const cor = a.abaixoPiso ? "var(--red)" : a.abaixoLucroMin ? "var(--amber-txt)" : "var(--green)"; const tit = a.abaixoPiso ? "Com o custo atual, há item com preço abaixo do piso" : a.abaixoLucroMin ? "Com o custo atual, a margem ficou abaixo do lucro mínimo" : "Margem recalculada com o custo atual do cadastro";
-          return `<strong style="color:${cor}" title="${tit}">${a.pct.toFixed(1)}%</strong><div class="muted" style="font-size:11px">${a.varCusto === null ? "custos conferem" : `custo ${a.varCusto > 0 ? "+" : ""}${a.varCusto.toFixed(1)}%`}</div>`; } },
+          // cor pela margem do conjunto (como a coluna Margem); item isolado abaixo do piso vira nota, não pinta o total
+          const cor = a.abaixoLucroMin ? (a.pct < 0 ? "var(--red)" : "var(--amber-txt)") : "var(--green)"; const tit = a.abaixoLucroMin ? "Com o custo atual, o lucro líquido do conjunto ficou abaixo do lucro mínimo" : "Margem recalculada com o custo atual do cadastro";
+          return `<strong style="color:${cor}" title="${tit}">${a.pct.toFixed(1)}%</strong><div class="muted" style="font-size:11px">${a.varCusto === null ? "custos conferem" : `custo ${a.varCusto > 0 ? "+" : ""}${a.varCusto.toFixed(1)}%`}</div>${a.itensAbaixo ? `<div style="font-size:11px;color:var(--red)" title="Com o custo atual, ${a.itensAbaixo} item(ns) têm preço abaixo do piso (além da folga de desempate)">${a.itensAbaixo} item(ns) abaixo do piso</div>` : ""}`; } },
         { key: "venc", label: "Venc. ATA", sort: (p) => ataDaProposta(p.id)?.vencimento || "", render: (p) => { const a = ataDaProposta(p.id); if (!a?.vencimento) return '<span class="muted">—</span>'; if (!isEspelho(p) && propostaRenovada(p)) return tag(`${fmtD(a.vencimento)} · renovada`, "tag-gray"); const d = diasAte(a.vencimento);
           return tag(`${fmtD(a.vencimento)} (${d}d)`, d < 0 ? "tag-red" : d <= 30 ? "tag-orange" : d <= 60 ? "tag-amber" : "tag-green"); } },
         { key: "status", label: "Status", sort: (p) => statusExibido(p), render: (p) => { const st = statusExibido(p); const ren = !isEspelho(p) ? propostaRenovada(p) : null; const orig = isEspelho(p) ? store.get("propostas").find((x) => x.id === store.find("atas", p.espelhoDeAtaId)?.propostaId) : null;
@@ -126,13 +127,15 @@ export const propostaDefasada = (p) => STATUS_ATUALIZAVEL.includes(p?.status || 
 export function margemAtual(p) {
   if (!STATUS_ATUALIZAVEL.includes(p?.status || "Em Andamento")) return null;
   const cfg = getCfg(); const uf = getOrgao(getLicit(p.licitacaoId).orgaoId)?.estado || "";
-  let venda = 0, custoProp = 0, custoAtual = 0, abaixoPiso = false;
+  let venda = 0, custoProp = 0, custoAtual = 0, itensAbaixo = 0;
+  // o lance mínimo da Effecti fica alguns centavos abaixo do piso de propósito (folga de desempate) — isso não é "abaixo do piso"
+  const tol = ((+cfg.folgaDesempate || 3) + 0.5) / 100;
   (p.itens || []).forEach((it) => { const q = +it.qtd || 0, v = +it.preco || 0, c = +it.custo || 0; const pr = it.produtoId ? store.find("produtos", it.produtoId) : null; const ca = pr && pr.custo > 0 ? +pr.custo : c;
-    venda += q * v; custoProp += q * c; custoAtual += q * ca; if (ca > 0 && v > 0 && v < piso(ca, cfg, uf)) abaixoPiso = true; });
+    venda += q * v; custoProp += q * c; custoAtual += q * ca; if (ca > 0 && v > 0 && v < piso(ca, cfg, uf) - tol) itensAbaixo++; });
   if (custoAtual <= 0) return null;
   const pct = (venda / custoAtual - 1) * 100; const varCusto = custoProp > 0 && difCusto(custoProp, custoAtual) ? (custoAtual - custoProp) / custoProp * 100 : null;
   const lucroLiq = venda > 0 ? (venda - custoAtual - venda * ((+cfg.simples || 0) + (+cfg.fretePct || 0) + encargoPct(uf, cfg)) / 100) / venda * 100 : 0;
-  return { pct, varCusto, abaixoPiso, abaixoLucroMin: lucroLiq < (+cfg.lucroMin || 7) };
+  return { pct, varCusto, itensAbaixo, abaixoPiso: itensAbaixo > 0, abaixoLucroMin: lucroLiq < (+cfg.lucroMin || 7) };
 }
 const diasDesde = (iso) => iso ? Math.floor((new Date(hojeIso() + "T00:00:00") - new Date(dataLocal(iso) + "T00:00:00")) / 864e5) : null;
 
