@@ -1,9 +1,9 @@
 // Resultados de disputa: leitura da planilha "Exportação de resultados" da Effecti, classificação da perda
 // e agregações para o painel Resultados. Os dados ficam em proposta.resultadoDisputa.itens[] (campo concorrencia).
-import { store } from "./store.js?v=20261125-182118";
-import { abrirExcel } from "./forms.js?v=20261125-182118";
-import { getLicit, getOrgao, getPortal } from "./domain.js?v=20261125-182118";
-import { piso, getCfg, deduzirFamilia, FAMILIAS_TEC } from "./preco.js?v=20261125-182118";
+import { store } from "./store.js?v=20261125-182540";
+import { abrirExcel } from "./forms.js?v=20261125-182540";
+import { getLicit, getOrgao, getPortal } from "./domain.js?v=20261125-182540";
+import { piso, getCfg, deduzirFamilia, FAMILIAS_TEC } from "./preco.js?v=20261125-182540";
 
 export const NOS_RE = /rlux/i;
 const LANCE_DESISTENCIA = 10000; // lances tipo "100.000" são desistência — ignorados na análise
@@ -80,7 +80,7 @@ export function linhasResultados() {
       const classe = h.convocado ? "convocado" : classeDisputa; const perdido = !!h.perdido && !h.convocado;
       const fam = prod?.familia || deduzirFamilia(`${it.nome || ""} ${it.descricao || ""}`) || "";
       const marcaNossa = c.nossaMarca || it.marca || prod?.marca || "";
-      out.push({ p, l, o, uf, portal, marcaNossa, data: rd.data || l?.data || "", num: h.num, nome: it.nome || h.codigo || "", codigo: it.codigo || h.codigo || "", qtd: +it.qtd || +c.qtd || 0, custo, piso: ps, precoInicial: +h.precoInicial || 0, nosso, perdido, perdidoDisputa: !!h.perdido, convocado: !!h.convocado, precoConvocacao: +h.precoConvocacao || 0, classeDisputa, classe, familia: fam, familiaNome: FAMILIAS_TEC[fam]?.nome.split(" (")[0] || (fam || "Outros"), ...c,
+      out.push({ p, l, o, uf, portal, marcaNossa, data: rd.data || l?.data || "", num: h.num, nome: it.nome || h.codigo || "", codigo: it.codigo || h.codigo || "", qtd: +it.qtd || +c.qtd || 0, custo, piso: ps, precoInicial: +h.precoInicial || 0, nosso, perdido, perdidoDisputa: !!h.perdido, convocado: !!h.convocado, convocacaoDesclassificada: !!h.convocacaoDesclassificada, precoConvocacao: +h.precoConvocacao || 0, classeDisputa, classe, familia: fam, familiaNome: FAMILIAS_TEC[fam]?.nome.split(" (")[0] || (fam || "Outros"), ...c,
         difPct: c.precoVencedor && nosso ? (nosso - c.precoVencedor) / c.precoVencedor * 100 : null, valor: (+it.qtd || +c.qtd || 0) * (h.convocado ? (+h.precoConvocacao || nosso) : h.perdido ? (c.precoVencedor || nosso) : nosso) });
     });
   });
