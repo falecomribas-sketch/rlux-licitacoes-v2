@@ -270,7 +270,7 @@ body.modal-open { overflow: hidden; }
 .toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 200; }
 .toast { padding: 10px 14px; border-radius: 8px; color: #fff; font-size: 13px; font-weight: 500; box-shadow: 0 8px 24px -8px rgba(0,0,0,.4); animation: toast-in .2s ease; max-width: 360px; }
 .toast.out { opacity: 0; transition: opacity .25s; }
-.toast-ok { background: var(--green); } .toast-erro { background: var(--red); } .toast-info { background: var(--navy-2); }
+.toast-ok { background: var(--green); } .toast-erro { background: var(--red); } .toast-info { background: var(--navy-2); } .toast-aviso, .toast-warn { background: #b45309; }
 @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ---------- placeholder de módulo ---------- */

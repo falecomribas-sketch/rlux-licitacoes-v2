@@ -1,17 +1,17 @@
 // CRM — cobranças comerciais (ordem de compra / empenho / acompanhamento). Campos iguais ao legado:
 // id, propostaId, status, tipo, contato, contatoInfo, ultContato, proxCont, vencimento, obs,
 // historico[{data,canal,desc}], criadoEm
-import { store, newId } from "../core/store.js?v=20261126-090827";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261126-090827";
-import { formModal, lerForm, campo, inputTxt, inputData, textarea, select, linha, exportarExcel } from "../core/forms.js?v=20261126-090827";
-import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261126-090827";
-import { esc, fmt, fmtD, fmtNum, hojeIso, toTitleCase } from "../core/utils.js?v=20261126-090827";
-import { podeEditar } from "../core/auth.js?v=20261126-090827";
-import { getLicit, getOrgao, getProp, getPortal, propTotal, propEmpenhado, propSaldo } from "../core/domain.js?v=20261126-090827";
-import { ssel } from "../core/ssel.js?v=20261126-090827";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261126-090827";
-import { opcoesPropostas } from "./atas.js?v=20261126-090827";
-import { novoDoc, cabecalho, rodape, tabelaPadrao } from "../core/pdf.js?v=20261126-090827";
+import { store, newId } from "../core/store.js?v=20261126-125351";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261126-125351";
+import { formModal, lerForm, campo, inputTxt, inputData, textarea, select, linha, exportarExcel } from "../core/forms.js?v=20261126-125351";
+import { toast, confirmar, closeModal, icon, tag } from "../core/ui.js?v=20261126-125351";
+import { esc, fmt, fmtD, fmtNum, hojeIso, toTitleCase } from "../core/utils.js?v=20261126-125351";
+import { podeEditar } from "../core/auth.js?v=20261126-125351";
+import { getLicit, getOrgao, getProp, getPortal, propTotal, propEmpenhado, propSaldo } from "../core/domain.js?v=20261126-125351";
+import { ssel } from "../core/ssel.js?v=20261126-125351";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261126-125351";
+import { opcoesPropostas } from "./atas.js?v=20261126-125351";
+import { novoDoc, cabecalho, rodape, tabelaPadrao } from "../core/pdf.js?v=20261126-125351";
 
 export const STATUS_CRM = ["Agendado", "Em Contato", "Em Renovação", "Em Negociação", "Sem Sucesso", "Finalizado"];
 export const TIPOS_CRM = ["Ordem de Compra", "Nota de Empenho", "Acompanhamento", "Cobrança Financeira"];
