@@ -474,3 +474,11 @@ a.btn { text-decoration: none; }
 .dest-row input, .dest-cab input { margin: 0; accent-color: var(--navy-2); }
 .dest-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dest-mail { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+
+/* histórico interno */
+.hist-lista { border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fafbfe; max-height: 260px; overflow: auto; padding: 4px 10px; margin-bottom: 8px; }
+.hist-item { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.45; }
+.hist-item:last-child { border-bottom: 0; }
+.hist-meta { font-size: 11px; color: var(--muted); display: flex; gap: 4px; align-items: center; margin-bottom: 2px; }
+.hist-meta .hist-rm { margin-left: auto; width: 20px; height: 20px; font-size: 14px; line-height: 1; color: var(--muted); }
+.hist-sis .hist-txt { color: var(--muted); font-style: italic; }

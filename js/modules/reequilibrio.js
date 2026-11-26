@@ -1,20 +1,21 @@
 // Reequilíbrio econômico-financeiro. Novo preço = preço de venda × (1 + variação do custo).
 // "Aplicar na ATA" atualiza os preços da proposta vinculada (guardando o histórico).
-import { store, newId } from "../core/store.js?v=20261125-182827";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261125-182827";
-import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261125-182827";
-import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261125-182827";
-import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso, contem } from "../core/utils.js?v=20261125-182827";
-import { podeEditar } from "../core/auth.js?v=20261125-182827";
-import { itensEmRisco, diasAguardando, reequilibriosSemRetorno, diagnosticoRisco } from "../core/risco.js?v=20261125-182827";
-import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261125-182827";
-import { EMPRESA } from "../core/pdf.js?v=20261125-182827";
-import { dataLocal } from "../core/utils.js?v=20261125-182827";
-import { getCfg, encargoUF } from "../core/preco.js?v=20261125-182827";
-import { getLicit, getOrgao, getProp, getAta, propTotal, deduzirPapel, papelNome } from "../core/domain.js?v=20261125-182827";
-import { ssel } from "../core/ssel.js?v=20261125-182827";
-import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261125-182827";
-import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261125-182827";
+import { store, newId } from "../core/store.js?v=20261126-090827";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261126-090827";
+import { formModal, lerForm, campo, inputTxt, inputData, select, textarea, linha, exportarExcel } from "../core/forms.js?v=20261126-090827";
+import { toast, confirmar, closeModal, icon, tag, openModal } from "../core/ui.js?v=20261126-090827";
+import { esc, fmt, fmtD, fmtNum, toTitleCase, hojeIso, contem } from "../core/utils.js?v=20261126-090827";
+import { podeEditar } from "../core/auth.js?v=20261126-090827";
+import { itensEmRisco, diasAguardando, reequilibriosSemRetorno, diagnosticoRisco } from "../core/risco.js?v=20261126-090827";
+import { registrarEnvio, enviosDe, abrirClienteEmail, copiarTextoFormatado, iniciarRegua, onRegua } from "../core/regua.js?v=20261126-090827";
+import { blocoHistorico, ligarHistorico, comEntradas, entrada, ultimaEntrada, diasDesdeUltima } from "../core/historico.js?v=20261126-090827";
+import { EMPRESA } from "../core/pdf.js?v=20261126-090827";
+import { dataLocal } from "../core/utils.js?v=20261126-090827";
+import { getCfg, encargoUF } from "../core/preco.js?v=20261126-090827";
+import { getLicit, getOrgao, getProp, getAta, propTotal, deduzirPapel, papelNome } from "../core/domain.js?v=20261126-090827";
+import { ssel } from "../core/ssel.js?v=20261126-090827";
+import { uploadAnexo, anexoBotoes, campoAnexo, ligarDropzones } from "../core/files.js?v=20261126-090827";
+import { gerarPdfReequilibrio } from "../pdf/reequilibrio.js?v=20261126-090827";
 
 export const STATUS_REQ = ["Solicitado", "Em Análise", "Aprovado", "Aprovado Parcial", "Negado", "Cancelado"];
 const COR = { Aprovado: "tag-green", "Aprovado Parcial": "tag-green", Solicitado: "tag-amber", "Em Análise": "tag-blue", Negado: "tag-red", Cancelado: "tag-gray" };
@@ -55,7 +56,7 @@ export default {
         { key: "dataSolic", label: "Solicitação", render: (r) => fmtD(r.dataSolic) },
         { key: "dataResp", label: "Resposta", render: (r) => r.dataResp ? fmtD(r.dataResp) : tag("Pendente", "tag-amber") },
         { key: "aguard", label: "Aguardando", sort: (r) => diasAguardando(r) ?? -1, render: (r) => { const d = diasAguardando(r); if (d === null) return '<span class="muted">—</span>'; const cs = r.cobrancasRetorno || []; const ult = cs.length ? cs[cs.length - 1] : null;
-          return `${tag(`${d} dia${d === 1 ? "" : "s"}`, d > 30 ? "tag-red" : d > 15 ? "tag-orange" : "tag-green")}<div class="muted" style="font-size:11px">${cs.length ? `${cs.length} cobrança${cs.length > 1 ? "s" : ""} · última ${fmtD(ult.data)}` : "nenhuma cobrança"}</div>`; } },
+          return `${tag(`${d} dia${d === 1 ? "" : "s"}`, d > 30 ? "tag-red" : d > 15 ? "tag-orange" : "tag-green")}<div class="muted" style="font-size:11px">${cs.length ? `${cs.length} cobrança${cs.length > 1 ? "s" : ""} · última ${fmtD(ult.data)}` : "nenhuma cobrança"}</div>${(() => { const u = ultimaEntrada(r); if (!u || u.tipo === "sistema") return ""; const dd = diasDesdeUltima(r); return `<div class="muted" style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(u.texto)}">✎ ${dd === 0 ? "hoje" : `há ${dd} d`}: ${esc(u.texto)}</div>`; })()}`; } },
         { key: "percReajuste", label: "Reajuste", num: true, sort: (r) => r.percReajuste || 0, render: (r) => `<strong style="color:var(--purple)">${(r.percReajuste || 0).toFixed(2)}%</strong>` },
         { key: "valorDif", label: "Diferença", num: true, sort: (r) => r.valorDif || 0, render: (r) => `<strong style="color:${(r.valorDif || 0) > 0 ? "var(--red)" : "var(--green)"}">${fmt(r.valorDif)}</strong>` },
         { key: "status", label: "Status", render: (r) => `${tag(r.status || "—", COR[r.status] || "tag-gray")}${r.aplicado ? " " + tag("Aplicado na ATA", "tag-green") : ""}` },
@@ -138,13 +139,15 @@ function abrirForm(r = null) {
       ${r?.aplicado ? `<div class="info-box" style="grid-template-columns:1fr;background:var(--green-bg);border-color:#9fdcbc"><strong style="color:var(--green)">Reequilíbrio aplicado na ATA</strong> em ${r.aplicadoEm ? new Date(r.aplicadoEm).toLocaleString("pt-BR") : "—"}. Os preços da proposta vinculada foram atualizados.</div>` : ""}
       <div class="form-section" style="color:var(--teal)">Documentação comprobatória</div>
       ${linha(campoAnexo("Planilha / cotações", "arq", r?.arqData), campoAnexo("Ofício / documento", "doc", r?.docData))}
-      ${linha(campo("Observações", textarea("obs", r?.obs || "")))}`,
+      <div class="form-section">Histórico interno</div>
+      ${linha(blocoHistorico(r, { rotulo: "" }))}`,
     onAberto(form, m) {
       const render = () => renderItens(form, ataSel.value, r?.itens || []);
       ataSel = ssel(form.querySelector("#ata-ssel"), { placeholder: "Nº da ATA, órgão, pregão ou UASG…", itens: opcoesAtas(), value: r?.ataId || "", onSelect: render });
       ligarDropzones(form); render();
       m.querySelector("[data-pdf]")?.addEventListener("click", () => gerarPdfReequilibrio(r));
       m.querySelector("[data-aplicar]")?.addEventListener("click", () => aplicarNaAta(r));
+      if (r?.id) ligarHistorico(form, r, async (novo) => { await store.setItem("reequilibrio", { ...store.find("reequilibrio", r.id), historico: novo, obs: "" }); r.historico = novo; r.obs = ""; });
     },
     async onSalvar(form) {
       const v = lerForm(form);
@@ -153,7 +156,7 @@ function abrirForm(r = null) {
       const itens = coletarItens(form, ataSel.value); if (!itens.length) throw new Error("Selecione ao menos um item.");
       const totalOrig = itens.reduce((s, i) => s + i.precoOrig * i.qtd, 0), totalNovo = itens.reduce((s, i) => s + i.novoPreco * i.qtd, 0);
       const id = r?.id || newId();
-      const item = { ...(r || {}), id, numero: v.numero.trim(), ataId: ataSel.value, itens, fundamento: v.fundamento, indice: v.indice, justificativa: v.justificativa.trim(), dataSolic: v.dataSolic, dataResp: v.dataResp, processo: v.processo.trim(), status: v.status, responsavel: v.responsavel.trim(), obs: v.obs.trim(),
+      const item = { ...(r || {}), id, numero: v.numero.trim(), ataId: ataSel.value, itens, fundamento: v.fundamento, indice: v.indice, justificativa: v.justificativa.trim(), dataSolic: v.dataSolic, dataResp: v.dataResp, processo: v.processo.trim(), status: v.status, responsavel: v.responsavel.trim(), obs: "", historico: historicoNovo(r, v),
         totalOrig, totalNovo, valorDif: totalNovo - totalOrig, percReajuste: totalOrig > 0 ? (totalNovo - totalOrig) / totalOrig * 100 : 0, aplicado: r?.aplicado || false, aplicadoEm: r?.aplicadoEm || null, historicoPrecos: r?.historicoPrecos || null, arqData: r?.arqData || "", docData: r?.docData || "", criadoEm: r?.criadoEm || new Date().toISOString() };
       const fa = form.arq.files[0], fd = form.doc.files[0]; if (fa || fd) toast("Enviando anexos…", "info");
       if (fa) item.arqData = await uploadAnexo("reequilibrio", id, "reqArqData", fa); if (fd) item.docData = await uploadAnexo("reequilibrio", id, "reqDocData", fd);
@@ -163,6 +166,15 @@ function abrirForm(r = null) {
   });
 }
 
+// Histórico interno ao salvar: anotação digitada + entradas automáticas (status, data da resposta)
+function historicoNovo(r, v) {
+  const novas = []; if ((v.nota || "").trim()) novas.push(entrada(v.nota));
+  if (r?.id) {
+    if ((r.status || "Solicitado") !== v.status) novas.push(entrada(`Status alterado: ${r.status || "Solicitado"} → ${v.status}`, "sistema"));
+    if (v.dataResp && v.dataResp !== (r.dataResp || "")) novas.push(entrada(`Data da resposta do órgão registrada: ${fmtD(v.dataResp)}`, "sistema"));
+  } else novas.push(entrada(`Solicitação criada (${v.status || "Solicitado"})`, "sistema"));
+  return comEntradas(r, novas);
+}
 function renderItens(form, ataId, existentes) {
   const cont = form.querySelector("#itens"); const ata = getAta(ataId); const p = getProp(ata?.propostaId); const itens = p?.itens || []; const box = form.querySelector("#ata-info");
   if (!ata) { box.hidden = true; cont.innerHTML = `<div class="empty">Selecione a ATA para carregar os itens</div>`; form.querySelector("#tot").hidden = true; return; }
@@ -298,7 +310,8 @@ function avisarOrgao(x) {
     const email = { para: para.join(";"), assunto: m.querySelector("#av-assunto").value.trim(), corpo: m.querySelector("#av-corpo").value };
     closeModal();
     if (b.dataset.av === "copiar") { await copiarTextoFormatado(`Para: ${email.para}\nAssunto: ${email.assunto}\n\n${email.corpo}`); await registrarEnvio(x.p.id, "reequilibrio_aviso"); toast("Aviso copiado e registrado."); }
-    else { const inteiro = abrirClienteEmail(email); await registrarEnvio(x.p.id, "reequilibrio_aviso"); toast(inteiro ? "E-mail aberto e aviso registrado." : "Texto longo: corpo copiado — cole com Ctrl+V no e-mail que abriu.", inteiro ? "ok" : "info", 6000); } });
+    else { const inteiro = abrirClienteEmail(email); await registrarEnvio(x.p.id, "reequilibrio_aviso"); toast(inteiro ? "E-mail aberto e aviso registrado." : "Texto longo: corpo copiado — cole com Ctrl+V no e-mail que abriu.", inteiro ? "ok" : "info", 6000); }
+    if (x.pedidoId) { const rq = store.find("reequilibrio", x.pedidoId); if (rq) await store.setItem("reequilibrio", { ...rq, obs: "", historico: comEntradas(rq, [entrada(`Aviso de reequilíbrio ${b.dataset.av === "copiar" ? "copiado" : "enviado por e-mail"} ao órgão (${email.para})`, "sistema")]) }); } });
 }
 
 // Cobrar retorno de solicitação enviada e sem resposta
@@ -344,6 +357,6 @@ function cobrarRetorno(r) {
     closeModal();
     if (b.dataset.cr === "copiar") { await copiarTextoFormatado(`Para: ${email.para}\nAssunto: ${email.assunto}\n\n${email.corpo}`); toast(`${n}ª reiteração copiada e registrada.`); }
     else { const inteiro = abrirClienteEmail(email); toast(inteiro ? `E-mail aberto · ${n}ª reiteração registrada.` : "Texto longo: corpo copiado — cole com Ctrl+V no e-mail que abriu.", inteiro ? "ok" : "info", 6000); }
-    await store.setItem("reequilibrio", { ...store.find("reequilibrio", r.id), cobrancasRetorno: [...(r.cobrancasRetorno || []), { n, data: hojeIso(), para, por: store.usuarioAtual || "" }] });
+    { const rq = store.find("reequilibrio", r.id); await store.setItem("reequilibrio", { ...rq, cobrancasRetorno: [...(r.cobrancasRetorno || []), { n, data: hojeIso(), para, por: store.usuarioAtual || "" }], obs: "", historico: comEntradas(rq, [entrada(`${n}ª cobrança de retorno ${b.dataset.cr === "copiar" ? "copiada" : "enviada por e-mail"} (${para})`, "sistema")]) }); }
     if (i.p?.id) await registrarEnvio(i.p.id, "reequilibrio_cobranca"); });
 }
