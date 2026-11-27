@@ -1,6 +1,6 @@
 // Formulários em modal + exportação Excel.
-import { openModal, closeModal, toast } from "./ui.js?v=20261127-152618";
-import { esc } from "./utils.js?v=20261127-152618";
+import { openModal, closeModal, toast } from "./ui.js?v=20261127-175536";
+import { esc } from "./utils.js?v=20261127-175536";
 
 // formModal({ titulo, corpo (html de um <form>), largura, salvarTexto, onSalvar(form, modal) })
 // Mostra o modal, liga o submit e cuida de erro/feedback. onSalvar pode lançar Error(msg).

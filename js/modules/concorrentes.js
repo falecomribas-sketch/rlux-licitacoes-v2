@@ -1,10 +1,10 @@
 // Concorrentes: quem vence as disputas em que a RLUX participa — ranking e raio-x por empresa.
-import { store } from "../core/store.js?v=20261127-152618";
-import { icon, tag } from "../core/ui.js?v=20261127-152618";
-import { esc, fmt, fmtNum, fmtD, fmtDc, toTitleCase, cnpjFormatado } from "../core/utils.js?v=20261127-152618";
-import { exportarExcel } from "../core/forms.js?v=20261127-152618";
-import { iniciarPreco } from "../core/preco.js?v=20261127-152618";
-import { linhasResultados, participacoes, rankingConcorrentes, CLASSE_ROTULO } from "../core/resultados.js?v=20261127-152618";
+import { store } from "../core/store.js?v=20261127-175536";
+import { icon, tag } from "../core/ui.js?v=20261127-175536";
+import { esc, fmt, fmtNum, fmtD, fmtDc, toTitleCase, cnpjFormatado } from "../core/utils.js?v=20261127-175536";
+import { exportarExcel } from "../core/forms.js?v=20261127-175536";
+import { iniciarPreco } from "../core/preco.js?v=20261127-175536";
+import { linhasResultados, participacoes, rankingConcorrentes, CLASSE_ROTULO } from "../core/resultados.js?v=20261127-175536";
 
 let unsub = null, de = "", ate = "", uf = "", fam = "", portal = "", criterio = "valor", busca = "", sel = "", limite = 25;
 const CRIT = { valor: ["Valor ganho", (g) => g.valorGanho], itens: ["Itens ganhos", (g) => g.vitorias], sobre: ["Vitórias sobre a RLUX", (g) => g.sobreNos], presenca: ["Presença", (g) => g.itens] };

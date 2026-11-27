@@ -1,17 +1,17 @@
 // Dashboard — organizado por pergunta: (1) o que preciso fazer hoje, (2) como estamos no período (com comparação),
 // (3) onde ganhamos e perdemos, (4) financeiro e tendência, (5) análises complementares (recolhidas).
-import { store } from "../core/store.js?v=20261127-152618";
-import { $, fmt, fmtD, esc, raw, h, MESES_CURTOS, toTitleCase, hojeIso } from "../core/utils.js?v=20261127-152618";
-import { icon, vazio, tag } from "../core/ui.js?v=20261127-152618";
-import { registro, base, COR_STATUS } from "../core/charts.js?v=20261127-152618";
-import { navigate } from "../core/router.js?v=20261127-152618";
-import { iniciarRegua, onRegua, pendentesHoje, situacaoRegua, TIPO_ROTULO } from "../core/regua.js?v=20261127-152618";
-import { verEmail } from "./reguas.js?v=20261127-152618";
-import { getLicit, getOrgao, getProp, getCat, getPortal, isEspelho, isVencido, propTotal, STATUS_VENCIDO, ataFoiRenovada } from "../core/domain.js?v=20261127-152618";
-import { linhasResultados, participacoes, rankingConcorrentes, CLASSE_ROTULO } from "../core/resultados.js?v=20261127-152618";
-import { reequilibriosSemRetorno, diasAguardando } from "../core/risco.js?v=20261127-152618";
-import { cobAtraso } from "./cobrancas.js?v=20261127-152618";
-import { margemAtual } from "./propostas.js?v=20261127-152618";
+import { store } from "../core/store.js?v=20261127-175536";
+import { $, fmt, fmtD, esc, raw, h, MESES_CURTOS, toTitleCase, hojeIso } from "../core/utils.js?v=20261127-175536";
+import { icon, vazio, tag } from "../core/ui.js?v=20261127-175536";
+import { registro, base, COR_STATUS } from "../core/charts.js?v=20261127-175536";
+import { navigate } from "../core/router.js?v=20261127-175536";
+import { iniciarRegua, onRegua, pendentesHoje, situacaoRegua, TIPO_ROTULO } from "../core/regua.js?v=20261127-175536";
+import { verEmail } from "./reguas.js?v=20261127-175536";
+import { getLicit, getOrgao, getProp, getCat, getPortal, isEspelho, isVencido, propTotal, STATUS_VENCIDO, ataFoiRenovada } from "../core/domain.js?v=20261127-175536";
+import { linhasResultados, participacoes, rankingConcorrentes, CLASSE_ROTULO } from "../core/resultados.js?v=20261127-175536";
+import { reequilibriosSemRetorno, diasAguardando } from "../core/risco.js?v=20261127-175536";
+import { cobAtraso } from "./cobrancas.js?v=20261127-175536";
+import { margemAtual } from "./propostas.js?v=20261127-175536";
 
 const reg = registro();
 let unsub = null, unsubRegua = null;
@@ -182,8 +182,8 @@ function update() {
     kpi("Adesões aprovadas", fmt(A.totalAd), delta(A.totalAd, B?.totalAd), `<div class="kpi-note">${A.adesoesF.length} adesão(ões)</div>`);
 
   // ----- Onde ganhamos e perdemos -----
-  const classes = ["ganho", "convocado", "empate", "acima_piso", "entre_custo_piso", "abaixo_custo"];
-  const corClasse = { ganho: C.green, convocado: C.teal, empate: C.amber, acima_piso: C.serie, entre_custo_piso: C.orange, abaixo_custo: C.red };
+  const classes = ["ganho", "convocado", "empate", "acima_piso", "entre_custo_piso", "abaixo_custo", "desclassificado"];
+  const corClasse = { ganho: C.green, convocado: C.teal, empate: C.amber, acima_piso: C.serie, entre_custo_piso: C.orange, abaixo_custo: C.red, desclassificado: C.gray };
   const cnt = {}, val = {}; A.linhas.forEach((r) => { const k = r.classe || (r.perdido ? "sem_info" : "ganho"); cnt[k] = (cnt[k] || 0) + 1; val[k] = (val[k] || 0) + (r.valor || 0); });
   const semInfo = cnt.sem_info || 0; const ks = classes.filter((k) => cnt[k]);
   grafico("classes", "c-classes", ks.length, "Lance o resultado das disputas (botão ↻ em Propostas) para ver por que ganhamos e perdemos.", {

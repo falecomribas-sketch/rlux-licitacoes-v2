@@ -1,20 +1,21 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261127-152618";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261127-152618";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261127-152618";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261127-152618";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261127-152618";
-import { podeEditar } from "../core/auth.js?v=20261127-152618";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261127-152618";
-import { ssel } from "../core/ssel.js?v=20261127-152618";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261127-152618";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261127-152618";
-import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261127-152618";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261127-152618";
-import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261127-152618";
-import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261127-152618";
-import { dataLocal } from "../core/utils.js?v=20261127-152618";
+import { store, newId } from "../core/store.js?v=20261127-175536";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261127-175536";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261127-175536";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261127-175536";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261127-175536";
+import { podeEditar } from "../core/auth.js?v=20261127-175536";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261127-175536";
+import { ssel } from "../core/ssel.js?v=20261127-175536";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261127-175536";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261127-175536";
+import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261127-175536";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261127-175536";
+import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261127-175536";
+import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261127-175536";
+import { dataLocal } from "../core/utils.js?v=20261127-175536";
+import { comEntradas, entrada } from "../core/historico.js?v=20261127-175536";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;
@@ -90,6 +91,7 @@ export default {
           `<button class="icon-btn sm" data-act="pdf" data-id="${esc(p.id)}" title="Gerar PDF">${icon("print")}</button>`,
           ...(podeEditar() && !isEspelho(p) && ["Em Andamento", "Ag. Solic. Docs"].includes(p.status || "Em Andamento") ? [`<button class="icon-btn sm" data-act="resultado" data-id="${esc(p.id)}" title="Lançar resultado da disputa" style="color:var(--amber-txt)">${icon("trending")}</button>`] : []),
           ...(podeEditar() && !isEspelho(p) && (p.resultadoDisputa?.perdidos || []).length && ["Perdida", "Vencida", "Enviei Docs"].includes(p.status) ? [`<button class="icon-btn sm" data-act="convocar" data-id="${esc(p.id)}" title="Convocação do remanescente: fomos chamados para itens perdidos" style="color:var(--teal)">${icon("refresh")}</button>`] : []),
+          ...(podeEditar() && !isEspelho(p) && p.resultadoDisputa && (((p.itens || []).length && STATUS_VENCIDO.includes(p.status)) || (p.desclassificacoes || []).length) ? [`<button class="icon-btn sm" data-act="desclassificar" data-id="${esc(p.id)}" title="Desclassificação após a disputa: vencemos itens mas fomos desclassificados na habilitação/formalização">${icon("alert")}</button>`] : []),
           ...(podeEditar() ? [btnEditar(p.id), btnExcluir(p.id, ataDaProposta(p.id) ? "Tem ATA vinculada" : "")] : [])) },
       ],
     });
@@ -102,6 +104,7 @@ export default {
       pdf: (id) => opcoesPdf(store.find("propostas", id)),
       resultado: (id) => lancarResultado(store.find("propostas", id)),
       convocar: (id) => convocarRemanescente(store.find("propostas", id)),
+      desclassificar: (id) => desclassificarItens(store.find("propostas", id)),
       excluir: async (id) => {
         if (!await confirmar("Excluir esta proposta?", { ok: "Excluir", perigo: true })) return;
         await store.remove("propostas", id); toast("Proposta excluída.");
@@ -396,6 +399,47 @@ function lancarResultado(p) {
   });
 }
 
+// Desclassificação após a disputa: vencemos o lance, mas fomos desclassificados na habilitação/formalização (documento, amostra, prazo).
+// O item sai da proposta e vai para os perdidos; o histórico da disputa guarda que vencemos o lance; nos painéis conta como "Desclassificado".
+function desclassificarItens(p) {
+  if (!p) return; const l = getLicit(p.licitacaoId), o = getOrgao(l.orgaoId); const itens = p.itens || []; const rd = p.resultadoDisputa || {};
+  if (!itens.length) return toast("Esta proposta não tem itens vencidos.", "aviso");
+  const regs = p.desclassificacoes || [];
+  formModal({
+    titulo: `Desclassificação após a disputa — ${l.numero || "?"} · ${toTitleCase(o.nome || "")}`, largura: "xl", salvarTexto: "Registrar desclassificação",
+    corpo: `
+      <p class="muted" style="font-size:13px;margin:0 0 10px">Marque os itens em que a RLUX <strong>venceu o lance mas foi desclassificada</strong> (habilitação, amostra, documento, prazo). Eles saem da proposta e vão para os perdidos; o resultado da disputa fica guardado e, nos painéis, contam como <em>Desclassificado</em> — separado das perdas por preço. A ação pode ser desfeita abaixo.</p>
+      <div class="table-wrap"><table><thead><tr><th style="width:40px"></th><th>Item</th><th class="num">Qtd</th><th class="num">Preço</th><th class="num">Total</th><th>Origem</th></tr></thead><tbody>
+        ${itens.map((it, i) => `<tr><td style="text-align:center"><input type="checkbox" name="d_${i}"></td><td><strong>${esc(it.num ?? "")}</strong> ${esc(it.nome || "")}<div class="muted" style="font-size:11px">${esc(it.codigo || "")}${it.marca ? ` · ${esc(it.marca)}` : ""}</div></td><td class="num">${fmtNum(it.qtd)}</td><td class="num">${fmt(it.preco)}</td><td class="num">${fmt((it.qtd || 0) * (it.preco || 0))}</td><td>${it.convocado ? '<span class="tag tag-teal">convocação</span>' : '<span class="tag tag-green">vencido na disputa</span>'}</td></tr>`).join("")}
+      </tbody></table></div>
+      ${linha(campo("Data", `<input type="date" name="dataDesc" value="${hojeIso()}">`), campo("Motivo", `<input type="text" name="motivoDesc" placeholder="ex.: atestado de capacidade técnica não aceito; amostra reprovada" required>`), campo("Quem assumiu o item (opcional)", `<input type="text" name="assumiu" placeholder="empresa chamada em nosso lugar">`))}
+      ${regs.length ? `<div class="info-box" style="margin-top:10px"><div><div class="k">Desclassificações já registradas</div>${regs.map((r, i) => `<div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap"><span style="flex:1;min-width:220px">${fmtD(r.data)} · itens ${esc((r.itens || []).map((x) => x.num).join(", "))}${r.motivo ? ` · ${esc(r.motivo)}` : ""}${r.por ? ` · por ${esc(r.por.split("@")[0])}` : ""}</span><button type="button" class="btn btn-ghost btn-sm" data-desfazer-desc="${i}" title="Devolve os itens à proposta e apaga o registro">Desfazer</button></div>`).join("")}</div></div>` : ""}`,
+    onAberto(form) {
+      form.querySelectorAll("[data-desfazer-desc]").forEach((b) => b.addEventListener("click", async () => { const i = +b.dataset.desfazerDesc; const r = regs[i]; if (!r) return;
+        if (!await confirmar(`Desfazer a desclassificação de ${fmtD(r.data)} (itens ${(r.itens || []).map((x) => x.num).join(", ")})? Os itens voltam à proposta.`, { ok: "Desfazer", perigo: true })) return;
+        const atual = store.find("propostas", p.id); const rd0 = atual.resultadoDisputa || {}; const nums = new Set((r.itens || []).map((x) => String(x.num)));
+        const volta = (r.itens || []).map((x) => { const { desclassificacao, ...it } = x; return it; });
+        const rdNovo = { ...rd0, perdidos: (rd0.perdidos || []).filter((x) => !(nums.has(String(x.num)) && x.desclassificacao)), itens: (rd0.itens || []).map((h) => nums.has(String(h.num)) && h.desclassificado ? { ...h, desclassificado: false, desclassificadoEm: null, motivoDesclassificacao: "", ...(h.eraConvocado ? { convocado: true, convocacaoDesclassificada: false } : {}) } : h) };
+        const novo = { ...atual, itens: [...(atual.itens || []), ...volta], status: r.statusAnterior || (atual.status === "Perdida" ? "Vencida" : atual.status), resultadoDisputa: rdNovo, desclassificacoes: regs.filter((_, k) => k !== i), historico: comEntradas(atual, [entrada(`Desclassificação de ${fmtD(r.data)} desfeita (itens ${(r.itens || []).map((x) => x.num).join(", ")})`, "sistema")]) };
+        await store.setItem("propostas", novo); closeModal(); toast("Desclassificação desfeita — itens de volta à proposta."); }));
+    },
+    async onSalvar(form) {
+      const v = lerForm(form); const escolhidos = itens.filter((_, i) => !!v[`d_${i}`]);
+      if (!escolhidos.length) throw new Error("Marque ao menos um item."); if (!(v.motivoDesc || "").trim()) throw new Error("Informe o motivo da desclassificação.");
+      const nums = new Set(escolhidos.map((it) => String(it.num))); const data = v.dataDesc || hojeIso(); const motivo = v.motivoDesc.trim(); const assumiu = (v.assumiu || "").trim();
+      const atual = store.find("propostas", p.id); const rd0 = atual.resultadoDisputa || {};
+      const itensRest = (atual.itens || []).filter((it) => !nums.has(String(it.num)));
+      const snap = escolhidos.map((it) => ({ num: it.num, codigo: it.codigo, nome: it.nome, marca: it.marca || "", descricaoEdital: !!it.descricaoEdital, numPortal: it.numPortal || "", qtd: it.qtd, preco: it.precoInicial ?? it.preco, ultimoLance: it.preco, custo: it.custo, produtoId: it.produtoId || "", ...(it.convocado ? { convocacaoDesclassificada: true } : {}), desclassificacao: { data, motivo, assumiu } }));
+      const rdNovo = { ...rd0, perdidos: [...(rd0.perdidos || []), ...snap], itens: (rd0.itens || []).map((h) => nums.has(String(h.num)) ? { ...h, desclassificado: true, desclassificadoEm: data, motivoDesclassificacao: motivo, assumiu, ...(h.convocado ? { eraConvocado: true, convocado: false, convocacaoDesclassificada: true } : {}) } : h) };
+      const convs = (atual.convocacoes || []).map((c) => !c.desclassificada && (c.itens || []).length && (c.itens || []).every((n) => nums.has(String(n)) || rdNovo.itens.some((h) => String(h.num) === String(n) && h.convocacaoDesclassificada)) ? { ...c, desclassificada: { data, motivo, por: store.usuarioAtual || "" } } : c);
+      const registro = { data, motivo, assumiu, itens: escolhidos.map((it) => ({ ...it })), statusAnterior: atual.status, registradoEm: new Date().toISOString(), por: store.usuarioAtual || "" };
+      const novo = { ...atual, itens: itensRest, status: itensRest.length ? atual.status : "Perdida", resultadoDisputa: rdNovo, convocacoes: convs, desclassificacoes: [...regs, registro], historico: comEntradas(atual, [entrada(`Desclassificados após a disputa: itens ${[...nums].join(", ")} — ${motivo}${assumiu ? ` (assumiu: ${assumiu})` : ""}`, "sistema")]) };
+      await store.setItem("propostas", novo); closeModal();
+      toast(`${nums.size} item(ns) marcado(s) como desclassificado(s)${itensRest.length ? "" : " · proposta sem itens: status Perdida"}. Nos painéis contam como "Desclassificado".`, "ok", 7000);
+    },
+  });
+}
+
 // Convocação do remanescente: perdemos itens na disputa, mas o pregoeiro nos chamou (vencedor desclassificado/desistente).
 function convocarRemanescente(p) {
   if (!p) return; iniciarPreco(); const l = getLicit(p.licitacaoId), o = getOrgao(l.orgaoId); const rd = p.resultadoDisputa || {}; const perdidos = rd.perdidos || [];
@@ -407,7 +451,7 @@ function convocarRemanescente(p) {
       <p class="muted" style="font-size:13px;margin:0 0 10px">Marque os itens para os quais a RLUX foi convocada e informe o preço. A regra é o <strong>nosso último lance</strong>; o pregoeiro pode negociar até o preço do vencedor desclassificado — os dois aparecem abaixo, com o piso. Os itens entram na proposta (que volta a Vencida) e o resultado original da disputa fica guardado; nos painéis, contam como <em>ganho por convocação</em>.</p>
       <div class="table-wrap"><table><thead><tr><th>Convocado</th><th>Item</th><th class="num">Qtd</th><th class="num">Custo</th><th class="num">Piso</th><th class="num">Nosso último lance</th><th class="num">Vencedor na disputa</th><th style="width:130px">Preço convocação</th><th class="num">Margem</th></tr></thead><tbody>
         ${perdidos.map((it, i) => { const h = hist(it.num), c = h.concorrencia || {}; const ult = +(c.nossoPreco || it.ultimoLance || h.ultimoLance || it.preco) || 0; const semLance = !c.nossoPreco && !it.ultimoLance && !h.ultimoLance; const ps = piso(+it.custo || 0, getCfg(), o.estado);
-          return `<tr data-i="${i}"><td style="text-align:center"><input type="checkbox" name="conv_${i}"></td><td><strong>${esc(it.num ?? "")}</strong> ${esc(it.nome || "")}${it.convocacaoDesclassificada ? ` <span class="tag tag-red" title="Já fomos convocados para este item e acabamos desclassificados">convocado · desclassificado</span>` : ""}<div class="muted" style="font-size:11px">${esc(it.codigo || "")}</div></td><td class="num">${fmtNum(it.qtd)}</td><td class="num">${it.custo ? fmt(it.custo) : "—"}</td><td class="num">${it.custo ? fmt(ps) : "—"}</td><td class="num"><strong>${fmt(ult)}</strong>${semLance ? `<div class="muted" style="font-size:11px" title="O resultado da disputa não registrou nosso último lance; este é o preço inicial da proposta. Corrija no campo ao lado.">preço inicial ⚠</div>` : ""}</td><td class="num">${c.precoVencedor ? `${fmt(c.precoVencedor)}<div class="muted" style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.vencedor || "")}">${esc(c.vencedor || "")}</div>` : '<span class="muted">—</span>'}</td><td><input type="number" class="input input-sm" name="preco_${i}" value="${ult || ""}" step="0.01" min="0" style="width:120px" disabled></td><td class="num mg" style="font-weight:600"></td></tr>`; }).join("")}
+          return `<tr data-i="${i}"><td style="text-align:center"><input type="checkbox" name="conv_${i}"></td><td><strong>${esc(it.num ?? "")}</strong> ${esc(it.nome || "")}${it.convocacaoDesclassificada ? ` <span class="tag tag-red" title="Já fomos convocados para este item e acabamos desclassificados">convocado · desclassificado</span>` : it.desclassificacao ? ` <span class="tag tag-gray" title="${esc(it.desclassificacao.motivo || "")}">desclassificado após a disputa</span>` : ""}<div class="muted" style="font-size:11px">${esc(it.codigo || "")}</div></td><td class="num">${fmtNum(it.qtd)}</td><td class="num">${it.custo ? fmt(it.custo) : "—"}</td><td class="num">${it.custo ? fmt(ps) : "—"}</td><td class="num"><strong>${fmt(ult)}</strong>${semLance ? `<div class="muted" style="font-size:11px" title="O resultado da disputa não registrou nosso último lance; este é o preço inicial da proposta. Corrija no campo ao lado.">preço inicial ⚠</div>` : ""}</td><td class="num">${c.precoVencedor ? `${fmt(c.precoVencedor)}<div class="muted" style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.vencedor || "")}">${esc(c.vencedor || "")}</div>` : '<span class="muted">—</span>'}</td><td><input type="number" class="input input-sm" name="preco_${i}" value="${ult || ""}" step="0.01" min="0" style="width:120px" disabled></td><td class="num mg" style="font-weight:600"></td></tr>`; }).join("")}
       </tbody></table></div>
       ${linha(campo("Data da convocação", `<input type="date" name="dataConv" value="${hojeIso()}">`), campo("Prazo para aceite / documentos", `<input type="date" name="prazoConv">`), campo("Observação", `<input type="text" name="obsConv" placeholder="ex.: 1º colocado desclassificado por falta de atestado">`))}
       ${(p.convocacoes || []).length ? `<div class="info-box" style="margin-top:10px"><div><div class="k">Convocações já registradas nesta proposta</div>${(p.convocacoes || []).map((c, i) => `<div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap"><span style="flex:1;min-width:220px">${fmtD(c.data)} · itens ${esc((c.itens || []).join(", "))}${c.por ? ` · por ${esc(c.por.split("@")[0])}` : ""}${c.obs ? ` · ${esc(c.obs)}` : ""}</span>${c.desclassificada ? `<span class="tag tag-red" title="${esc(c.desclassificada.motivo || "")}">desclassificados em ${fmtD(c.desclassificada.data)}</span>` : `<button type="button" class="btn btn-ghost btn-sm" data-desfazer-conv="${i}" title="Registro feito por engano: devolve os itens aos perdidos e apaga o registro">Desfazer</button><button type="button" class="btn btn-ghost btn-sm" data-desclass-conv="${i}" title="A RLUX foi convocada mas acabou desclassificada: tira os itens da proposta e conta como perda, mantendo o histórico">Desclassificados</button>`}</div>`).join("")}</div></div>` : ""}`,

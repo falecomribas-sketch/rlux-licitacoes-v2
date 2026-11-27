@@ -1,9 +1,9 @@
 // Resultados de disputa: leitura da planilha "Exportação de resultados" da Effecti, classificação da perda
 // e agregações para o painel Resultados. Os dados ficam em proposta.resultadoDisputa.itens[] (campo concorrencia).
-import { store } from "./store.js?v=20261127-152618";
-import { abrirExcel } from "./forms.js?v=20261127-152618";
-import { getLicit, getOrgao, getPortal } from "./domain.js?v=20261127-152618";
-import { piso, getCfg, deduzirFamilia, FAMILIAS_TEC } from "./preco.js?v=20261127-152618";
+import { store } from "./store.js?v=20261127-175536";
+import { abrirExcel } from "./forms.js?v=20261127-175536";
+import { getLicit, getOrgao, getPortal } from "./domain.js?v=20261127-175536";
+import { piso, getCfg, deduzirFamilia, FAMILIAS_TEC } from "./preco.js?v=20261127-175536";
 
 export const NOS_RE = /rlux/i;
 const LANCE_DESISTENCIA = 10000; // lances tipo "100.000" são desistência — ignorados na análise
@@ -54,7 +54,7 @@ export function classificarPerda({ precoVencedor, nossoPreco, custo, piso: ps })
   if (custo > 0) return "abaixo_custo";
   return "";
 }
-export const CLASSE_ROTULO = { empate: ["Empate / centavos", "tag-amber", "Perdemos no desempate ou por centavos: mecânica de lance, não preço."], acima_piso: ["Acima do piso", "tag-blue", "O vencedor fechou acima do nosso piso: nosso lance parou cedo."], entre_custo_piso: ["Entre custo e piso", "tag-orange", "Vencedor abaixo do nosso piso, mas acima do custo: piso gordo nessa família/região."], abaixo_custo: ["Abaixo do custo", "tag-red", "Vencedor abaixo do nosso custo: problema de compra/produto (ou preço inexequível)."], ganho: ["Ganho", "tag-green", ""], convocado: ["Ganho por convocação", "tag-teal", "Perdemos na disputa, mas fomos convocados como remanescente (vencedor desclassificado/desistente)."] };
+export const CLASSE_ROTULO = { empate: ["Empate / centavos", "tag-amber", "Perdemos no desempate ou por centavos: mecânica de lance, não preço."], acima_piso: ["Acima do piso", "tag-blue", "O vencedor fechou acima do nosso piso: nosso lance parou cedo."], entre_custo_piso: ["Entre custo e piso", "tag-orange", "Vencedor abaixo do nosso piso, mas acima do custo: piso gordo nessa família/região."], abaixo_custo: ["Abaixo do custo", "tag-red", "Vencedor abaixo do nosso custo: problema de compra/produto (ou preço inexequível)."], ganho: ["Ganho", "tag-green", ""], desclassificado: ["Desclassificado", "tag-gray", "Vencemos o lance, mas fomos desclassificados na habilitação/formalização (documento, amostra, prazo) — não foi preço."], convocado: ["Ganho por convocação", "tag-teal", "Perdemos na disputa, mas fomos convocados como remanescente (vencedor desclassificado/desistente)."] };
 
 // Lance de desempate: evita valor "redondo" (centavos terminados em 0 ou 5), que costuma coincidir com o limite do concorrente,
 // descendo até `folga` centavos abaixo do piso arredondado. Com folga 0, devolve o piso arredondado.
@@ -77,10 +77,10 @@ export function linhasResultados() {
       const custo = +(h.concorrencia?.custo ?? it.custo ?? prod?.custo) || 0; const ps = +(h.concorrencia?.piso ?? (custo ? piso(custo, getCfg(), uf) : 0)) || 0;
       const c = h.concorrencia || {}; const nosso = +(c.nossoPreco ?? h.precoFinal ?? h.precoInicial) || 0;
       const classeDisputa = h.perdido ? (c.precoVencedor ? classificarPerda({ precoVencedor: c.precoVencedor, nossoPreco: nosso, custo, piso: ps }) : "") : "ganho";
-      const classe = h.convocado ? "convocado" : classeDisputa; const perdido = !!h.perdido && !h.convocado;
+      const classe = h.desclassificado ? "desclassificado" : h.convocado ? "convocado" : classeDisputa; const perdido = (!!h.perdido && !h.convocado) || !!h.desclassificado;
       const fam = prod?.familia || deduzirFamilia(`${it.nome || ""} ${it.descricao || ""}`) || "";
       const marcaNossa = c.nossaMarca || it.marca || prod?.marca || "";
-      out.push({ p, l, o, uf, portal, marcaNossa, data: rd.data || l?.data || "", num: h.num, nome: it.nome || h.codigo || "", codigo: it.codigo || h.codigo || "", qtd: +it.qtd || +c.qtd || 0, custo, piso: ps, precoInicial: +h.precoInicial || 0, nosso, perdido, perdidoDisputa: !!h.perdido, convocado: !!h.convocado, convocacaoDesclassificada: !!h.convocacaoDesclassificada, precoConvocacao: +h.precoConvocacao || 0, classeDisputa, classe, familia: fam, familiaNome: FAMILIAS_TEC[fam]?.nome.split(" (")[0] || (fam || "Outros"), ...c,
+      out.push({ p, l, o, uf, portal, marcaNossa, data: rd.data || l?.data || "", num: h.num, nome: it.nome || h.codigo || "", codigo: it.codigo || h.codigo || "", qtd: +it.qtd || +c.qtd || 0, custo, piso: ps, precoInicial: +h.precoInicial || 0, nosso, perdido, perdidoDisputa: !!h.perdido, desclassificado: !!h.desclassificado, motivoDesclassificacao: h.motivoDesclassificacao || "", convocado: !!h.convocado, convocacaoDesclassificada: !!h.convocacaoDesclassificada, precoConvocacao: +h.precoConvocacao || 0, classeDisputa, classe, familia: fam, familiaNome: FAMILIAS_TEC[fam]?.nome.split(" (")[0] || (fam || "Outros"), ...c,
         difPct: c.precoVencedor && nosso ? (nosso - c.precoVencedor) / c.precoVencedor * 100 : null, valor: (+it.qtd || +c.qtd || 0) * (h.convocado ? (+h.precoConvocacao || nosso) : h.perdido ? (c.precoVencedor || nosso) : nosso) });
     });
   });
