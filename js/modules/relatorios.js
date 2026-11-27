@@ -1,11 +1,11 @@
 // Relatórios — mesmas abas e cálculos do sistema atual (renderRExec, renderRFunil, ...),
 // com filtro de ano em todas as abas e exportação Excel.
-import { store } from "../core/store.js?v=20261126-125351";
-import { $, fmt, fmtD, fmtNum, esc, raw, h, MESES_CURTOS, toTitleCase, hojeIso } from "../core/utils.js?v=20261126-125351";
-import { icon, vazio, tag } from "../core/ui.js?v=20261126-125351";
-import { exportarExcel, UFS } from "../core/forms.js?v=20261126-125351";
-import { registro, base, short, CORES, COR_STATUS, tipMoeda } from "../core/charts.js?v=20261126-125351";
-import { getLicit, getOrgao, getProp, getPortal, getCat, isEspelho, isVencido, propTotal, propEmpenhado, STATUS_CLASS } from "../core/domain.js?v=20261126-125351";
+import { store } from "../core/store.js?v=20261127-134052";
+import { $, fmt, fmtD, fmtNum, esc, raw, h, MESES_CURTOS, toTitleCase, hojeIso } from "../core/utils.js?v=20261127-134052";
+import { icon, vazio, tag } from "../core/ui.js?v=20261127-134052";
+import { exportarExcel, UFS } from "../core/forms.js?v=20261127-134052";
+import { registro, base, short, CORES, COR_STATUS, tipMoeda } from "../core/charts.js?v=20261127-134052";
+import { getLicit, getOrgao, getProp, getPortal, getCat, isEspelho, isVencido, propTotal, propEmpenhado, STATUS_CLASS } from "../core/domain.js?v=20261127-134052";
 
 const ABAS = [["exec", "Executivo"], ["funil", "Funil"], ["vsemp", "Vencido × Empenhado"], ["portais", "Portais"], ["orgaos", "Órgãos"], ["estados", "Estados"], ["atas", "ATAs"], ["propostas", "Propostas"], ["empenhos", "Empenhos"]];
 let aba = "exec", anoSel = null, unsub = null; const reg = registro();

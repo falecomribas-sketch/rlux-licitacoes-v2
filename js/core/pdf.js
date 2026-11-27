@@ -1,5 +1,5 @@
 // PDFs — jsPDF + autoTable carregados sob demanda, cabeçalho e rodapé padrão Rlux.
-import { toast } from "./ui.js?v=20261126-125351";
+import { toast } from "./ui.js?v=20261127-134052";
 
 export const EMPRESA = {
   nome: "RLUX ILUMINAÇÃO LTDA",
@@ -11,7 +11,7 @@ export const EMPRESA = {
   bancos: ["Banco: 001 - Banco do Brasil  |  Agência: 2447-3  |  C/C: 63587-1", "Banco: 237 - Banco Bradesco  |  Agência: 2297  |  C/C: 129805-4"],
 };
 
-export const AZUL = [20, 40, 107], VERDE = [27, 138, 90], AMBAR = [217, 119, 6], ROXO = [109, 63, 201], CINZA = [100, 116, 139], ESCURO = [25, 34, 58], BRANCO = [255, 255, 255];
+export const AZUL = [26, 29, 35], VERDE = [27, 138, 90], AMBAR = [217, 119, 6], ROXO = [109, 63, 201], CINZA = [100, 116, 139], ESCURO = [25, 34, 58], BRANCO = [255, 255, 255];
 
 let ready = null;
 function script(src) { return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("Falha ao carregar " + src)); document.head.appendChild(s); }); }
