@@ -1,10 +1,10 @@
 // Categorias de produtos. Campos: id, nome, cor
-import { store, newId } from "../core/store.js?v=20261127-151925";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261127-151925";
-import { formModal, lerForm, campo, inputTxt, linha } from "../core/forms.js?v=20261127-151925";
-import { toast, confirmar, closeModal, icon } from "../core/ui.js?v=20261127-151925";
-import { esc } from "../core/utils.js?v=20261127-151925";
-import { podeEditar } from "../core/auth.js?v=20261127-151925";
+import { store, newId } from "../core/store.js?v=20261127-152618";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261127-152618";
+import { formModal, lerForm, campo, inputTxt, linha } from "../core/forms.js?v=20261127-152618";
+import { toast, confirmar, closeModal, icon } from "../core/ui.js?v=20261127-152618";
+import { esc } from "../core/utils.js?v=20261127-152618";
+import { podeEditar } from "../core/auth.js?v=20261127-152618";
 
 let unsub = null;
 

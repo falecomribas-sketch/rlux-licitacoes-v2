@@ -1,10 +1,10 @@
 // Histórico interno de um registro (reequilíbrio, e futuramente empenhos/cobranças): anotações carimbadas com data, hora e usuário,
 // mais entradas automáticas do sistema. Uso interno — nunca entra em PDF, e-mail ou documento.
 // Formato: r.historico = [{ data: ISO, por: e-mail, tipo: "nota" | "sistema", texto }]
-import { store } from "./store.js?v=20261127-151925";
-import { esc } from "./utils.js?v=20261127-151925";
-import { isAdmin, currentUser } from "./auth.js?v=20261127-151925";
-import { confirmar } from "./ui.js?v=20261127-151925";
+import { store } from "./store.js?v=20261127-152618";
+import { esc } from "./utils.js?v=20261127-152618";
+import { isAdmin, currentUser } from "./auth.js?v=20261127-152618";
+import { confirmar } from "./ui.js?v=20261127-152618";
 
 export const quem = () => store.usuarioAtual || currentUser?.email || "";
 export const entrada = (texto, tipo = "nota", data = new Date().toISOString()) => ({ data, por: tipo === "sistema" ? "sistema" : quem(), tipo, texto: String(texto || "").trim() });

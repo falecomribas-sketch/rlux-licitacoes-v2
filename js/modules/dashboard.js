@@ -1,17 +1,17 @@
 // Dashboard — organizado por pergunta: (1) o que preciso fazer hoje, (2) como estamos no período (com comparação),
 // (3) onde ganhamos e perdemos, (4) financeiro e tendência, (5) análises complementares (recolhidas).
-import { store } from "../core/store.js?v=20261127-151925";
-import { $, fmt, fmtD, esc, raw, h, MESES_CURTOS, toTitleCase, hojeIso } from "../core/utils.js?v=20261127-151925";
-import { icon, vazio, tag } from "../core/ui.js?v=20261127-151925";
-import { registro, base, COR_STATUS } from "../core/charts.js?v=20261127-151925";
-import { navigate } from "../core/router.js?v=20261127-151925";
-import { iniciarRegua, onRegua, pendentesHoje, situacaoRegua, TIPO_ROTULO } from "../core/regua.js?v=20261127-151925";
-import { verEmail } from "./reguas.js?v=20261127-151925";
-import { getLicit, getOrgao, getProp, getCat, getPortal, isEspelho, isVencido, propTotal, STATUS_VENCIDO, ataFoiRenovada } from "../core/domain.js?v=20261127-151925";
-import { linhasResultados, participacoes, rankingConcorrentes, CLASSE_ROTULO } from "../core/resultados.js?v=20261127-151925";
-import { reequilibriosSemRetorno, diasAguardando } from "../core/risco.js?v=20261127-151925";
-import { cobAtraso } from "./cobrancas.js?v=20261127-151925";
-import { margemAtual } from "./propostas.js?v=20261127-151925";
+import { store } from "../core/store.js?v=20261127-152618";
+import { $, fmt, fmtD, esc, raw, h, MESES_CURTOS, toTitleCase, hojeIso } from "../core/utils.js?v=20261127-152618";
+import { icon, vazio, tag } from "../core/ui.js?v=20261127-152618";
+import { registro, base, COR_STATUS } from "../core/charts.js?v=20261127-152618";
+import { navigate } from "../core/router.js?v=20261127-152618";
+import { iniciarRegua, onRegua, pendentesHoje, situacaoRegua, TIPO_ROTULO } from "../core/regua.js?v=20261127-152618";
+import { verEmail } from "./reguas.js?v=20261127-152618";
+import { getLicit, getOrgao, getProp, getCat, getPortal, isEspelho, isVencido, propTotal, STATUS_VENCIDO, ataFoiRenovada } from "../core/domain.js?v=20261127-152618";
+import { linhasResultados, participacoes, rankingConcorrentes, CLASSE_ROTULO } from "../core/resultados.js?v=20261127-152618";
+import { reequilibriosSemRetorno, diasAguardando } from "../core/risco.js?v=20261127-152618";
+import { cobAtraso } from "./cobrancas.js?v=20261127-152618";
+import { margemAtual } from "./propostas.js?v=20261127-152618";
 
 const reg = registro();
 let unsub = null, unsubRegua = null;
@@ -19,7 +19,7 @@ let periodoSel = null;   // "2026" | "12m" | "todos"
 let metrica = "vencido";
 
 // Paleta dos gráficos (pele grafite): principal, atenção, positivo, neutro.
-const C = { grafite: "#1a1d23", grafite2: "#4a4f5a", red: "#CF0001", green: "#1b8a5a", amber: "#d9a400", orange: "#d9641c", purple: "#6d3fc9", teal: "#0f7f8c", gray: "#c9cbd1", gray2: "#e6e4df" };
+const C = { grafite: "#1a1d23", grafite2: "#4a4f5a", serie: "#4f6d8f", serie2: "#9fb3c8", red: "#CF0001", green: "#1b8a5a", amber: "#d9a400", orange: "#d9641c", purple: "#6d3fc9", teal: "#0f7f8c", gray: "#c9cbd1", gray2: "#e6e4df" };
 const SERIE = [C.grafite, C.green, C.purple, C.teal, C.orange, C.amber, C.grafite2, C.gray];
 const abrev = (v) => { const a = Math.abs(v); if (a >= 1e6) return (v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " mi"; if (a >= 1e3) return (v / 1e3).toLocaleString("pt-BR", { maximumFractionDigits: a >= 1e5 ? 0 : 1 }) + " mil"; return String(Math.round(v)); };
 const pct = (v, d = 0) => (v == null || !isFinite(v) ? "—" : v.toLocaleString("pt-BR", { maximumFractionDigits: d }) + "%");
@@ -183,7 +183,7 @@ function update() {
 
   // ----- Onde ganhamos e perdemos -----
   const classes = ["ganho", "convocado", "empate", "acima_piso", "entre_custo_piso", "abaixo_custo"];
-  const corClasse = { ganho: C.green, convocado: C.teal, empate: C.amber, acima_piso: C.grafite2, entre_custo_piso: C.orange, abaixo_custo: C.red };
+  const corClasse = { ganho: C.green, convocado: C.teal, empate: C.amber, acima_piso: C.serie, entre_custo_piso: C.orange, abaixo_custo: C.red };
   const cnt = {}, val = {}; A.linhas.forEach((r) => { const k = r.classe || (r.perdido ? "sem_info" : "ganho"); cnt[k] = (cnt[k] || 0) + 1; val[k] = (val[k] || 0) + (r.valor || 0); });
   const semInfo = cnt.sem_info || 0; const ks = classes.filter((k) => cnt[k]);
   grafico("classes", "c-classes", ks.length, "Lance o resultado das disputas (botão ↻ em Propostas) para ver por que ganhamos e perdemos.", {
@@ -216,7 +216,7 @@ function update() {
   const mesesPrev = B && per.prev ? meses.map((m) => `${+m.slice(0, 4) - 1}-${m.slice(5)}`) : null;
   const anterior = mesesPrev ? serieMensal(B, per.prev, mesesPrev) : null;
   const rotMes = (m) => `${MESES_CURTOS[+m.slice(5, 7) - 1]}${per.meses && periodoSel !== "12m" ? "" : "/" + m.slice(2, 4)}`;
-  const ds = [{ label: `${$("#dash-metrica").selectedOptions[0]?.textContent || ""} · ${per.rotulo}`, data: atual, backgroundColor: C.grafite, borderRadius: 4, order: 2 }];
+  const ds = [{ label: `${$("#dash-metrica").selectedOptions[0]?.textContent || ""} · ${per.rotulo}`, data: atual, backgroundColor: C.serie, borderRadius: 4, order: 2 }];
   if (anterior) ds.push({ label: per.prev.rotulo, data: anterior, type: "line", borderColor: C.gray, backgroundColor: C.gray, borderWidth: 2, borderDash: [4, 3], pointRadius: 2, tension: .3, order: 1 });
   grafico("mes", "c-mes", atual.some((v) => v) || (anterior || []).some((v) => v), "Nada registrado neste período.", { type: "bar", data: { labels: meses.map(rotMes), datasets: ds },
     options: base({ plugins: { legend: { display: !!anterior }, tooltip: { callbacks: { label: (i) => `${i.dataset.label}: ${moeda ? fmt(i.raw) : i.raw}` } } }, scales: { y: { beginAtZero: true, ticks: moeda ? { callback: abrev } : { stepSize: 1, precision: 0 } } } }) });
@@ -228,7 +228,7 @@ function update() {
   A.empsF.forEach((e) => { const i = idx(e.data); if (i >= 0) eAc[i] += e.valorRecebido || 0; });
   A.adesoesF.forEach((a) => { const i = idx(a.solicitacao); if (i >= 0) aAc[i] += a.valorTotal || 0; });
   const acum = (arr) => { let s = 0; return arr.map((v) => (s += v)); };
-  const dsAc = [{ label: "Vencido", data: acum(vAc), borderColor: C.grafite, backgroundColor: "rgba(26,29,35,.06)", fill: true, tension: .35, borderWidth: 2, pointRadius: 2 },
+  const dsAc = [{ label: "Vencido", data: acum(vAc), borderColor: C.serie, backgroundColor: "rgba(79,109,143,.10)", fill: true, tension: .35, borderWidth: 2, pointRadius: 2 },
     { label: "Empenhado", data: acum(eAc), borderColor: C.green, backgroundColor: "rgba(27,138,90,.08)", fill: true, tension: .35, borderWidth: 2, pointRadius: 2 }];
   if (aAc.some((v) => v)) dsAc.push({ label: "Adesões", data: acum(aAc), borderColor: C.purple, borderWidth: 2, borderDash: [5, 3], tension: .35, pointRadius: 2 });
   grafico("acum", "c-acum", vAc.some((v) => v) || eAc.some((v) => v), "Sem propostas vencidas nem empenhos no período.", { type: "line", data: { labels: meses.map(rotMes), datasets: dsAc },
@@ -244,7 +244,7 @@ function update() {
   // empenhos por estado
   const estMap = {}; A.empsF.forEach((e) => { const p = getProp(e.propostaId); const l = getLicit(p?.licitacaoId); const o = getOrgao(l?.orgaoId); const uf = o.estado || "Sem UF"; estMap[uf] = (estMap[uf] || 0) + (e.valorRecebido || 0); });
   const est = Object.entries(estMap).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 10);
-  grafico("estado", "c-estado", est.length, "Sem empenhos no período.", { type: "bar", data: { labels: est.map(([k]) => k), datasets: [{ data: est.map(([, v]) => v), backgroundColor: C.grafite, borderRadius: 4 }] },
+  grafico("estado", "c-estado", est.length, "Sem empenhos no período.", { type: "bar", data: { labels: est.map(([k]) => k), datasets: [{ data: est.map(([, v]) => v), backgroundColor: C.serie, borderRadius: 4 }] },
     options: base({ indexAxis: "y", plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i) => fmt(i.raw) } } }, scales: { x: { beginAtZero: true, ticks: { callback: abrev } }, y: { ticks: { autoSkip: false } } } }) });
 
   // resultado das propostas por status (barras)
@@ -264,12 +264,12 @@ function update() {
   // ----- Análises complementares -----
   const nLics = A.licsF.length, nProps = A.propsF.length, nVenc = A.vencF.length, nEmp = new Set(A.empsF.map((e) => e.propostaId)).size; const max = nLics || 1;
   const ticket = nVenc ? A.vencF.reduce((s, p) => s + propTotal(p), 0) / nVenc : 0;
-  $("#dash-funil").innerHTML = [["Licitações", nLics, C.grafite2], ["Propostas", nProps, C.purple], ["Vencidas", nVenc, C.green], ["Empenhadas", nEmp, C.teal]].map(([lbl, v, cor]) => `
+  $("#dash-funil").innerHTML = [["Licitações", nLics, C.serie], ["Propostas", nProps, C.purple], ["Vencidas", nVenc, C.green], ["Empenhadas", nEmp, C.teal]].map(([lbl, v, cor]) => `
     <div class="funnel-row"><div class="lbl">${lbl}</div><div class="bar"><div class="fill" style="width:${Math.round(v / max * 100)}%;background:${cor}">${v}</div></div><div class="val">${Math.round(v / max * 100)}%</div></div>`).join("") +
     `<p class="muted" style="font-size:12.5px;margin-top:10px">Conversão: <strong>${nLics ? Math.round(nVenc / nLics * 100) : 0}%</strong> · Ticket médio vencido: <strong>${nVenc ? fmt(ticket) : "—"}</strong></p>`;
 
   const saz = Array(12).fill(0); lics.forEach((l) => { if (l.data) saz[+l.data.slice(5, 7) - 1]++; }); const sazMax = Math.max(...saz, 1);
-  const sazCor = ["#f1f1ee", "#dcdcd8", "#bfc0bb", "#8e9096", "#5a5e68", "#1a1d23"];
+  const sazCor = ["#eef2f6", "#d5dfe9", "#b3c4d6", "#86a1bb", "#5f7f9f", "#3d5a7a"];
   $("#dash-saz").innerHTML = `<div class="heat-grid">${MESES_CURTOS.map((m, i) => { const k = Math.min(Math.floor(saz[i] / sazMax * 5), 5); return `<div class="heat-cell" style="background:${sazCor[k]};color:${k >= 3 ? "#fff" : "var(--text)"}"><small>${m}</small><strong>${saz[i]}</strong></div>`; }).join("")}</div><p class="muted" style="font-size:11.5px;margin-top:8px">Todos os anos somados · cor mais escura = mais licitações no mês</p>`;
 
   const dd = (a, b) => Math.round((new Date(b.slice(0, 10)) - new Date(a.slice(0, 10))) / 864e5); const okd = (d) => d >= 0 && d < 365;
