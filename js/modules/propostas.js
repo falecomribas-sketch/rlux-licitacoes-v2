@@ -1,20 +1,20 @@
 // Propostas. Campos: id, num, licitacaoId, status, criadoEm, itens[], espelhoDeAtaId?, geracao?
 // item: { num, produtoId, nome, codigo, marca, qtd, custo, preco, total }
-import { store, newId } from "../core/store.js?v=20261127-134052";
-import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261127-134052";
-import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261127-134052";
-import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261127-134052";
-import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261127-134052";
-import { podeEditar } from "../core/auth.js?v=20261127-134052";
-import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261127-134052";
-import { ssel } from "../core/ssel.js?v=20261127-134052";
-import { opcoesOrgaos } from "./licitacoes.js?v=20261127-134052";
-import { gerarPdfProposta } from "../pdf/proposta.js?v=20261127-134052";
-import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261127-134052";
-import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261127-134052";
-import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261127-134052";
-import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261127-134052";
-import { dataLocal } from "../core/utils.js?v=20261127-134052";
+import { store, newId } from "../core/store.js?v=20261127-140544";
+import { dataTable, acoes, btnEditar, btnExcluir, onAction } from "../core/table.js?v=20261127-140544";
+import { formModal, lerForm, campo, select, linha, exportarExcel } from "../core/forms.js?v=20261127-140544";
+import { toast, confirmar, closeModal, openModal, icon, tag } from "../core/ui.js?v=20261127-140544";
+import { esc, h, raw, fmt, fmtD, fmtNum, toTitleCase, diasAte, hojeIso } from "../core/utils.js?v=20261127-140544";
+import { podeEditar } from "../core/auth.js?v=20261127-140544";
+import { getLicit, getOrgao, getPortal, getCat, propTotal, propEmpenhado, propMargem, isEspelho, ataDaProposta, STATUS_CLASS, STATUS_VENCIDO, statusExibido, propostaRenovada } from "../core/domain.js?v=20261127-140544";
+import { ssel } from "../core/ssel.js?v=20261127-140544";
+import { opcoesOrgaos } from "./licitacoes.js?v=20261127-140544";
+import { gerarPdfProposta } from "../pdf/proposta.js?v=20261127-140544";
+import { iniciarPreco, piso, getCfg, lucroLiquido, lucroLiquidoPedido, freteEstimado, encargoUF, notaEncargo, encargoPct } from "../core/preco.js?v=20261127-140544";
+import { lerResultadosEffecti, resumoItem, classificarPerda, CLASSE_ROTULO, lanceDesempate } from "../core/resultados.js?v=20261127-140544";
+import { abrirAnaliseDaProposta, analiseDaProposta } from "./edital.js?v=20261127-140544";
+import { gerarPdfDeclaracoes } from "../pdf/declaracoes.js?v=20261127-140544";
+import { dataLocal } from "../core/utils.js?v=20261127-140544";
 
 export const STATUS = ["Em Andamento", "Ag. Solic. Docs", "Enviei Docs", "Faturado Parcial", "Faturado Total", "Vencida", "Perdida"];
 let unsub = null;

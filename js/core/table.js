@@ -5,8 +5,8 @@
 //   rows: () => array, search?(row, q), sort: { key, dir }, empty: "texto",
 // });
 // t.refresh()  -> re-renderiza com os dados atuais
-import { esc, semAcento, contem } from "./utils.js?v=20261127-134052";
-import { vazio, icon } from "./ui.js?v=20261127-134052";
+import { esc, semAcento, contem } from "./utils.js?v=20261127-140544";
+import { vazio, icon } from "./ui.js?v=20261127-140544";
 
 export function dataTable(cfg) {
   const state = { q: "", sort: { ...(cfg.sort || { key: cfg.columns[0].key, dir: "asc" }) } };
@@ -28,6 +28,8 @@ export function dataTable(cfg) {
   const count = el.querySelector("[data-count]");
 
   input?.addEventListener("input", () => { state.q = input.value.trim().toLowerCase(); render(); });
+  // busca pré-preenchida (ex.: clique numa linha do Dashboard)
+  try { const k = "rlux.busca:" + location.hash.replace("#", ""); const pre = sessionStorage.getItem(k); if (pre && input) { sessionStorage.removeItem(k); input.value = pre; state.q = pre.trim().toLowerCase(); } } catch {}
   el.querySelectorAll("th.sortable").forEach((th) => th.addEventListener("click", () => {
     const key = th.dataset.key;
     if (state.sort.key === key) state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc";

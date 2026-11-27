@@ -410,7 +410,7 @@ input[type=color] { height: 40px; padding: 3px; cursor: pointer; }
 
 /* ---- Fase 6: análise e relatórios ---- */
 .section-title { font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 20px 0 10px; display: flex; align-items: center; gap: 8px; }
-.section-title::before { content: ""; width: 3px; height: 14px; background: var(--amber); border-radius: 2px; }
+.section-title::before { content: ""; width: 3px; height: 14px; background: var(--rlux-red); border-radius: 2px; }
 .chart-box.sm { height: 190px; }
 .chart-box.lg { height: 320px; }
 .bar-row { margin-bottom: 10px; }
@@ -486,3 +486,25 @@ a.btn { text-decoration: none; }
 .hist-meta { font-size: 11px; color: var(--muted); display: flex; gap: 4px; align-items: center; margin-bottom: 2px; }
 .hist-meta .hist-rm { margin-left: auto; width: 20px; height: 20px; font-size: 14px; line-height: 1; color: var(--muted); }
 .hist-sis .hist-txt { color: var(--muted); font-style: italic; }
+
+/* dashboard: faixa "hoje" e detalhes */
+.dash-toolbar { justify-content: flex-start; align-items: center; gap: 12px; margin-bottom: 4px; }
+.hoje-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 1300px) { .hoje-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.hoje-tile { display: flex; align-items: center; gap: 12px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 12px 12px 14px; cursor: pointer; font: inherit; color: var(--text); transition: border-color .15s, transform .15s; }
+.hoje-tile:hover { border-color: var(--line-2); transform: translateY(-1px); }
+.hoje-tile .hoje-n { font-size: 26px; font-weight: 600; letter-spacing: -.03em; min-width: 34px; line-height: 1; }
+.hoje-tile .hoje-l { font-size: 12.5px; font-weight: 600; line-height: 1.2; }
+.hoje-tile .hoje-s { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.hoje-tile .hoje-arrow { margin-left: auto; color: var(--muted); font-size: 18px; }
+.hoje-tile.bad { border-left: 3px solid var(--red); } .hoje-tile.bad .hoje-n { color: var(--red); }
+.hoje-tile.warn { border-left: 3px solid var(--orange); } .hoje-tile.warn .hoje-n { color: var(--orange); }
+.hoje-tile.ok .hoje-n { color: var(--green); }
+.hoje-tile.ok .hoje-l { color: var(--text-2); font-weight: 500; }
+.chart-box .chart-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12.5px; text-align: center; padding: 0 24px; }
+tr.clicavel { cursor: pointer; } tr.clicavel:hover td { background: var(--tint) !important; }
+.dash-mais { margin-top: 8px; } .dash-mais > summary { list-style: none; } .dash-mais > summary::-webkit-details-marker { display: none; }
+.dash-mais > summary::before { content: "▸"; margin-right: 6px; font-size: 11px; } .dash-mais[open] > summary::before { content: "▾"; }
+#dash-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+@media (max-width: 1300px) { #dash-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.hoje-tile .hoje-l { font-size: 12px; }

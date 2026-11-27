@@ -1,5 +1,5 @@
 // Helpers de gráficos (Chart.js) compartilhados por Dashboard e Relatórios.
-import { fmt } from "./utils.js?v=20261127-134052";
+import { fmt } from "./utils.js?v=20261127-140544";
 
 export const CORES = ["#2457d6", "#1b8a5a", "#d9641c", "#6d3fc9", "#c8362b", "#0f7f8c", "#b58200", "#5b6b8c"];
 export const COR_STATUS = {
@@ -34,4 +34,4 @@ export function registro() {
   };
 }
 
-if (window.Chart) { Chart.defaults.font.family = "IBM Plex Sans"; Chart.defaults.color = "#4b5670"; }
+if (window.Chart) { Chart.defaults.font.family = "IBM Plex Sans"; Chart.defaults.color = "#4a4f5a"; Chart.defaults.borderColor = "#e6e4df"; }
