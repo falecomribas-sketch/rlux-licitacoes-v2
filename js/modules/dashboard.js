@@ -1,17 +1,17 @@
 // Dashboard — organizado por pergunta: (1) o que preciso fazer hoje, (2) como estamos no período (com comparação),
 // (3) onde ganhamos e perdemos, (4) financeiro e tendência, (5) análises complementares (recolhidas).
-import { store } from "../core/store.js?v=20261127-140544";
-import { $, fmt, fmtD, esc, raw, h, MESES_CURTOS, toTitleCase, hojeIso } from "../core/utils.js?v=20261127-140544";
-import { icon, vazio, tag } from "../core/ui.js?v=20261127-140544";
-import { registro, base, COR_STATUS } from "../core/charts.js?v=20261127-140544";
-import { navigate } from "../core/router.js?v=20261127-140544";
-import { iniciarRegua, onRegua, pendentesHoje, situacaoRegua, TIPO_ROTULO } from "../core/regua.js?v=20261127-140544";
-import { verEmail } from "./reguas.js?v=20261127-140544";
-import { getLicit, getOrgao, getProp, getCat, getPortal, isEspelho, isVencido, propTotal, STATUS_VENCIDO, ataFoiRenovada } from "../core/domain.js?v=20261127-140544";
-import { linhasResultados, participacoes, rankingConcorrentes, CLASSE_ROTULO } from "../core/resultados.js?v=20261127-140544";
-import { reequilibriosSemRetorno, diasAguardando } from "../core/risco.js?v=20261127-140544";
-import { cobAtraso } from "./cobrancas.js?v=20261127-140544";
-import { margemAtual } from "./propostas.js?v=20261127-140544";
+import { store } from "../core/store.js?v=20261127-151925";
+import { $, fmt, fmtD, esc, raw, h, MESES_CURTOS, toTitleCase, hojeIso } from "../core/utils.js?v=20261127-151925";
+import { icon, vazio, tag } from "../core/ui.js?v=20261127-151925";
+import { registro, base, COR_STATUS } from "../core/charts.js?v=20261127-151925";
+import { navigate } from "../core/router.js?v=20261127-151925";
+import { iniciarRegua, onRegua, pendentesHoje, situacaoRegua, TIPO_ROTULO } from "../core/regua.js?v=20261127-151925";
+import { verEmail } from "./reguas.js?v=20261127-151925";
+import { getLicit, getOrgao, getProp, getCat, getPortal, isEspelho, isVencido, propTotal, STATUS_VENCIDO, ataFoiRenovada } from "../core/domain.js?v=20261127-151925";
+import { linhasResultados, participacoes, rankingConcorrentes, CLASSE_ROTULO } from "../core/resultados.js?v=20261127-151925";
+import { reequilibriosSemRetorno, diasAguardando } from "../core/risco.js?v=20261127-151925";
+import { cobAtraso } from "./cobrancas.js?v=20261127-151925";
+import { margemAtual } from "./propostas.js?v=20261127-151925";
 
 const reg = registro();
 let unsub = null, unsubRegua = null;
@@ -187,7 +187,7 @@ function update() {
   const cnt = {}, val = {}; A.linhas.forEach((r) => { const k = r.classe || (r.perdido ? "sem_info" : "ganho"); cnt[k] = (cnt[k] || 0) + 1; val[k] = (val[k] || 0) + (r.valor || 0); });
   const semInfo = cnt.sem_info || 0; const ks = classes.filter((k) => cnt[k]);
   grafico("classes", "c-classes", ks.length, "Lance o resultado das disputas (botão ↻ em Propostas) para ver por que ganhamos e perdemos.", {
-    type: "bar", data: { labels: ks.map((k) => CLASSE_ROTULO[k][0]), datasets: [{ data: ks.map((k) => cnt[k]), backgroundColor: ks.map((k) => corClasse[k]), borderRadius: 4, barThickness: 18 }] },
+    type: "bar", data: { labels: ks.map((k) => CLASSE_ROTULO[k][0]), datasets: [{ data: ks.map((k) => cnt[k]), backgroundColor: ks.map((k) => corClasse[k]), borderRadius: 4 }] },
     options: base({ indexAxis: "y", plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i) => `${i.raw} item(ns) · ${fmt(val[ks[i.dataIndex]] || 0)}`, afterLabel: (i) => CLASSE_ROTULO[ks[i.dataIndex]][2] } } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } }, y: { ticks: { autoSkip: false, font: { size: 11 } } } } }) });
   if (semInfo && ks.length) { const box = $("#c-classes")?.closest(".card-body"); if (box && !box.querySelector(".nota-seminfo")) box.insertAdjacentHTML("beforeend", `<p class="muted nota-seminfo" style="font-size:11.5px;margin:6px 0 0">${semInfo} item(ns) perdido(s) sem preço do vencedor — importe a planilha da Effecti para classificar.</p>`); } else $("#c-classes")?.closest(".card-body")?.querySelector(".nota-seminfo")?.remove();
 
@@ -238,19 +238,19 @@ function update() {
   const prods = store.get("produtos"); const catMap = {};
   A.vencF.forEach((p) => (p.itens || []).forEach((i) => { const prod = prods.find((x) => x.id === i.produtoId); const cat = prod ? getCat(prod.catId) : {}; const k = cat.nome || "Sem categoria"; (catMap[k] ||= { val: 0, cor: cat.cor || C.gray }).val += i.total || 0; }));
   const catK = Object.keys(catMap).sort((a, b) => catMap[b].val - catMap[a].val).slice(0, 8); const catTot = catK.reduce((s, k) => s + catMap[k].val, 0);
-  grafico("mix", "c-mix", catK.length, "Sem propostas vencidas no período.", { type: "bar", data: { labels: catK, datasets: [{ data: catK.map((k) => catMap[k].val), backgroundColor: catK.map((k) => catMap[k].cor), borderRadius: 4, barThickness: 16 }] },
+  grafico("mix", "c-mix", catK.length, "Sem propostas vencidas no período.", { type: "bar", data: { labels: catK, datasets: [{ data: catK.map((k) => catMap[k].val), backgroundColor: catK.map((k) => catMap[k].cor), borderRadius: 4 }] },
     options: base({ indexAxis: "y", plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i) => `${fmt(i.raw)} · ${pct(i.raw / catTot * 100)}` } } }, scales: { x: { beginAtZero: true, ticks: { callback: abrev } }, y: { ticks: { autoSkip: false, font: { size: 11 } } } } }) });
 
   // empenhos por estado
-  const estMap = {}; A.empsF.forEach((e) => { const p = getProp(e.propostaId); const l = getLicit(p?.licitacaoId); const o = getOrgao(l?.orgaoId); const uf = o.estado || "—"; estMap[uf] = (estMap[uf] || 0) + (e.valorRecebido || 0); });
+  const estMap = {}; A.empsF.forEach((e) => { const p = getProp(e.propostaId); const l = getLicit(p?.licitacaoId); const o = getOrgao(l?.orgaoId); const uf = o.estado || "Sem UF"; estMap[uf] = (estMap[uf] || 0) + (e.valorRecebido || 0); });
   const est = Object.entries(estMap).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 10);
-  grafico("estado", "c-estado", est.length, "Sem empenhos no período.", { type: "bar", data: { labels: est.map(([k]) => k), datasets: [{ data: est.map(([, v]) => v), backgroundColor: C.grafite, borderRadius: 4, barThickness: 16 }] },
+  grafico("estado", "c-estado", est.length, "Sem empenhos no período.", { type: "bar", data: { labels: est.map(([k]) => k), datasets: [{ data: est.map(([, v]) => v), backgroundColor: C.grafite, borderRadius: 4 }] },
     options: base({ indexAxis: "y", plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i) => fmt(i.raw) } } }, scales: { x: { beginAtZero: true, ticks: { callback: abrev } }, y: { ticks: { autoSkip: false } } } }) });
 
   // resultado das propostas por status (barras)
   const stG = {}; A.propsF.forEach((p) => { const st = p.status || "Em Andamento"; stG[st] = (stG[st] || 0) + propTotal(p); });
   const stK = Object.keys(stG).sort((a, b) => stG[b] - stG[a]);
-  grafico("result", "c-result", stK.length, "Sem propostas no período.", { type: "bar", data: { labels: stK, datasets: [{ data: stK.map((k) => stG[k]), backgroundColor: stK.map((k) => COR_STATUS[k] || C.gray), borderRadius: 4, barThickness: 16 }] },
+  grafico("result", "c-result", stK.length, "Sem propostas no período.", { type: "bar", data: { labels: stK, datasets: [{ data: stK.map((k) => stG[k]), backgroundColor: stK.map((k) => COR_STATUS[k] || C.gray), borderRadius: 4 }] },
     options: base({ indexAxis: "y", plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i) => fmt(i.raw) } } }, scales: { x: { beginAtZero: true, ticks: { callback: abrev } }, y: { ticks: { autoSkip: false, font: { size: 11 } } } } }) });
 
   // top produtos / órgãos
@@ -309,6 +309,7 @@ function mesesDe(A, per) {
 // Gráfico com estado vazio explicativo
 function grafico(key, canvasId, temDados, msgVazio, cfg) {
   const canvas = document.getElementById(canvasId); if (!canvas) return; const empty = canvas.parentElement.querySelector(".chart-empty");
+  if (cfg?.options?.indexAxis === "y") { const n = cfg.data?.labels?.length || 0; canvas.parentElement.style.height = Math.max(160, Math.min(420, n * 30 + 56)) + "px"; cfg.options.datasets = { bar: { categoryPercentage: .72, barPercentage: .9, maxBarThickness: 22 } }; }
   if (!temDados) { canvas.style.visibility = "hidden"; if (empty) { empty.hidden = false; empty.textContent = msgVazio; } return; }
   canvas.style.visibility = ""; if (empty) empty.hidden = true; reg.chart(key, canvasId, cfg);
 }

@@ -1,10 +1,10 @@
 // Resultados de disputa: êxito por item, onde perdemos (classe da perda) e para quem, com cortes por família, UF, portal e concorrente.
-import { store } from "../core/store.js?v=20261127-140544";
-import { icon, tag } from "../core/ui.js?v=20261127-140544";
-import { esc, fmt, fmtNum, fmtD, fmtDc, toTitleCase } from "../core/utils.js?v=20261127-140544";
-import { exportarExcel } from "../core/forms.js?v=20261127-140544";
-import { iniciarPreco } from "../core/preco.js?v=20261127-140544";
-import { linhasResultados, agrupar, CLASSE_ROTULO } from "../core/resultados.js?v=20261127-140544";
+import { store } from "../core/store.js?v=20261127-151925";
+import { icon, tag } from "../core/ui.js?v=20261127-151925";
+import { esc, fmt, fmtNum, fmtD, fmtDc, toTitleCase } from "../core/utils.js?v=20261127-151925";
+import { exportarExcel } from "../core/forms.js?v=20261127-151925";
+import { iniciarPreco } from "../core/preco.js?v=20261127-151925";
+import { linhasResultados, agrupar, CLASSE_ROTULO } from "../core/resultados.js?v=20261127-151925";
 
 let unsub = null, corte = "familia", filtroClasse = "", busca = "", ordem = "data", dir = "desc", de = "", ate = "", limite = 60, orgaoSel = "";
 const CORTES = { familia: ["Família", (r) => r.familiaNome], uf: ["UF", (r) => r.uf || "—"], portal: ["Portal", (r) => r.portal || "—"], concorrente: ["Concorrente (quem venceu)", (r) => r.perdido ? (r.vencedor || "—") : "RLUX (ganho)"], marca: ["Marca do vencedor", (r) => r.perdido ? (r.marcaVencedor || "não informada") : (r.nossaMarca ? `RLUX · ${r.nossaMarca}` : "RLUX (ganho)")], orgao: ["Órgão", (r) => toTitleCase(r.o?.nome || "—")], mes: ["Mês", (r) => (r.data || "").slice(0, 7) || "—"] };
